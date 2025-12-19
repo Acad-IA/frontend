@@ -1,3 +1,18 @@
-package-lock.json
+# Dependencias (Cajas viejas que no tocas)
+node_modules
 pnpm-lock.yaml
+package-lock.json
 yarn.lock
+
+# Builds (Lo que genera la computadora, no tú)
+dist
+build
+.vite
+
+# Archivos temporales o de sistema
+.DS_Store
+.env
+.env.local
+
+# Archivos autogenerados (importante si usas librerías que crean código)
+src/routeTree.gen.ts
