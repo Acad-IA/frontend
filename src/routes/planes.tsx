@@ -1,16 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import {
-  Activity,
-  BookOpenText,
-  Calculator,
-  FlaskConical,
-  Laptop,
-  PencilRuler,
-  Plus,
-  Scale,
-  Stethoscope,
-  X,
-} from 'lucide-react'
+import * as Icons from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import type { Option } from '@/components/planes/Filtro'
@@ -28,7 +17,7 @@ function RouteComponent() {
   type Carrera = { id: string; nombre: string; facultadId: string }
   type Plan = {
     id: string
-    Icono: any
+    icon: string
     nombrePrograma: string
     nivel: string
     ciclos: string
@@ -88,7 +77,7 @@ function RouteComponent() {
   const planes: Array<Plan> = [
     {
       id: 'p1',
-      Icono: Laptop,
+      icon: 'Laptop',
       nombrePrograma: 'Ingeniería en Sistemas Computacionales',
       nivel: 'Licenciatura',
       ciclos: '8 semestres',
@@ -99,7 +88,7 @@ function RouteComponent() {
     },
     {
       id: 'p2',
-      Icono: Stethoscope,
+      icon: 'Stethoscope',
       nombrePrograma: 'Médico Cirujano',
       nivel: 'Licenciatura',
       ciclos: '10 semestres',
@@ -110,7 +99,7 @@ function RouteComponent() {
     },
     {
       id: 'p3',
-      Icono: Calculator,
+      icon: 'Calculator',
       nombrePrograma: 'Licenciatura en Actuaría',
       nivel: 'Licenciatura',
       ciclos: '9 semestres',
@@ -121,7 +110,7 @@ function RouteComponent() {
     },
     {
       id: 'p4',
-      Icono: PencilRuler,
+      icon: 'PencilRuler',
       nombrePrograma: 'Licenciatura en Arquitectura',
       nivel: 'Licenciatura',
       ciclos: '10 semestres',
@@ -132,7 +121,7 @@ function RouteComponent() {
     },
     {
       id: 'p5',
-      Icono: Activity,
+      icon: 'Activity',
       nombrePrograma: 'Licenciatura en Fisioterapia',
       nivel: 'Licenciatura',
       ciclos: '8 semestres',
@@ -143,7 +132,7 @@ function RouteComponent() {
     },
     {
       id: 'p6',
-      Icono: Scale,
+      icon: 'Scale',
       nombrePrograma: 'Licenciatura en Derecho',
       nivel: 'Licenciatura',
       ciclos: '10 semestres',
@@ -154,7 +143,7 @@ function RouteComponent() {
     },
     {
       id: 'p7',
-      Icono: FlaskConical,
+      icon: 'FlaskConical',
       nombrePrograma: 'Químico Farmacéutico Biólogo',
       nivel: 'Licenciatura',
       ciclos: '9 semestres',
@@ -221,7 +210,7 @@ function RouteComponent() {
           <div className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-center">
             <div className="flex items-center gap-3">
               <div className="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-xl">
-                <BookOpenText className="h-5 w-5" strokeWidth={2} />
+                <Icons.BookOpenText className="h-5 w-5" strokeWidth={2} />
               </div>
 
               <div>
@@ -242,7 +231,7 @@ function RouteComponent() {
               aria-label="Nuevo plan de estudios"
               title="Nuevo plan de estudios"
             >
-              <Plus className="" />
+              <Icons.Plus className="" />
               Nuevo plan de estudios
             </button>
           </div>
@@ -276,6 +265,7 @@ function RouteComponent() {
                   onChange={setCarreraSel}
                   placeholder="Carrera"
                   ariaLabel="Filtro por carrera"
+                  disabled={facultadSel === 'todas'}
                 />
               </div>
               <div className="w-full lg:w-44">
@@ -297,7 +287,7 @@ function RouteComponent() {
                 title="Reiniciar filtros"
                 aria-label="Reiniciar filtros"
               >
-                <X className="h-4 w-4" />
+                <Icons.X className="h-4 w-4" />
                 Limpiar
               </button>
             </div>
@@ -305,10 +295,11 @@ function RouteComponent() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredPlans.map((p) => {
               const fac = facultades.find((f) => f.id === p.facultadId)!
+              const IconComp = (Icons as any)[p.icon] ?? Icons.BookOpenText
               return (
                 <PlanEstudiosCard
                   key={p.id}
-                  Icono={p.Icono}
+                  Icono={IconComp}
                   nombrePrograma={p.nombrePrograma}
                   nivel={p.nivel}
                   ciclos={p.ciclos}

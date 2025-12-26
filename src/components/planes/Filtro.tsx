@@ -17,6 +17,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 export type Option = { value: string; label: string }
@@ -28,6 +33,7 @@ type Props = {
   placeholder?: string
   className?: string
   ariaLabel?: string
+  disabled?: boolean
 }
 
 const Filtro: React.FC<Props> = ({
@@ -37,6 +43,7 @@ const Filtro: React.FC<Props> = ({
   placeholder = 'Seleccionar…',
   className,
   ariaLabel,
+  disabled,
 }) => {
   const [open, setOpen] = useState(false)
 
@@ -46,18 +53,26 @@ const Filtro: React.FC<Props> = ({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn('w-full justify-between', className)}
-          aria-label={ariaLabel ?? 'Filtro combobox'}
-        >
-          {label}
-          <ChevronDown className="opacity-50" />
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              className={cn('w-full min-w-0 justify-between', className)}
+              aria-label={ariaLabel ?? 'Filtro combobox'}
+              disabled={disabled}
+            >
+              <span className="truncate">{label}</span>
+              <ChevronDown className="shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{label}</p>
+        </TooltipContent>
+      </Tooltip>
       <PopoverContent className="p-0">
         <Command>
           <CommandInput placeholder="Buscar…" className="h-9" />
