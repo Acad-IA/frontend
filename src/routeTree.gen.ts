@@ -13,6 +13,7 @@ import { Route as PlanesRouteImport } from './routes/planes'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PlanesIndexRouteImport } from './routes/planes/index'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
 
 const PlanesRoute = PlanesRouteImport.update({
@@ -35,6 +36,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlanesIndexRoute = PlanesIndexRouteImport.update({
+  id: '/planes/',
+  path: '/planes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemoTanstackQueryRoute = DemoTanstackQueryRouteImport.update({
   id: '/demo/tanstack-query',
   path: '/demo/tanstack-query',
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/planes': typeof PlanesRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/planes': typeof PlanesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/planes': typeof PlanesRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/planes': typeof PlanesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,19 +70,31 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/planes': typeof PlanesRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/planes/': typeof PlanesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
+<<<<<<< HEAD
   fullPaths: '/' | '/dashboard' | '/login' | '/planes' | '/demo/tanstack-query'
   fileRoutesByTo: FileRoutesByTo
   to: '/' | '/dashboard' | '/login' | '/planes' | '/demo/tanstack-query'
+=======
+  fullPaths: '/' | '/dashboard' | '/login' | '/demo/tanstack-query' | '/planes'
+  fileRoutesByTo: FileRoutesByTo
+  to: '/' | '/dashboard' | '/login' | '/demo/tanstack-query' | '/planes'
+>>>>>>> origin/main
   id:
     | '__root__'
     | '/'
     | '/dashboard'
     | '/login'
+<<<<<<< HEAD
     | '/planes'
     | '/demo/tanstack-query'
+=======
+    | '/demo/tanstack-query'
+    | '/planes/'
+>>>>>>> origin/main
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -83,6 +103,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PlanesRoute: typeof PlanesRoute
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
+  PlanesIndexRoute: typeof PlanesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -115,6 +136,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/planes/': {
+      id: '/planes/'
+      path: '/planes'
+      fullPath: '/planes'
+      preLoaderRoute: typeof PlanesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/demo/tanstack-query': {
       id: '/demo/tanstack-query'
       path: '/demo/tanstack-query'
@@ -131,6 +159,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PlanesRoute: PlanesRoute,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,
+  PlanesIndexRoute: PlanesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
