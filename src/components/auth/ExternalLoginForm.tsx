@@ -1,6 +1,7 @@
 import { useState } from 'react'
-//import { supabase } from '@/lib/supabase'
-import { Input } from '../ui/Input'
+
+// import { supabase } from '@/lib/supabase'
+import { LoginInput } from '../ui/LoginInput'
 import { SubmitButton } from '../ui/SubmitButton'
 
 export function ExternalLoginForm() {
@@ -8,7 +9,7 @@ export function ExternalLoginForm() {
   const [password, setPassword] = useState('')
 
   const submit = async () => {
-    /*await supabase.auth.signInWithPassword({
+    /* await supabase.auth.signInWithPassword({
       email,
       password,
     })*/
@@ -17,13 +18,17 @@ export function ExternalLoginForm() {
   return (
     <form
       className="space-y-4"
-      onSubmit={e => {
+      onSubmit={(e) => {
         e.preventDefault()
         submit()
       }}
     >
-      <Input label="Correo electrónico" value={email} onChange={setEmail} />
-      <Input
+      <LoginInput
+        label="Correo electrónico"
+        value={email}
+        onChange={setEmail}
+      />
+      <LoginInput
         label="Contraseña"
         type="password"
         value={password}

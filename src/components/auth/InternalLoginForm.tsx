@@ -1,6 +1,7 @@
 import { useState } from 'react'
-//import { supabase } from '@/lib/supabase'
-import { Input } from '../ui/Input'
+
+// import { supabase } from '@/lib/supabase'
+import { LoginInput } from '../ui/LoginInput'
 import { SubmitButton } from '../ui/SubmitButton'
 
 export function InternalLoginForm() {
@@ -8,7 +9,7 @@ export function InternalLoginForm() {
   const [password, setPassword] = useState('')
 
   const submit = async () => {
-    /*await supabase.auth.signInWithPassword({
+    /* await supabase.auth.signInWithPassword({
       email: `${clave}@ulsa.mx`,
       password,
     })*/
@@ -17,13 +18,13 @@ export function InternalLoginForm() {
   return (
     <form
       className="space-y-4"
-      onSubmit={e => {
+      onSubmit={(e) => {
         e.preventDefault()
         submit()
       }}
     >
-      <Input label="Clave ULSA" value={clave} onChange={setClave} />
-      <Input
+      <LoginInput label="Clave ULSA" value={clave} onChange={setClave} />
+      <LoginInput
         label="Contraseña"
         type="password"
         value={password}
