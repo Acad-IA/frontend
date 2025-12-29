@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 
-import CheckoutStepper from '@/components/planes/stepper'
+import CheckoutStepper from '@/components/planes/exampleStepper'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 
 export const Route = createFileRoute('/planes/_lista/nuevo')({

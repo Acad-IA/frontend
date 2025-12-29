@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, Link } from '@tanstack/react-router'
+import { createFileRoute, Outlet, useNavigate } from '@tanstack/react-router'
 import * as Icons from 'lucide-react'
 import { useMemo, useState } from 'react'
 
@@ -13,6 +13,7 @@ export const Route = createFileRoute('/planes/_lista')({
 })
 
 function RouteComponent() {
+  const navigate = useNavigate()
   type Facultad = { id: string; nombre: string; color: string }
   type Carrera = { id: string; nombre: string; facultadId: string }
   type Plan = {
@@ -230,6 +231,9 @@ function RouteComponent() {
               }
               aria-label="Nuevo plan de estudios"
               title="Nuevo plan de estudios"
+              onClick={() => {
+                navigate({ to: '/planes/nuevo' })
+              }}
             >
               <Icons.Plus className="" />
               Nuevo plan de estudios
@@ -313,9 +317,6 @@ function RouteComponent() {
             })}
           </div>
         </div>
-        <Link to="/planes/nuevo" className="text-blue-500" resetScroll={false}>
-          Nuevo plan de estudios
-        </Link>
         <Outlet />
       </div>
     </main>
