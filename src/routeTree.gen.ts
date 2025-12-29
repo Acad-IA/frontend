@@ -9,18 +9,14 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as PlanesRouteImport } from './routes/planes'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as PlanesIndexRouteImport } from './routes/planes/index'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
+import { Route as PlanesListaRouteRouteImport } from './routes/planes/_lista/route'
+import { Route as PlanesPlanIdRouteRouteImport } from './routes/planes/$planId/route'
+import { Route as PlanesListaNuevoRouteImport } from './routes/planes/_lista/nuevo'
 
-const PlanesRoute = PlanesRouteImport.update({
-  id: '/planes',
-  path: '/planes',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -36,40 +32,54 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PlanesIndexRoute = PlanesIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => PlanesRoute,
-} as any)
 const DemoTanstackQueryRoute = DemoTanstackQueryRouteImport.update({
   id: '/demo/tanstack-query',
   path: '/demo/tanstack-query',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PlanesListaRouteRoute = PlanesListaRouteRouteImport.update({
+  id: '/planes/_lista',
+  path: '/planes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanesPlanIdRouteRoute = PlanesPlanIdRouteRouteImport.update({
+  id: '/planes/$planId',
+  path: '/planes/$planId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanesListaNuevoRoute = PlanesListaNuevoRouteImport.update({
+  id: '/nuevo',
+  path: '/nuevo',
+  getParentRoute: () => PlanesListaRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
-  '/planes': typeof PlanesRouteWithChildren
+  '/planes/$planId': typeof PlanesPlanIdRouteRoute
+  '/planes': typeof PlanesListaRouteRouteWithChildren
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/planes/': typeof PlanesIndexRoute
+  '/planes/nuevo': typeof PlanesListaNuevoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/planes/$planId': typeof PlanesPlanIdRouteRoute
+  '/planes': typeof PlanesListaRouteRouteWithChildren
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/planes': typeof PlanesIndexRoute
+  '/planes/nuevo': typeof PlanesListaNuevoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
-  '/planes': typeof PlanesRouteWithChildren
+  '/planes/$planId': typeof PlanesPlanIdRouteRoute
+  '/planes/_lista': typeof PlanesListaRouteRouteWithChildren
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/planes/': typeof PlanesIndexRoute
+  '/planes/_lista/nuevo': typeof PlanesListaNuevoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -77,38 +87,41 @@ export interface FileRouteTypes {
     | '/'
     | '/dashboard'
     | '/login'
+    | '/planes/$planId'
     | '/planes'
     | '/demo/tanstack-query'
-    | '/planes/'
+    | '/planes/nuevo'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/login' | '/demo/tanstack-query' | '/planes'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/planes/$planId'
+    | '/planes'
+    | '/demo/tanstack-query'
+    | '/planes/nuevo'
   id:
     | '__root__'
     | '/'
     | '/dashboard'
     | '/login'
-    | '/planes'
+    | '/planes/$planId'
+    | '/planes/_lista'
     | '/demo/tanstack-query'
-    | '/planes/'
+    | '/planes/_lista/nuevo'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
-  PlanesRoute: typeof PlanesRouteWithChildren
+  PlanesPlanIdRouteRoute: typeof PlanesPlanIdRouteRoute
+  PlanesListaRouteRoute: typeof PlanesListaRouteRouteWithChildren
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/planes': {
-      id: '/planes'
-      path: '/planes'
-      fullPath: '/planes'
-      preLoaderRoute: typeof PlanesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -130,13 +143,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/planes/': {
-      id: '/planes/'
-      path: '/'
-      fullPath: '/planes/'
-      preLoaderRoute: typeof PlanesIndexRouteImport
-      parentRoute: typeof PlanesRoute
-    }
     '/demo/tanstack-query': {
       id: '/demo/tanstack-query'
       path: '/demo/tanstack-query'
@@ -144,25 +150,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemoTanstackQueryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/planes/_lista': {
+      id: '/planes/_lista'
+      path: '/planes'
+      fullPath: '/planes'
+      preLoaderRoute: typeof PlanesListaRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/planes/$planId': {
+      id: '/planes/$planId'
+      path: '/planes/$planId'
+      fullPath: '/planes/$planId'
+      preLoaderRoute: typeof PlanesPlanIdRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/planes/_lista/nuevo': {
+      id: '/planes/_lista/nuevo'
+      path: '/nuevo'
+      fullPath: '/planes/nuevo'
+      preLoaderRoute: typeof PlanesListaNuevoRouteImport
+      parentRoute: typeof PlanesListaRouteRoute
+    }
   }
 }
 
-interface PlanesRouteChildren {
-  PlanesIndexRoute: typeof PlanesIndexRoute
+interface PlanesListaRouteRouteChildren {
+  PlanesListaNuevoRoute: typeof PlanesListaNuevoRoute
 }
 
-const PlanesRouteChildren: PlanesRouteChildren = {
-  PlanesIndexRoute: PlanesIndexRoute,
+const PlanesListaRouteRouteChildren: PlanesListaRouteRouteChildren = {
+  PlanesListaNuevoRoute: PlanesListaNuevoRoute,
 }
 
-const PlanesRouteWithChildren =
-  PlanesRoute._addFileChildren(PlanesRouteChildren)
+const PlanesListaRouteRouteWithChildren =
+  PlanesListaRouteRoute._addFileChildren(PlanesListaRouteRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
-  PlanesRoute: PlanesRouteWithChildren,
+  PlanesPlanIdRouteRoute: PlanesPlanIdRouteRoute,
+  PlanesListaRouteRoute: PlanesListaRouteRouteWithChildren,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,
 }
 export const routeTree = rootRouteImport

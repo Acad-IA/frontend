@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Outlet, Link } from '@tanstack/react-router'
 import * as Icons from 'lucide-react'
 import { useMemo, useState } from 'react'
 
@@ -8,7 +8,7 @@ import BarraBusqueda from '@/components/planes/BarraBusqueda'
 import Filtro from '@/components/planes/Filtro'
 import PlanEstudiosCard from '@/components/planes/PlanEstudiosCard'
 
-export const Route = createFileRoute('/planes')({
+export const Route = createFileRoute('/planes/_lista')({
   component: RouteComponent,
 })
 
@@ -313,6 +313,10 @@ function RouteComponent() {
             })}
           </div>
         </div>
+        <Link to="/planes/nuevo" className="text-blue-500" resetScroll={false}>
+          Nuevo plan de estudios
+        </Link>
+        <Outlet />
       </div>
     </main>
   )
