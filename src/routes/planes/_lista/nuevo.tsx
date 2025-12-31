@@ -251,7 +251,7 @@ function NuevoPlanModal() {
           1. h-[90vh]: Altura fija del 90% de la ventana.
           2. flex-col gap-0 p-0: Quitamos espacios automáticos para control manual.
       */}
-      <DialogContent className="flex h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+      <DialogContent className="flex h-[90vh] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
         {role !== 'JEFE_CARRERA' ? (
           // --- VISTA SIN PERMISOS ---
           <>
@@ -297,19 +297,18 @@ function NuevoPlanModal() {
                   <div className="px-6 pb-6">
                     <Wizard.Stepper.Navigation className="border-border/60 rounded-xl border bg-slate-50 p-2">
                       {/* Nota: En móvil esto se verá apretado. Considera overflow-x-auto si tienes muchos pasos */}
-                      <div className="flex items-center justify-between gap-2 overflow-x-auto">
-                        {Wizard.steps.map((step) => (
-                          <Wizard.Stepper.Step
-                            key={step.id}
-                            of={step.id}
-                            className="whitespace-nowrap"
-                          >
-                            <Wizard.Stepper.Title>
-                              {step.title}
-                            </Wizard.Stepper.Title>
-                          </Wizard.Stepper.Step>
-                        ))}
-                      </div>
+
+                      {Wizard.steps.map((step) => (
+                        <Wizard.Stepper.Step
+                          key={step.id}
+                          of={step.id}
+                          className="whitespace-nowrap"
+                        >
+                          <Wizard.Stepper.Title>
+                            {step.title}
+                          </Wizard.Stepper.Title>
+                        </Wizard.Stepper.Step>
+                      ))}
                     </Wizard.Stepper.Navigation>
                   </div>
                 </div>
@@ -515,7 +514,7 @@ function PasoBasicos({
   carrerasFiltradas: typeof CARRERAS
 }) {
   return (
-    <div className="grid gap-20 sm:grid-cols-2">
+    <div className="grid gap-4 sm:grid-cols-2">
       <div className="sm:col-span-2">
         <Label htmlFor="nombrePlan">Nombre del plan</Label>
         <Input
