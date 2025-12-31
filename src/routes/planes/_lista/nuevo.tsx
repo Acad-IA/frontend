@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import * as Icons from 'lucide-react'
 import { useMemo, useState } from 'react'
 
+import { CircularProgress } from '@/components/CircularProgress'
 import { defineStepper } from '@/components/stepper'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,6 +20,12 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 export const Route = createFileRoute('/planes/_lista/nuevo')({
   component: NuevoPlanModal,
@@ -251,7 +258,12 @@ function NuevoPlanModal() {
           1. h-[90vh]: Altura fija del 90% de la ventana.
           2. flex-col gap-0 p-0: Quitamos espacios automáticos para control manual.
       */}
-      <DialogContent className="flex h-[90vh] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+      <DialogContent
+        className="flex h-[90vh] w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
+        onInteractOutside={(e) => {
+          e.preventDefault()
+        }}
+      >
         {role !== 'JEFE_CARRERA' ? (
           // --- VISTA SIN PERMISOS ---
           <>
@@ -283,130 +295,222 @@ function NuevoPlanModal() {
             initialStep={Wizard.utils.getFirst().id}
             className="flex h-full flex-col"
           >
-            {({ methods }) => (
-              <>
-                {/* 1. HEADER (FIJO - Top Bun) 
-                    flex-none: Asegura que no se aplaste ni haga scroll.
-                */}
-                <div className="z-10 flex-none border-b bg-white">
-                  <DialogHeader className="p-6 pb-4">
-                    <DialogTitle>Nuevo plan de estudios</DialogTitle>
-                  </DialogHeader>
+            {({ methods }) => {
+              // --- LÓGICA PARA MÓVIL (Cálculos) ---
+              const currentIndex = Wizard.utils.getIndex(methods.current.id) + 1
+              const totalSteps = Wizard.steps.length
+              const nextStep = Wizard.steps[currentIndex]
+              return (
+                <>
+                  {/* =========================================================
+                      HEADER RESPONSIVO
+                      ========================================================= */}
+                  <div className="z-10 flex-none border-b bg-white">
+                    <div className="flex items-center justify-between p-6 pb-4">
+                      <DialogHeader className="p-0">
+                        {' '}
+                        {/* Quitamos padding interno porque ya lo tiene el div padre */}
+                        <DialogTitle /* className="hidden sm:block" */>
+                          Nuevo plan de estudios
+                        </DialogTitle>
+                      </DialogHeader>
 
-                  {/* Navegación dentro del bloque fijo */}
-                  <div className="px-6 pb-6">
-                    <Wizard.Stepper.Navigation className="border-border/60 rounded-xl border bg-slate-50 p-2">
-                      {/* Nota: En móvil esto se verá apretado. Considera overflow-x-auto si tienes muchos pasos */}
+                      {/* BOTÓN DE CERRAR (X) */}
+                      <button
+                        onClick={handleClose}
+                        className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:pointer-events-none"
+                      >
+                        <Icons.X className="h-4 w-4" />
+                        <span className="sr-only">Cerrar</span>
+                      </button>
+                    </div>
 
-                      {Wizard.steps.map((step) => (
-                        <Wizard.Stepper.Step
-                          key={step.id}
-                          of={step.id}
-                          className="whitespace-nowrap"
-                        >
-                          <Wizard.Stepper.Title>
-                            {step.title}
-                          </Wizard.Stepper.Title>
-                        </Wizard.Stepper.Step>
-                      ))}
-                    </Wizard.Stepper.Navigation>
+                    <div className="px-6 pb-6">
+                      {/* OPCIÓN A: MÓVIL (< 640px) 
+                          - Usa block sm:hidden
+                          - Muestra el CircularProgress y Texto Grande
+                      */}
+                      <div className="block sm:hidden">
+                        <div className="flex items-center gap-5">
+                          <CircularProgress
+                            current={currentIndex}
+                            total={totalSteps}
+                          />
+                          <div className="flex flex-col justify-center">
+                            <h2 className="text-lg font-bold text-slate-900">
+                              {/* Usamos el Helper del Tooltip aquí también */}
+                              <StepWithTooltip
+                                title={methods.current.title}
+                                desc={methods.current.description}
+                              />
+                            </h2>
+                            {nextStep ? (
+                              <p className="text-sm text-slate-400">
+                                Siguiente: {nextStep.title}
+                              </p>
+                            ) : (
+                              <p className="text-sm font-medium text-green-500">
+                                ¡Último paso!
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* OPCIÓN B: DESKTOP (>= 640px)
+                          - Usa hidden sm:block
+                          - Muestra la navegación original horizontal
+                      */}
+                      <div className="hidden sm:block">
+                        <Wizard.Stepper.Navigation className="border-border/60 rounded-xl border bg-slate-50 p-2">
+                          {Wizard.steps.map((step) => (
+                            <Wizard.Stepper.Step
+                              key={step.id}
+                              of={step.id}
+                              className="whitespace-nowrap"
+                            >
+                              <Wizard.Stepper.Title>
+                                {/* Envolvemos el título en nuestro componente Tooltip */}
+                                <StepWithTooltip
+                                  title={step.title}
+                                  desc={step.description}
+                                />
+                              </Wizard.Stepper.Title>
+                            </Wizard.Stepper.Step>
+                          ))}
+                        </Wizard.Stepper.Navigation>
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                {/* 2. CONTENIDO (SCROLLEABLE - Meat) 
+                  {/* 2. CONTENIDO (SCROLLEABLE - Meat) 
                     flex-1: Ocupa todo el espacio restante.
                     overflow-y-auto: Scrollea solo esta parte.
-                */}
-                <div className="flex-1 overflow-y-auto bg-gray-50/30 p-6">
-                  {/* Aquí renderizamos el panel. Quitamos el 'grid' del padre para evitar conflictos de altura */}
-                  <div className="mx-auto max-w-3xl">
-                    {Wizard.utils.getIndex(methods.current.id) === 0 && (
-                      <Wizard.Stepper.Panel>
-                        <PasoModo wizard={wizard} onChange={setWizard} />
-                      </Wizard.Stepper.Panel>
-                    )}
-                    {Wizard.utils.getIndex(methods.current.id) === 1 && (
-                      <Wizard.Stepper.Panel>
-                        <PasoBasicos
-                          wizard={wizard}
-                          onChange={setWizard}
-                          carrerasFiltradas={carrerasFiltradas}
-                        />
-                      </Wizard.Stepper.Panel>
-                    )}
-                    {Wizard.utils.getIndex(methods.current.id) === 2 && (
-                      <Wizard.Stepper.Panel>
-                        <PasoDetalles
-                          wizard={wizard}
-                          onChange={setWizard}
-                          onGenerarIA={generarPreviewIA}
-                          isLoading={wizard.isLoading}
-                        />
-                      </Wizard.Stepper.Panel>
-                    )}
-                    {Wizard.utils.getIndex(methods.current.id) === 3 && (
-                      <Wizard.Stepper.Panel>
-                        <PasoResumen wizard={wizard} />
-                      </Wizard.Stepper.Panel>
-                    )}
+                  */}
+                  <div className="flex-1 overflow-y-auto bg-gray-50/30 p-6">
+                    {/* Aquí renderizamos el panel. Quitamos el 'grid' del padre para evitar conflictos de altura */}
+                    <div className="mx-auto max-w-3xl">
+                      {Wizard.utils.getIndex(methods.current.id) === 0 && (
+                        <Wizard.Stepper.Panel>
+                          <PasoModo wizard={wizard} onChange={setWizard} />
+                        </Wizard.Stepper.Panel>
+                      )}
+                      {Wizard.utils.getIndex(methods.current.id) === 1 && (
+                        <Wizard.Stepper.Panel>
+                          <PasoBasicos
+                            wizard={wizard}
+                            onChange={setWizard}
+                            carrerasFiltradas={carrerasFiltradas}
+                          />
+                        </Wizard.Stepper.Panel>
+                      )}
+                      {Wizard.utils.getIndex(methods.current.id) === 2 && (
+                        <Wizard.Stepper.Panel>
+                          <PasoDetalles
+                            wizard={wizard}
+                            onChange={setWizard}
+                            onGenerarIA={generarPreviewIA}
+                            isLoading={wizard.isLoading}
+                          />
+                        </Wizard.Stepper.Panel>
+                      )}
+                      {Wizard.utils.getIndex(methods.current.id) === 3 && (
+                        <Wizard.Stepper.Panel>
+                          <PasoResumen wizard={wizard} />
+                        </Wizard.Stepper.Panel>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {/* 3. CONTROLES (FIJO - Bottom Bun) 
+                  {/* 3. CONTROLES (FIJO - Bottom Bun) 
                     flex-none: Siempre visible abajo.
                 */}
-                <div className="flex-none border-t bg-white p-6">
-                  <Wizard.Stepper.Controls className="flex items-center justify-between">
-                    <div className="flex-1">
-                      {wizard.errorMessage && (
-                        <span className="text-destructive text-sm font-medium">
-                          {wizard.errorMessage}
-                        </span>
-                      )}
-                    </div>
+                  <div className="flex-none border-t bg-white p-6">
+                    <Wizard.Stepper.Controls className="flex items-center justify-between">
+                      <div className="flex-1">
+                        {wizard.errorMessage && (
+                          <span className="text-destructive text-sm font-medium">
+                            {wizard.errorMessage}
+                          </span>
+                        )}
+                      </div>
 
-                    <div className="flex gap-4">
-                      <Button
-                        variant="secondary"
-                        onClick={() => methods.prev()}
-                        disabled={
-                          Wizard.utils.getIndex(methods.current.id) === 0 ||
-                          wizard.isLoading
-                        }
-                      >
-                        Anterior
-                      </Button>
-
-                      {Wizard.utils.getIndex(methods.current.id) <
-                      Wizard.steps.length - 1 ? (
+                      <div className="flex gap-4">
                         <Button
-                          onClick={() => methods.next()}
+                          variant="secondary"
+                          onClick={() => methods.prev()}
                           disabled={
-                            wizard.isLoading ||
-                            (Wizard.utils.getIndex(methods.current.id) === 0 &&
-                              !canContinueDesdeModo) ||
-                            (Wizard.utils.getIndex(methods.current.id) === 1 &&
-                              !canContinueDesdeBasicos) ||
-                            (Wizard.utils.getIndex(methods.current.id) === 2 &&
-                              !canContinueDesdeDetalles)
+                            Wizard.utils.getIndex(methods.current.id) === 0 ||
+                            wizard.isLoading
                           }
                         >
-                          Siguiente
+                          Anterior
                         </Button>
-                      ) : (
-                        <Button onClick={crearPlan} disabled={wizard.isLoading}>
-                          Crear plan
-                        </Button>
-                      )}
-                    </div>
-                  </Wizard.Stepper.Controls>
-                </div>
-              </>
-            )}
+
+                        {Wizard.utils.getIndex(methods.current.id) <
+                        Wizard.steps.length - 1 ? (
+                          <Button
+                            onClick={() => methods.next()}
+                            disabled={
+                              wizard.isLoading ||
+                              (Wizard.utils.getIndex(methods.current.id) ===
+                                0 &&
+                                !canContinueDesdeModo) ||
+                              (Wizard.utils.getIndex(methods.current.id) ===
+                                1 &&
+                                !canContinueDesdeBasicos) ||
+                              (Wizard.utils.getIndex(methods.current.id) ===
+                                2 &&
+                                !canContinueDesdeDetalles)
+                            }
+                          >
+                            Siguiente
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={crearPlan}
+                            disabled={wizard.isLoading}
+                          >
+                            Crear plan
+                          </Button>
+                        )}
+                      </div>
+                    </Wizard.Stepper.Controls>
+                  </div>
+                </>
+              )
+            }}
           </Wizard.Stepper.Provider>
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+function StepWithTooltip({ title, desc }: { title: string; desc: string }) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <TooltipProvider delayDuration={0}>
+      <Tooltip open={isOpen} onOpenChange={setIsOpen}>
+        <TooltipTrigger asChild>
+          <span
+            className="cursor-help decoration-dotted underline-offset-4 hover:underline"
+            onClick={(e) => {
+              e.stopPropagation() // Evita que el clic dispare la navegación del stepper si está dentro de un botón
+              setIsOpen((prev) => !prev)
+            }}
+            onMouseEnter={() => setIsOpen(true)}
+            onMouseLeave={() => setIsOpen(false)}
+          >
+            {title}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-[200px] text-xs">
+          <p>{desc}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
@@ -477,7 +581,7 @@ function PasoModo({
           <CardDescription>Desde un plan existente o archivos.</CardDescription>
         </CardHeader>
         {wizard.modoCreacion === 'CLONADO' && (
-          <CardContent className="flex gap-3">
+          <CardContent className="flex flex-wrap gap-3">
             <Button
               variant={isSubSelected('INTERNO') ? 'default' : 'secondary'}
               onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
@@ -515,7 +619,7 @@ function PasoBasicos({
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <div className="sm:col-span-2">
+      <div className="grid gap-1 sm:col-span-2">
         <Label htmlFor="nombrePlan">Nombre del plan</Label>
         <Input
           id="nombrePlan"
@@ -530,7 +634,7 @@ function PasoBasicos({
         />
       </div>
 
-      <div>
+      <div className="grid gap-1">
         <Label htmlFor="facultad">Facultad</Label>
         <select
           id="facultad"
@@ -556,7 +660,7 @@ function PasoBasicos({
         </select>
       </div>
 
-      <div>
+      <div className="grid gap-1">
         <Label htmlFor="carrera">Carrera</Label>
         <select
           id="carrera"
@@ -578,7 +682,7 @@ function PasoBasicos({
         </select>
       </div>
 
-      <div>
+      <div className="grid gap-1">
         <Label htmlFor="nivel">Nivel</Label>
         <select
           id="nivel"
@@ -600,7 +704,7 @@ function PasoBasicos({
         </select>
       </div>
 
-      <div>
+      <div className="grid gap-1">
         <Label htmlFor="tipoCiclo">Tipo de ciclo</Label>
         <select
           id="tipoCiclo"
@@ -624,7 +728,7 @@ function PasoBasicos({
         </select>
       </div>
 
-      <div>
+      <div className="grid gap-1">
         <Label htmlFor="numCiclos">Número de ciclos</Label>
         <Input
           id="numCiclos"
