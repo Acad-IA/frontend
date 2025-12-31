@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as Stepper2RouteImport } from './routes/stepper2'
 import { Route as StepperRouteImport } from './routes/stepper'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -18,6 +19,11 @@ import { Route as PlanesListaRouteRouteImport } from './routes/planes/_lista/rou
 import { Route as PlanesPlanIdRouteRouteImport } from './routes/planes/$planId/route'
 import { Route as PlanesListaNuevoRouteImport } from './routes/planes/_lista/nuevo'
 
+const Stepper2Route = Stepper2RouteImport.update({
+  id: '/stepper2',
+  path: '/stepper2',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StepperRoute = StepperRouteImport.update({
   id: '/stepper',
   path: '/stepper',
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/stepper': typeof StepperRoute
+  '/stepper2': typeof Stepper2Route
   '/planes/$planId': typeof PlanesPlanIdRouteRoute
   '/planes': typeof PlanesListaRouteRouteWithChildren
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/stepper': typeof StepperRoute
+  '/stepper2': typeof Stepper2Route
   '/planes/$planId': typeof PlanesPlanIdRouteRoute
   '/planes': typeof PlanesListaRouteRouteWithChildren
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/stepper': typeof StepperRoute
+  '/stepper2': typeof Stepper2Route
   '/planes/$planId': typeof PlanesPlanIdRouteRoute
   '/planes/_lista': typeof PlanesListaRouteRouteWithChildren
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/stepper'
+    | '/stepper2'
     | '/planes/$planId'
     | '/planes'
     | '/demo/tanstack-query'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/stepper'
+    | '/stepper2'
     | '/planes/$planId'
     | '/planes'
     | '/demo/tanstack-query'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/stepper'
+    | '/stepper2'
     | '/planes/$planId'
     | '/planes/_lista'
     | '/demo/tanstack-query'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   StepperRoute: typeof StepperRoute
+  Stepper2Route: typeof Stepper2Route
   PlanesPlanIdRouteRoute: typeof PlanesPlanIdRouteRoute
   PlanesListaRouteRoute: typeof PlanesListaRouteRouteWithChildren
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
@@ -135,6 +148,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/stepper2': {
+      id: '/stepper2'
+      path: '/stepper2'
+      fullPath: '/stepper2'
+      preLoaderRoute: typeof Stepper2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/stepper': {
       id: '/stepper'
       path: '/stepper'
@@ -210,6 +230,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   StepperRoute: StepperRoute,
+  Stepper2Route: Stepper2Route,
   PlanesPlanIdRouteRoute: PlanesPlanIdRouteRoute,
   PlanesListaRouteRoute: PlanesListaRouteRouteWithChildren,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,
