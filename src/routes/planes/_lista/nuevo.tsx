@@ -21,6 +21,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -80,7 +87,10 @@ const auth_get_current_user_role = () => 'JEFE_CARRERA' as const
 // Mock catálogos
 const FACULTADES = [
   { id: 'ing', nombre: 'Facultad de Ingeniería' },
-  { id: 'med', nombre: 'Facultad de Medicina' },
+  {
+    id: 'med',
+    nombre: 'Facultad de Medicina en medicina en medicina en medicina',
+  },
   { id: 'neg', nombre: 'Facultad de Negocios' },
 ]
 
@@ -581,25 +591,48 @@ function PasoModo({
           <CardDescription>Desde un plan existente o archivos.</CardDescription>
         </CardHeader>
         {wizard.modoCreacion === 'CLONADO' && (
-          <CardContent className="flex flex-wrap gap-3">
-            <Button
-              variant={isSubSelected('INTERNO') ? 'default' : 'secondary'}
-              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+          <CardContent className="flex flex-col gap-3">
+            {/* USO DE GRID PARA RESPONSIVIDAD:
+      - grid-cols-1: En móviles (default) ocupan todo el ancho, uno encima de otro.
+      - sm:grid-cols-2: A partir de 640px, se ponen lado a lado con ancho equitativo.
+      - gap-3: El "ligero espacio" entre ellos.
+  */}
+
+            {/* OPCIÓN 1: INTERNO */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
                 e.stopPropagation()
                 onChange((w) => ({ ...w, subModoClonado: 'INTERNO' }))
               }}
+              className={`hover:border-primary/50 hover:bg-accent flex cursor-pointer flex-row items-center justify-center gap-2 rounded-lg border p-4 text-center transition-all sm:flex-col ${
+                isSubSelected('INTERNO')
+                  ? 'border-primary bg-primary/5 ring-primary text-primary ring-1' // Estado Activo
+                  : 'border-border text-muted-foreground' // Estado Inactivo
+              } `}
             >
-              Del sistema
-            </Button>
-            <Button
-              variant={isSubSelected('TRADICIONAL') ? 'default' : 'secondary'}
-              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+              <Icons.Database className="mb-1 h-6 w-6" />
+              <span className="text-sm font-medium">Del sistema</span>
+            </div>
+
+            {/* OPCIÓN 2: TRADICIONAL */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
                 e.stopPropagation()
                 onChange((w) => ({ ...w, subModoClonado: 'TRADICIONAL' }))
               }}
+              className={`hover:border-primary/50 hover:bg-accent flex cursor-pointer flex-row items-center justify-center gap-2 rounded-lg border p-4 text-center transition-all sm:flex-col ${
+                isSubSelected('TRADICIONAL')
+                  ? 'border-primary bg-primary/5 ring-primary text-primary ring-1'
+                  : 'border-border text-muted-foreground'
+              } `}
             >
-              Desde archivos
-            </Button>
+              <Icons.Upload className="mb-1 h-6 w-6" />
+              <span className="text-sm font-medium">Desde archivos</span>
+            </div>
           </CardContent>
         )}
       </Card>
@@ -634,7 +667,7 @@ function PasoBasicos({
         />
       </div>
 
-      <div className="grid gap-1">
+      {/* <div className="grid gap-1">
         <Label htmlFor="facultad">Facultad</Label>
         <select
           id="facultad"
@@ -658,6 +691,36 @@ function PasoBasicos({
             </option>
           ))}
         </select>
+      </div> */}
+      <div className="grid gap-2">
+        <Label htmlFor="facultad">Facultad</Label>
+        <Select
+          value={wizard.datosBasicos.facultadId}
+          onValueChange={(value) =>
+            onChange((w) => ({
+              ...w,
+              datosBasicos: {
+                ...w.datosBasicos,
+                facultadId: value,
+                carreraId: '', // Mantenemos tu lógica de resetear la carrera
+              },
+            }))
+          }
+        >
+          <SelectTrigger
+            id="facultad"
+            className="w-full min-w-0 [&>span]:block! [&>span]:truncate!"
+          >
+            <SelectValue placeholder="Selecciona facultad…" />
+          </SelectTrigger>
+          <SelectContent>
+            {FACULTADES.map((f) => (
+              <SelectItem key={f.id} value={f.id}>
+                {f.nombre}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid gap-1">
