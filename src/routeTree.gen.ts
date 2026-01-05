@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as Planes2IndexRouteImport } from './routes/planes2/index'
 import { Route as MateriasIndexRouteImport } from './routes/materias/index'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
 import { Route as Planes2PlanIdRouteRouteImport } from './routes/planes2/$planId/route'
@@ -44,11 +43,6 @@ const DashboardRoute = DashboardRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const Planes2IndexRoute = Planes2IndexRouteImport.update({
-  id: '/planes2/',
-  path: '/planes2/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MateriasIndexRoute = MateriasIndexRouteImport.update({
@@ -149,7 +143,6 @@ export interface FileRoutesByFullPath {
   '/planes2/$planId': typeof Planes2PlanIdRouteRouteWithChildren
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/materias': typeof MateriasIndexRoute
-  '/planes2': typeof Planes2IndexRoute
   '/materias/$materiaId/$materiaId': typeof MateriasMateriaIdMateriaIdRoute
   '/planes/nuevo': typeof PlanesListaNuevoRoute
   '/planes2/$planId/documento': typeof Planes2PlanIdDocumentoRoute
@@ -171,7 +164,6 @@ export interface FileRoutesByTo {
   '/planes': typeof PlanesListaRouteRouteWithChildren
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/materias': typeof MateriasIndexRoute
-  '/planes2': typeof Planes2IndexRoute
   '/materias/$materiaId/$materiaId': typeof MateriasMateriaIdMateriaIdRoute
   '/planes/nuevo': typeof PlanesListaNuevoRoute
   '/planes2/$planId/documento': typeof Planes2PlanIdDocumentoRoute
@@ -195,7 +187,6 @@ export interface FileRoutesById {
   '/planes2/$planId': typeof Planes2PlanIdRouteRouteWithChildren
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/materias/': typeof MateriasIndexRoute
-  '/planes2/': typeof Planes2IndexRoute
   '/materias/$materiaId/$materiaId': typeof MateriasMateriaIdMateriaIdRoute
   '/planes/_lista/nuevo': typeof PlanesListaNuevoRoute
   '/planes2/$planId/documento': typeof Planes2PlanIdDocumentoRoute
@@ -220,7 +211,6 @@ export interface FileRouteTypes {
     | '/planes2/$planId'
     | '/demo/tanstack-query'
     | '/materias'
-    | '/planes2'
     | '/materias/$materiaId/$materiaId'
     | '/planes/nuevo'
     | '/planes2/$planId/documento'
@@ -242,7 +232,6 @@ export interface FileRouteTypes {
     | '/planes'
     | '/demo/tanstack-query'
     | '/materias'
-    | '/planes2'
     | '/materias/$materiaId/$materiaId'
     | '/planes/nuevo'
     | '/planes2/$planId/documento'
@@ -265,7 +254,6 @@ export interface FileRouteTypes {
     | '/planes2/$planId'
     | '/demo/tanstack-query'
     | '/materias/'
-    | '/planes2/'
     | '/materias/$materiaId/$materiaId'
     | '/planes/_lista/nuevo'
     | '/planes2/$planId/documento'
@@ -289,7 +277,6 @@ export interface RootRouteChildren {
   Planes2PlanIdRouteRoute: typeof Planes2PlanIdRouteRouteWithChildren
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
   MateriasIndexRoute: typeof MateriasIndexRoute
-  Planes2IndexRoute: typeof Planes2IndexRoute
   MateriasMateriaIdMateriaIdRoute: typeof MateriasMateriaIdMateriaIdRoute
   PlanesPlanIdIndexRoute: typeof PlanesPlanIdIndexRoute
   PlanesPlanIdAsignaturasAsignaturaIdRouteRoute: typeof PlanesPlanIdAsignaturasAsignaturaIdRouteRoute
@@ -317,13 +304,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/planes2/': {
-      id: '/planes2/'
-      path: '/planes2'
-      fullPath: '/planes2'
-      preLoaderRoute: typeof Planes2IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/materias/': {
@@ -505,7 +485,6 @@ const rootRouteChildren: RootRouteChildren = {
   Planes2PlanIdRouteRoute: Planes2PlanIdRouteRouteWithChildren,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,
   MateriasIndexRoute: MateriasIndexRoute,
-  Planes2IndexRoute: Planes2IndexRoute,
   MateriasMateriaIdMateriaIdRoute: MateriasMateriaIdMateriaIdRoute,
   PlanesPlanIdIndexRoute: PlanesPlanIdIndexRoute,
   PlanesPlanIdAsignaturasAsignaturaIdRouteRoute:
