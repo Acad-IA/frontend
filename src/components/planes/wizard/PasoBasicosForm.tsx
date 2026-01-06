@@ -1,5 +1,5 @@
-import type { CARRERAS } from '@/features/planes/new/catalogs'
-import type { NewPlanWizardState } from '@/features/planes/new/types'
+import type { CARRERAS } from '@/features/planes/nuevo/catalogs'
+import type { NewPlanWizardState } from '@/features/planes/nuevo/types'
 
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,7 +14,7 @@ import {
   FACULTADES,
   NIVELES,
   TIPOS_CICLO,
-} from '@/features/planes/new/catalogs'
+} from '@/features/planes/nuevo/catalogs'
 
 export function PasoBasicosForm({
   wizard,
@@ -146,7 +146,7 @@ export function PasoBasicosForm({
             id="tipoCiclo"
             className="w-full min-w-0 [&>span]:block! [&>span]:truncate!"
           >
-            <SelectValue />
+            <SelectValue placeholder="Selecciona tipo de ciclo…" />
           </SelectTrigger>
           <SelectContent>
             {TIPOS_CICLO.map((t) => (
@@ -174,6 +174,7 @@ export function PasoBasicosForm({
               },
             }))
           }
+          placeholder="1"
         />
       </div>
     </div>

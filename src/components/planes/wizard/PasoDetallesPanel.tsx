@@ -1,4 +1,6 @@
-import type { NewPlanWizardState } from '@/features/planes/new/types'
+import ReferenciasParaIA from './PasoDetallesPanel/ReferenciasParaIA'
+
+import type { NewPlanWizardState } from '@/features/planes/nuevo/types'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -14,7 +16,7 @@ import {
   CARRERAS,
   FACULTADES,
   PLANES_EXISTENTES,
-} from '@/features/planes/new/catalogs'
+} from '@/features/planes/nuevo/catalogs'
 
 export function PasoDetallesPanel({
   wizard,
@@ -42,8 +44,8 @@ export function PasoDetallesPanel({
 
   if (wizard.modoCreacion === 'IA') {
     return (
-      <div className="grid gap-4">
-        <div>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
           <Label htmlFor="desc">Descripción del enfoque</Label>
           <textarea
             id="desc"
@@ -61,24 +63,8 @@ export function PasoDetallesPanel({
             }
           />
         </div>
-        <div>
-          <Label htmlFor="poblacion">Población objetivo</Label>
-          <Input
-            id="poblacion"
-            placeholder="Ej. Egresados de bachillerato con perfil STEM"
-            value={wizard.iaConfig?.poblacionObjetivo || ''}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              onChange((w) => ({
-                ...w,
-                iaConfig: {
-                  ...(w.iaConfig || ({} as any)),
-                  poblacionObjetivo: e.target.value,
-                },
-              }))
-            }
-          />
-        </div>
-        <div>
+
+        <div className="flex flex-col gap-1">
           <Label htmlFor="notas">Notas adicionales</Label>
           <textarea
             id="notas"
@@ -96,6 +82,7 @@ export function PasoDetallesPanel({
             }
           />
         </div>
+        <ReferenciasParaIA />
         <div className="flex items-center justify-between">
           <div className="text-muted-foreground text-sm">
             Opcional: se pueden adjuntar recursos IA más adelante.

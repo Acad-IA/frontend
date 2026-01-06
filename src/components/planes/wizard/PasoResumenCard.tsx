@@ -1,4 +1,4 @@
-import type { NewPlanWizardState } from '@/features/planes/new/types'
+import type { NewPlanWizardState } from '@/features/planes/nuevo/types'
 
 import {
   Card,

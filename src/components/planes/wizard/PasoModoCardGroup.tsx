@@ -4,7 +4,7 @@ import type {
   NewPlanWizardState,
   ModoCreacion,
   SubModoClonado,
-} from '@/features/planes/new/types'
+} from '@/features/planes/nuevo/types'
 
 import {
   Card,
@@ -23,6 +23,19 @@ export function PasoModoCardGroup({
 }) {
   const isSelected = (m: ModoCreacion) => wizard.modoCreacion === m
   const isSubSelected = (s: SubModoClonado) => wizard.subModoClonado === s
+  const handleKeyActivate = (e: React.KeyboardEvent, cb: () => void) => {
+    const key = e.key
+    if (
+      key === 'Enter' ||
+      key === ' ' ||
+      key === 'Spacebar' ||
+      key === 'Space'
+    ) {
+      e.preventDefault()
+      e.stopPropagation()
+      cb()
+    }
+  }
   return (
     <div className="grid gap-4 sm:grid-cols-3">
       <Card
@@ -33,6 +46,15 @@ export function PasoModoCardGroup({
             modoCreacion: 'MANUAL',
             subModoClonado: undefined,
           }))
+        }
+        onKeyDown={(e: React.KeyboardEvent) =>
+          handleKeyActivate(e, () =>
+            onChange((w) => ({
+              ...w,
+              modoCreacion: 'MANUAL',
+              subModoClonado: undefined,
+            })),
+          )
         }
         role="button"
         tabIndex={0}
@@ -54,6 +76,15 @@ export function PasoModoCardGroup({
             subModoClonado: undefined,
           }))
         }
+        onKeyDown={(e: React.KeyboardEvent) =>
+          handleKeyActivate(e, () =>
+            onChange((w) => ({
+              ...w,
+              modoCreacion: 'IA',
+              subModoClonado: undefined,
+            })),
+          )
+        }
         role="button"
         tabIndex={0}
       >
@@ -70,6 +101,11 @@ export function PasoModoCardGroup({
       <Card
         className={isSelected('CLONADO') ? 'ring-ring ring-2' : ''}
         onClick={() => onChange((w) => ({ ...w, modoCreacion: 'CLONADO' }))}
+        onKeyDown={(e: React.KeyboardEvent) =>
+          handleKeyActivate(e, () =>
+            onChange((w) => ({ ...w, modoCreacion: 'CLONADO' })),
+          )
+        }
         role="button"
         tabIndex={0}
       >
@@ -88,6 +124,11 @@ export function PasoModoCardGroup({
                 e.stopPropagation()
                 onChange((w) => ({ ...w, subModoClonado: 'INTERNO' }))
               }}
+              onKeyDown={(e: React.KeyboardEvent) =>
+                handleKeyActivate(e, () =>
+                  onChange((w) => ({ ...w, subModoClonado: 'INTERNO' })),
+                )
+              }
               className={`hover:border-primary/50 hover:bg-accent flex cursor-pointer flex-row items-center justify-center gap-2 rounded-lg border p-4 text-center transition-all sm:flex-col ${
                 isSubSelected('INTERNO')
                   ? 'border-primary bg-primary/5 ring-primary text-primary ring-1'
@@ -105,6 +146,11 @@ export function PasoModoCardGroup({
                 e.stopPropagation()
                 onChange((w) => ({ ...w, subModoClonado: 'TRADICIONAL' }))
               }}
+              onKeyDown={(e: React.KeyboardEvent) =>
+                handleKeyActivate(e, () =>
+                  onChange((w) => ({ ...w, subModoClonado: 'TRADICIONAL' })),
+                )
+              }
               className={`hover:border-primary/50 hover:bg-accent flex cursor-pointer flex-row items-center justify-center gap-2 rounded-lg border p-4 text-center transition-all sm:flex-col ${
                 isSubSelected('TRADICIONAL')
                   ? 'border-primary bg-primary/5 ring-primary text-primary ring-1'

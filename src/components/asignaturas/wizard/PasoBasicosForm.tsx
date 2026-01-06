@@ -1,7 +1,7 @@
 import type {
   NewSubjectWizardState,
   TipoAsignatura,
-} from '@/features/asignaturas/new/types'
+} from '@/features/asignaturas/nueva/types'
 
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,7 +15,7 @@ import {
 import {
   ESTRUCTURAS_SEP,
   TIPOS_MATERIA,
-} from '@/features/asignaturas/new/catalogs'
+} from '@/features/asignaturas/nueva/catalogs'
 
 export function PasoBasicosForm({
   wizard,

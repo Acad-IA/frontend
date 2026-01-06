@@ -9,12 +9,12 @@ export function useNuevoPlanWizard() {
     step: 1,
     modoCreacion: null,
     datosBasicos: {
-      nombrePlan: "",
-      carreraId: "",
-      facultadId: "",
-      nivel: "",
-      tipoCiclo: "",
-      numCiclos: undefined,
+      nombrePlan: "Medicina",
+      carreraId: "medico",
+      facultadId: "med",
+      nivel: "Licenciatura",
+      tipoCiclo: "SEMESTRE",
+      numCiclos: 8,
     },
     clonInterno: { planOrigenId: null },
     clonTradicional: {
