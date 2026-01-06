@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
-export const Route = createFileRoute('/planes2/$planId/documento')({
+export const Route = createFileRoute('/planes/$planId/_detalle/documento')({
   component: RouteComponent,
 })
 

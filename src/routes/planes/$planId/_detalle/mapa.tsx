@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { MateriaCard } from './MateriaCard';
 import type { Materia } from './MateriaCard'; // Agregamos 'type' aquí
 
-export const Route = createFileRoute('/planes2/$planId/mapa')({
+export const Route = createFileRoute('/planes/$planId/_detalle/mapa')({
   component: MapaCurricular,
 })
 

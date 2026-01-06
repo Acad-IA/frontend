@@ -13,7 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-export const Route = createFileRoute('/planes2/$planId/materias')({
+export const Route = createFileRoute('/planes/$planId/_detalle/materias')({
   component: Materias,
 })
 

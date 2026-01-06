@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 
-export const Route = createFileRoute('/planes2/$planId/iaplan')({
+export const Route = createFileRoute('/planes/$planId/_detalle/iaplan')({
   component: RouteComponent,
 })
 

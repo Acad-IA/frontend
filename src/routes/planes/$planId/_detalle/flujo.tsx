@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 
-export const Route = createFileRoute('/planes2/$planId/flujo')({
+export const Route = createFileRoute('/planes/$planId/_detalle/flujo')({
   component: RouteComponent,
 })
 

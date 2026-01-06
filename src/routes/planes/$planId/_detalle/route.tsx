@@ -2,11 +2,11 @@ import { createFileRoute, Outlet, Link } from '@tanstack/react-router'
 import { ChevronLeft, GraduationCap, Clock, Hash, CalendarDays, Rocket, BookOpen, CheckCircle2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
-export const Route = createFileRoute('/planes2/$planId')({
-  component: PlanLayout,
+export const Route = createFileRoute('/planes/$planId/_detalle')({
+  component: RouteComponent,
 })
 
-function PlanLayout() {
+function RouteComponent() {
   const { planId } = Route.useParams()
 
   return (
@@ -15,7 +15,7 @@ function PlanLayout() {
       <div className="border-b bg-white/50 backdrop-blur-sm sticky top-0 z-20 shadow-sm">
         <div className="px-6 py-2">
           <Link 
-            to="/planes2" 
+            to="/planes" 
             className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 transition-colors w-fit"
           >
             <ChevronLeft size={14} /> Volver a planes
@@ -60,13 +60,13 @@ function PlanLayout() {
         {/* 4. Navegación de Tabs */}
         <div className="border-b overflow-x-auto scrollbar-hide">
           <nav className="flex gap-8 min-w-max">
-            <Tab to="/planes2/$planId" params={{ planId }}>Datos Generales</Tab>
-            <Tab to="/planes2/$planId/mapa" params={{ planId }}>Mapa Curricular</Tab>
-            <Tab to="/planes2/$planId/materias" params={{ planId }}>Materias</Tab>
-            <Tab to="/planes2/$planId/flujo" params={{ planId }}>Flujo y Estados</Tab>
-            <Tab to="/planes2/$planId/iaplan" params={{ planId }}>IA del Plan</Tab>
-            <Tab to="/planes2/$planId/documento" params={{ planId }}>Documento</Tab>
-            <Tab to="/planes2/$planId/historial" params={{ planId }}>Historial</Tab>
+            <Tab to="/planes/$planId/datos" params={{ planId }}>Datos Generales</Tab>
+            <Tab to="/planes/$planId/mapa" params={{ planId }}>Mapa Curricular</Tab>
+            <Tab to="/planes/$planId/materias" params={{ planId }}>Materias</Tab>
+            <Tab to="/planes/$planId/flujo" params={{ planId }}>Flujo y Estados</Tab>
+            <Tab to="/planes/$planId/iaplan" params={{ planId }}>IA del Plan</Tab>
+            <Tab to="/planes/$planId/documento" params={{ planId }}>Documento</Tab>
+            <Tab to="/planes/$planId/historial" params={{ planId }}>Historial</Tab>
           </nav>
         </div>
 
@@ -78,6 +78,7 @@ function PlanLayout() {
     </div>
   )
 }
+
 
 // Sub-componente para las tarjetas de información
 function InfoCard({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) {

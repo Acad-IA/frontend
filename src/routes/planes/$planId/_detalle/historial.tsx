@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
-export const Route = createFileRoute('/planes2/$planId/historial')({
+export const Route = createFileRoute('/planes/$planId/_detalle/historial')({
   component: RouteComponent,
 })
 
