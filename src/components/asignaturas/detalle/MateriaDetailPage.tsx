@@ -1,19 +1,106 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+
+import  { useCallback, useState } from 'react'
+import {  Link } from '@tanstack/react-router'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { Textarea } from '@/components/ui/textarea'
 import {
   ArrowLeft,
   GraduationCap,
-
+  Edit2, Save, 
+  Pencil
 } from 'lucide-react'
 import { ContenidoTematico } from './ContenidoTematico'
 import { BibliographyItem } from './BibliographyItem'
+import { IAMateriaTab } from './IAMateriaTab'
+import type { 
+  CampoEstructura,
+  IAMessage, 
+  IASugerencia, 
+  UnidadTematica, 
+} from '@/types/materia';
+import {
+  mockMateria,
+  mockEstructura,
+  mockDocumentoSep,
+  mockHistorial
+} from '@/data/mockMateriaData';
+import { DocumentoSEPTab } from './DocumentoSEPTab'
+import { HistorialTab } from './HistorialTab'
+
+export interface BibliografiaEntry {
+  id: string;
+  tipo: 'BASICA' | 'COMPLEMENTARIA';
+  cita: string;
+  fuenteBibliotecaId?: string;
+  fuenteBiblioteca?: any;
+}
+export interface BibliografiaTabProps {
+  bibliografia: BibliografiaEntry[];
+  onSave: (bibliografia: BibliografiaEntry[]) => void;
+  isSaving: boolean;
+}
 
 export default function MateriaDetailPage() {
 
+  // 1. Asegúrate de tener estos estados en tu componente principal
+const [messages, setMessages] = useState<IAMessage[]>([]);
+const [datosGenerales, setDatosGenerales] = useState({});
+const [campos, setCampos] = useState<CampoEstructura[]>([]);
+
+// 2. Funciones de manejo para la IA
+const handleSendMessage = (text: string, campoId?: string) => {
+  const newMessage: IAMessage = {
+    id: Date.now().toString(),
+    role: 'user',
+    content: text,
+    timestamp: new Date(),
+    campoAfectado: campoId
+  };
+  setMessages([...messages, newMessage]);
+  
+  // Aquí llamarías a tu API de OpenAI/Claude
+  //toast.info("Enviando consulta a la IA...");
+};
+
+const handleAcceptSuggestion = (sugerencia: IASugerencia) => {
+  // Lógica para actualizar el valor del campo en tu estado de datosGenerales
+  //toast.success(`Sugerencia aplicada a ${sugerencia.campoNombre}`);
+};
+
+  // Dentro de tu componente principal (donde están los Tabs)
+const [bibliografia, setBibliografia] = useState<BibliografiaEntry[]>([
+  {
+    id: '1',
+    tipo: 'BASICA',
+    cita: 'Russell, S., & Norvig, P. (2020). Artificial Intelligence: A Modern Approach. Pearson.'
+  }
+]);
+const [isSaving, setIsSaving] = useState(false);
+
+const handleSaveBibliografia = (data: BibliografiaEntry[]) => {
+  setIsSaving(true);
+  // Aquí iría tu llamada a la API
+  setBibliografia(data);
+  
+  // Simulamos un guardado
+  setTimeout(() => {
+    setIsSaving(false);
+    //toast.success("Cambios guardados");
+  }, 1000);
+};
+
+ const [isRegenerating, setIsRegenerating] = useState(false);
+
+const handleRegenerateDocument = useCallback(() => {
+    setIsRegenerating(true);
+    setTimeout(() => {
+      setIsRegenerating(false);
+    }, 2000);
+  }, []);
 
   return (
     <div className="w-full">
@@ -21,7 +108,7 @@ export default function MateriaDetailPage() {
       <section className="bg-gradient-to-b from-[#0b1d3a] to-[#0e2a5c] text-white">
         <div className="max-w-7xl mx-auto px-6 py-10">
           <Link
-            to="/materias"
+            to="/planes"
             className="flex items-center gap-2 text-sm text-blue-200 hover:text-white mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -90,23 +177,36 @@ export default function MateriaDetailPage() {
 
             <TabsContent value="bibliografia">
               <BibliographyItem 
-                value="Russell, S., & Norvig, P. (2021). Artificial Intelligence: A Modern Approach (4th ed.). Pearson."
-              onSave={(newValue) => {
-                console.log('Guardar en API:', newValue)
-              }}
+                bibliografia={bibliografia} 
+                onSave={handleSaveBibliografia} 
+                isSaving={isSaving} 
               />
             </TabsContent>
 
             <TabsContent value="ia">
-              <EmptyTab title="IA de la materia" />
+              <IAMateriaTab 
+              campos={campos}
+              datosGenerales={datosGenerales}
+              messages={messages}
+              onSendMessage={handleSendMessage}
+              onAcceptSuggestion={handleAcceptSuggestion}
+              onRejectSuggestion={(id) => console.log("Rechazada") /*toast.error("Sugerencia rechazada")*/}
+            />
             </TabsContent>
 
             <TabsContent value="sep">
-              <EmptyTab title="Documento SEP" />
+              <DocumentoSEPTab
+                documento={mockDocumentoSep}
+                materia={mockMateria}
+                estructura={mockEstructura}
+                datosGenerales={datosGenerales}
+                onRegenerate={handleRegenerateDocument}
+                isRegenerating={isRegenerating}
+              />
             </TabsContent>
 
             <TabsContent value="historial">
-              <EmptyTab title="Historial" />
+               <HistorialTab historial={mockHistorial} />
             </TabsContent>
           </Tabs>
         </div>
@@ -119,104 +219,173 @@ export default function MateriaDetailPage() {
 
 function DatosGenerales() {
   return (
-    <div className="max-w-5xl mx-auto py-10 space-y-6">
-      <HeaderTab />
-
-      <InfoCard
-        title="Objetivo General"
-        content="Formar profesionales capaces de diseñar, implementar y evaluar sistemas de inteligencia artificial que resuelvan problemas complejos del mundo real."
-      />
-
-      <InfoCard
-        title="Competencias a Desarrollar"
-        content={
-          <ul className="list-disc list-inside space-y-1">
-            <li>Diseñar algoritmos de machine learning</li>
-            <li>Implementar redes neuronales profundas</li>
-            <li>Evaluar modelos de IA considerando métricas</li>
-            <li>Aplicar principios éticos en sistemas inteligentes</li>
-          </ul>
-        }
-      />
-
-      <InfoCard
-        title="Justificación"
-        content="La inteligencia artificial es una de las tecnologías más disruptivas del siglo XXI..."
-      />
-
-      <InfoCard
-        title="Requisitos y Seriación"
-        content="Programación Avanzada (PA-301), Matemáticas Discretas (MAT-201)"
-      />
-
-      <InfoCard
-        title="Estrategias Didácticas"
-        content={
-          <ul className="list-disc list-inside space-y-1">
-            <li>Aprendizaje basado en proyectos</li>
-            <li>Talleres prácticos con datasets reales</li>
-            <li>Estudios de caso</li>
-          </ul>
-        }
-      />
-
-      <InfoCard
-        title="Sistema de Evaluación"
-        content={
-          <ul className="list-disc list-inside space-y-1">
-            <li>Exámenes parciales: 30%</li>
-            <li>Proyecto integrador: 35%</li>
-            <li>Prácticas de laboratorio: 20%</li>
-            <li>Participación: 15%</li>
-          </ul>
-        }
-      />
-
-      <InfoCard
-        title="Perfil del Docente"
-        content="Profesional con maestría o doctorado en áreas afines a IA, con experiencia mínima de 3 años."
-      />
-    </div>
-  )
-}
-
-function HeaderTab() {
-  return (
-    <div className="flex items-center justify-between">
-      <div>
-        <h2 className="text-xl font-semibold">Datos Generales</h2>
-        <p className="text-sm text-muted-foreground">
-          Información basada en la plantilla SEP Licenciatura
-        </p>
+    <div className="max-w-7xl mx-auto py-8 px-4 space-y-8 animate-in fade-in duration-500">
+      
+      {/* Encabezado de la Sección */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-6">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Datos Generales</h2>
+          <p className="text-slate-500 mt-1">
+            Información oficial estructurada bajo los lineamientos de la SEP.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" size="sm" className="gap-2">
+            <Edit2 className="w-4 h-4" /> Editar borrador
+          </Button>
+          <Button size="sm" className="gap-2 bg-blue-600 hover:bg-blue-700">
+            <Save className="w-4 h-4" /> Guardar cambios
+          </Button>
+        </div>
       </div>
 
-      <Button size="sm">Guardar todo</Button>
+      {/* Grid de Información */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* Columna Principal (Más ancha) */}
+        <div className="md:col-span-2 space-y-6">
+          <div className="md:col-span-2 space-y-6">
+          <InfoCard
+            title="Competencias a Desarrollar"
+            subtitle="Competencias profesionales que se desarrollarán"
+            isList={true}
+            initialContent={`• Diseñar algoritmos de machine learning para clasificación y predicción\n• Implementar redes neuronales profundas para procesamiento de imágenes\n• Evaluar y optimizar modelos de IA considerando métricas`}
+          />
+          
+          <InfoCard
+            title="Objetivo General"
+            initialContent="Formar profesionales capaces de diseñar, implementar y evaluar sistemas de inteligencia artificial que resuelvan problemas complejos."
+          />
+        </div>
+        
+        <div className="space-y-6">
+          <InfoCard
+            title="Justificación"
+            initialContent="La inteligencia artificial es una de las tecnologías más disruptivas..."
+          />
+        </div>
+        </div>
+
+        {/* Columna Lateral (Información Secundaria) */}
+        <div className="space-y-6">
+          <div className="space-y-6">
+          {/* Tarjeta de Requisitos */}
+          <InfoCard
+            title="Requisitos y Seriación"
+            type="requirements"
+            initialContent={[
+              { type: "Pre-requisito", code: "PA-301", name: "Programación Avanzada" },
+              { type: "Co-requisito", code: "MAT-201", name: "Matemáticas Discretas" }
+            ]}
+          />
+
+          {/* Tarjeta de Evaluación */}
+          <InfoCard
+            title="Sistema de Evaluación"
+            type="evaluation"
+            initialContent={[
+              { label: "Exámenes parciales", value: "30%" },
+              { label: "Proyecto integrador", value: "35%" },
+              { label: "Prácticas de laboratorio", value: "20%" },
+              { label: "Participación", value: "15%" },
+            ]}
+          />
+        </div>
+        </div>
+      </div>
     </div>
   )
 }
 
-function InfoCard({
-  title,
-  content,
-}: {
-  title: string
-  content: React.ReactNode
-}) {
+interface InfoCardProps {
+  title: string,
+  subtitle?: string
+  isList?:boolean
+  initialContent: any // Puede ser string o array de objetos
+  type?: 'text' | 'list' | 'requirements' | 'evaluation'
+}
+
+function InfoCard({ title, initialContent, type = 'text' }: InfoCardProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [data, setData] = useState(initialContent)
+  // Estado temporal para el área de texto (siempre editamos como texto por simplicidad)
+  const [tempText, setTempText] = useState(
+    type === 'text' || type === 'list' 
+      ? initialContent 
+      : JSON.stringify(initialContent, null, 2) // O un formato legible
+  )
+
+  const handleSave = () => {
+    // Aquí podrías parsear el texto de vuelta si es necesario
+    setData(tempText) 
+    setIsEditing(false)
+  }
+
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2">
-          {title}
-          <Badge variant="outline">Obligatorio</Badge>
-        </CardTitle>
+    <Card className="transition-all hover:border-slate-300">
+      <CardHeader className="pb-3 flex flex-row items-start justify-between space-y-0">
+        <CardTitle className="text-sm font-bold text-slate-700">{title}</CardTitle>
+        {!isEditing && (
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400" onClick={() => setIsEditing(true)}>
+            <Pencil className="h-3 w-3" />
+          </Button>
+        )}
       </CardHeader>
 
-      <CardContent className="text-sm text-muted-foreground">
-        {content}
+      <CardContent>
+        {isEditing ? (
+          <div className="space-y-3">
+            <Textarea 
+              value={tempText} 
+              onChange={(e) => setTempText(e.target.value)}
+              className="text-xs min-h-[100px]"
+            />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>Cancelar</Button>
+              <Button size="sm" className="bg-[#00a878]" onClick={handleSave}>Guardar</Button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm">
+            {type === 'requirements' && <RequirementsView items={data} />}
+            {type === 'evaluation' && <EvaluationView items={data} />}
+            {type === 'text' && <p className="text-slate-600">{data}</p>}
+          </div>
+        )}
       </CardContent>
     </Card>
   )
 }
+
+// Vista de Requisitos
+function RequirementsView({ items }: { items: any[] }) {
+  return (
+    <div className="space-y-3">
+      {items.map((req, i) => (
+        <div key={i} className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{req.type}</p>
+          <p className="text-sm font-medium text-slate-700">{req.code} {req.name}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Vista de Evaluación
+function EvaluationView({ items }: { items: any[] }) {
+  return (
+    <div className="space-y-2">
+      {items.map((item, i) => (
+        <div key={i} className="flex justify-between text-sm border-b border-slate-50 pb-1.5 italic">
+          <span className="text-slate-500">{item.label}</span>
+          <span className="font-bold text-blue-600">{item.value}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+
 
 function EmptyTab({ title }: { title: string }) {
   return (
