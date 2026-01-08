@@ -20,7 +20,7 @@ interface FileDropzoneProps {
 }
 
 export function FileDropzone({
-  // onFilesChange,
+  onFilesChange,
   acceptedTypes = '.doc,.docx,.pdf',
   maxFiles = 5,
   title = 'Arrastra archivos aquí',
@@ -39,16 +39,12 @@ export function FileDropzone({
     setIsDragging(false)
   }, [])
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      setIsDragging(false)
-
-      const droppedFiles = Array.from(e.dataTransfer.files)
-      addFiles(droppedFiles)
-    },
-    [files],
-  )
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const droppedFiles = Array.from(e.dataTransfer.files)
+    addFiles(droppedFiles)
+  }, [])
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,29 +53,40 @@ export function FileDropzone({
         addFiles(selectedFiles)
       }
     },
-    [files],
+    [],
   )
 
-  const addFiles = (newFiles: Array<File>) => {
-    const uploadedFiles: Array<UploadedFile> = newFiles
-      .slice(0, maxFiles - files.length)
-      .map((file) => ({
-        id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+  const addFiles = useCallback(
+    (newFiles: Array<File>) => {
+      const toUpload: Array<UploadedFile> = newFiles.map((file) => ({
+        id:
+          typeof crypto !== 'undefined' && 'randomUUID' in crypto
+            ? (crypto as any).randomUUID()
+            : `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         name: file.name,
         size: formatFileSize(file.size),
         type: file.name.split('.').pop() || 'file',
       }))
+      setFiles((prev) => {
+        const room = Math.max(0, maxFiles - prev.length)
+        const next = [...prev, ...toUpload.slice(0, room)].slice(0, maxFiles)
+        if (onFilesChange) onFilesChange(next)
+        return next
+      })
+    },
+    [maxFiles, onFilesChange],
+  )
 
-    const updatedFiles = [...files, ...uploadedFiles].slice(0, maxFiles)
-    setFiles(updatedFiles)
-    // onFilesChange(updatedFiles)
-  }
-
-  const removeFile = (fileId: string) => {
-    const updatedFiles = files.filter((f) => f.id !== fileId)
-    setFiles(updatedFiles)
-    // onFilesChange(updatedFiles)
-  }
+  const removeFile = useCallback(
+    (fileId: string) => {
+      setFiles((prev) => {
+        const next = prev.filter((f) => f.id !== fileId)
+        if (onFilesChange) onFilesChange(next)
+        return next
+      })
+    },
+    [onFilesChange],
+  )
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + ' B'

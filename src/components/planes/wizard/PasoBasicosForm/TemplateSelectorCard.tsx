@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import {
   Card,
@@ -46,32 +46,49 @@ interface Props {
   cardTitle?: string
   cardDescription?: string
   templatesData?: Array<TemplateData>
+  // Controlled selection (optional). If not provided, component manages its own state
+  selectedTemplateId?: string
+  selectedVersion?: string
+  onChange?: (sel: { templateId: string; version: string }) => void
 }
 
 export function TemplateSelectorCard({
   cardTitle = 'Configuración del Documento',
   cardDescription = 'Selecciona la base para tu nuevo plan.',
   templatesData = DEFAULT_TEMPLATES_DATA,
+  selectedTemplateId,
+  selectedVersion,
+  onChange,
 }: Props) {
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('')
-  const [selectedVersion, setSelectedVersion] = useState<string>('')
+  const [internalTemplate, setInternalTemplate] = useState<string>('')
+  const [internalVersion, setInternalVersion] = useState<string>('')
+
+  const selectedTemplate = selectedTemplateId ?? internalTemplate
+  const version = selectedVersion ?? internalVersion
 
   // Buscamos las versiones de la plantilla seleccionada
-  const currentTemplateData = templatesData.find(
-    (t) => t.id === selectedTemplate,
+  const currentTemplateData = useMemo(
+    () => templatesData.find((t) => t.id === selectedTemplate),
+    [templatesData, selectedTemplate],
   )
   const availableVersions = currentTemplateData?.versions || []
 
   const handleTemplateChange = (value: string) => {
-    setSelectedTemplate(value)
-    // Buscamos los datos de esta plantilla
     const template = templatesData.find((t) => t.id === value)
-
-    // Si tiene versiones, seleccionamos la primera automáticamente
-    if (template && template.versions.length > 0) {
-      setSelectedVersion(template.versions[0])
+    const firstVersion = template?.versions?.[0] ?? ''
+    if (onChange) {
+      onChange({ templateId: value, version: firstVersion })
     } else {
-      setSelectedVersion('')
+      setInternalTemplate(value)
+      setInternalVersion(firstVersion)
+    }
+  }
+
+  const handleVersionChange = (value: string) => {
+    if (onChange) {
+      onChange({ templateId: selectedTemplate, version: value })
+    } else {
+      setInternalVersion(value)
     }
   }
 
@@ -125,8 +142,8 @@ export function TemplateSelectorCard({
           </div>
 
           <Select
-            value={selectedVersion}
-            onValueChange={setSelectedVersion}
+            value={version}
+            onValueChange={handleVersionChange}
             disabled={!selectedTemplate}
           >
             <SelectTrigger

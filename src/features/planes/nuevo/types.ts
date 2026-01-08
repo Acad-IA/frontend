@@ -22,11 +22,20 @@ export type NewPlanWizardState = {
     nivel: string;
     tipoCiclo: TipoCiclo | "";
     numCiclos: number | undefined;
+    // Selección de plantillas (obligatorias)
+    plantillaPlanId?: string;
+    plantillaPlanVersion?: string;
+    plantillaMapaId?: string;
+    plantillaMapaVersion?: string;
   };
   clonInterno?: { planOrigenId: string | null };
   clonTradicional?: {
-    archivoWordPlanId: string | null;
-    archivoMapaExcelId: string | null;
+    archivoWordPlanId:
+      | { id: string; name: string; size: string; type: string }
+      | null;
+    archivoMapaExcelId:
+      | string
+      | null;
     archivoAsignaturasExcelId: string | null;
   };
   iaConfig?: {
@@ -34,6 +43,10 @@ export type NewPlanWizardState = {
     poblacionObjetivo: string;
     notasAdicionales: string;
     archivosReferencia: Array<string>;
+    repositoriosReferencia?: Array<string>;
+    archivosAdjuntos?: Array<
+      { id: string; name: string; size: string; type: string }
+    >;
   };
   resumen: { previewPlan?: PlanPreview };
   isLoading: boolean;

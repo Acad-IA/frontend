@@ -8,6 +8,18 @@ export function useNuevoPlanWizard() {
   const [wizard, setWizard] = useState<NewPlanWizardState>({
     step: 1,
     modoCreacion: null,
+    // datosBasicos: {
+    //   nombrePlan: "",
+    //   carreraId: "",
+    //   facultadId: "",
+    //   nivel: "",
+    //   tipoCiclo: "",
+    //   numCiclos: undefined,
+    //   plantillaPlanId: "",
+    //   plantillaPlanVersion: "",
+    //   plantillaMapaId: "",
+    //   plantillaMapaVersion: "",
+    // },
     datosBasicos: {
       nombrePlan: "Medicina",
       carreraId: "medico",
@@ -15,6 +27,10 @@ export function useNuevoPlanWizard() {
       nivel: "Licenciatura",
       tipoCiclo: "SEMESTRE",
       numCiclos: 8,
+      plantillaPlanId: "sep-2025",
+      plantillaPlanVersion: "v2025.2 (Vigente)",
+      plantillaMapaId: "sep-2017-xlsx",
+      plantillaMapaVersion: "v2017.0",
     },
     clonInterno: { planOrigenId: null },
     clonTradicional: {
@@ -27,6 +43,8 @@ export function useNuevoPlanWizard() {
       poblacionObjetivo: "",
       notasAdicionales: "",
       archivosReferencia: [],
+      repositoriosReferencia: [],
+      archivosAdjuntos: [],
     },
     resumen: {},
     isLoading: false,
@@ -47,12 +65,19 @@ export function useNuevoPlanWizard() {
     !!wizard.datosBasicos.facultadId &&
     !!wizard.datosBasicos.nivel &&
     (wizard.datosBasicos.numCiclos !== undefined &&
-      wizard.datosBasicos.numCiclos > 0);
+      wizard.datosBasicos.numCiclos > 0) &&
+    // Requerir ambas plantillas (plan y mapa) con versión
+    !!wizard.datosBasicos.plantillaPlanId &&
+    !!wizard.datosBasicos.plantillaPlanVersion &&
+    !!wizard.datosBasicos.plantillaMapaId &&
+    !!wizard.datosBasicos.plantillaMapaVersion;
 
   const canContinueDesdeDetalles = (() => {
     if (wizard.modoCreacion === "MANUAL") return true;
     if (wizard.modoCreacion === "IA") {
-      return !!wizard.iaConfig?.descripcionEnfoque;
+      // Requerimos descripción del enfoque y notas adicionales
+      return !!wizard.iaConfig?.descripcionEnfoque &&
+        !!wizard.iaConfig?.notasAdicionales;
     }
     if (wizard.modoCreacion === "CLONADO") {
       if (wizard.subModoClonado === "INTERNO") {

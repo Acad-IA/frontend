@@ -115,20 +115,6 @@ export const REPOSITORIOS = [
   },
 ];
 
-export const ESTRUCTURAS_PLAN_ESTUDIO = [
-  {
-    id: "estruc-1",
-    nombre: "Estructura RVOE 2017.docx",
-    versiones: ["v1.0", "v1.1", "v2.0"],
-  },
-  {
-    id: "estruc-2",
-    nombre: "Estructura RVOE 2026.docx",
-    versiones: ["v1.0", "v1.1"],
-  },
-  { id: "estruc-3", nombre: "Estructura ULSA 2022.docx", versiones: ["v1.0"] },
-];
-
 export const PLANTILLAS_ANEXO_1 = [
   {
     id: "sep-2025",

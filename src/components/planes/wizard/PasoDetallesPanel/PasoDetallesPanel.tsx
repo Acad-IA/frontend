@@ -1,3 +1,4 @@
+import { FileDropzone } from './FileDropZone'
 import ReferenciasParaIA from './ReferenciasParaIA'
 
 import type { NewPlanWizardState } from '@/features/planes/nuevo/types'
@@ -82,7 +83,17 @@ export function PasoDetallesPanel({
             }
           />
         </div>
-        <ReferenciasParaIA />
+        <ReferenciasParaIA
+          onFilesChange={(files) =>
+            onChange((w) => ({
+              ...w,
+              iaConfig: {
+                ...(w.iaConfig || ({} as any)),
+                archivosAdjuntos: files,
+              },
+            }))
+          }
+        />
         <div className="flex items-center justify-between">
           <div className="text-muted-foreground text-sm">
             Opcional: se pueden adjuntar recursos IA más adelante.
@@ -229,10 +240,10 @@ export function PasoDetallesPanel({
     wizard.subModoClonado === 'TRADICIONAL'
   ) {
     return (
-      <div className="grid gap-4">
-        <div>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
           <Label htmlFor="word">Word del plan (obligatorio)</Label>
-          <input
+          {/* <input
             id="word"
             type="file"
             accept=".doc,.docx"
@@ -248,6 +259,20 @@ export function PasoDetallesPanel({
                 },
               }))
             }
+          /> */}
+
+          <FileDropzone
+            acceptedTypes=".doc,.docx"
+            maxFiles={1}
+            onFilesChange={(file) => {
+              onChange((w) => ({
+                ...w,
+                clonTradicional: {
+                  ...(w.clonTradicional || ({} as any)),
+                  archivoWordPlanId: file,
+                },
+              }))
+            }}
           />
         </div>
         <div>

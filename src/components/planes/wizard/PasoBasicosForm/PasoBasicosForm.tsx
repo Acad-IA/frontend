@@ -20,6 +20,7 @@ import {
   PLANTILLAS_ANEXO_1,
   PLANTILLAS_ANEXO_2,
 } from '@/features/planes/nuevo/catalogs'
+import { cn } from '@/lib/utils'
 
 export function PasoBasicosForm({
   wizard,
@@ -34,7 +35,9 @@ export function PasoBasicosForm({
     <div className="flex flex-col gap-2">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-1 sm:col-span-2">
-          <Label htmlFor="nombrePlan">Nombre del plan</Label>
+          <Label htmlFor="nombrePlan">
+            Nombre del plan <span className="text-destructive">*</span>
+          </Label>
           <Input
             id="nombrePlan"
             placeholder="Ej. Ingeniería en Sistemas 2026"
@@ -45,6 +48,7 @@ export function PasoBasicosForm({
                 datosBasicos: { ...w.datosBasicos, nombrePlan: e.target.value },
               }))
             }
+            className="placeholder:text-muted-foreground/70 font-medium not-italic placeholder:font-normal placeholder:italic"
           />
         </div>
 
@@ -65,9 +69,14 @@ export function PasoBasicosForm({
           >
             <SelectTrigger
               id="facultad"
-              className="w-full min-w-0 [&>span]:block! [&>span]:truncate!"
+              className={cn(
+                'w-full min-w-0 [&>span]:block! [&>span]:truncate!',
+                !wizard.datosBasicos.facultadId
+                  ? 'text-muted-foreground font-normal italic opacity-70' // Es Placeholder
+                  : 'font-medium not-italic', // Tiene Valor (Medium)
+              )}
             >
-              <SelectValue placeholder="Selecciona facultad…" />
+              <SelectValue placeholder="Ej. Facultad de Ingeniería" />
             </SelectTrigger>
             <SelectContent>
               {FACULTADES.map((f) => (
@@ -93,9 +102,14 @@ export function PasoBasicosForm({
           >
             <SelectTrigger
               id="carrera"
-              className="w-full min-w-0 [&>span]:block! [&>span]:truncate!"
+              className={cn(
+                'w-full min-w-0 [&>span]:block! [&>span]:truncate!',
+                !wizard.datosBasicos.carreraId
+                  ? 'text-muted-foreground font-normal italic opacity-70' // Es Placeholder
+                  : 'font-medium not-italic', // Tiene Valor (Medium)
+              )}
             >
-              <SelectValue placeholder="Selecciona carrera…" />
+              <SelectValue placeholder="Ej. Ingeniería en Cibernética y Sistemas Computacionales" />
             </SelectTrigger>
             <SelectContent>
               {carrerasFiltradas.map((c) => (
@@ -120,9 +134,14 @@ export function PasoBasicosForm({
           >
             <SelectTrigger
               id="nivel"
-              className="w-full min-w-0 [&>span]:block! [&>span]:truncate!"
+              className={cn(
+                'w-full min-w-0 [&>span]:block! [&>span]:truncate!',
+                !wizard.datosBasicos.nivel
+                  ? 'text-muted-foreground font-normal italic opacity-70' // Es Placeholder
+                  : 'font-medium not-italic', // Tiene Valor (Medium)
+              )}
             >
-              <SelectValue placeholder="Selecciona nivel…" />
+              <SelectValue placeholder="Ej. Licenciatura" />
             </SelectTrigger>
             <SelectContent>
               {NIVELES.map((n) => (
@@ -150,9 +169,14 @@ export function PasoBasicosForm({
           >
             <SelectTrigger
               id="tipoCiclo"
-              className="w-full min-w-0 [&>span]:block! [&>span]:truncate!"
+              className={cn(
+                'w-full min-w-0 [&>span]:block! [&>span]:truncate!',
+                !wizard.datosBasicos.tipoCiclo
+                  ? 'text-muted-foreground font-normal italic opacity-70' // Es Placeholder
+                  : 'font-medium not-italic', // Tiene Valor (Medium)
+              )}
             >
-              <SelectValue placeholder="Selecciona tipo de ciclo…" />
+              <SelectValue placeholder="Ej. Semestre" />
             </SelectTrigger>
             <SelectContent>
               {TIPOS_CICLO.map((t) => (
@@ -170,17 +194,20 @@ export function PasoBasicosForm({
             id="numCiclos"
             type="number"
             min={1}
-            value={wizard.datosBasicos.numCiclos}
+            value={wizard.datosBasicos.numCiclos ?? ''}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               onChange((w) => ({
                 ...w,
                 datosBasicos: {
                   ...w.datosBasicos,
-                  numCiclos: Number(e.target.value || 1),
+                  // Keep undefined when the input is empty so the field stays optional
+                  numCiclos:
+                    e.target.value === '' ? undefined : Number(e.target.value),
                 },
               }))
             }
-            placeholder="1"
+            className="placeholder:text-muted-foreground/70 font-medium not-italic placeholder:font-normal placeholder:italic"
+            placeholder="Ej. 8"
           />
         </div>
       </div>
@@ -190,11 +217,35 @@ export function PasoBasicosForm({
           cardTitle="Plantilla de plan de estudios"
           cardDescription="Selecciona el Word para tu nuevo plan."
           templatesData={PLANTILLAS_ANEXO_1}
+          selectedTemplateId={wizard.datosBasicos.plantillaPlanId || ''}
+          selectedVersion={wizard.datosBasicos.plantillaPlanVersion || ''}
+          onChange={({ templateId, version }) =>
+            onChange((w) => ({
+              ...w,
+              datosBasicos: {
+                ...w.datosBasicos,
+                plantillaPlanId: templateId,
+                plantillaPlanVersion: version,
+              },
+            }))
+          }
         />
         <TemplateSelectorCard
-          cardTitle="Mapa curricular"
+          cardTitle="Plantilla de mapa curricular"
           cardDescription="Selecciona el Excel para tu mapa curricular."
           templatesData={PLANTILLAS_ANEXO_2}
+          selectedTemplateId={wizard.datosBasicos.plantillaMapaId || ''}
+          selectedVersion={wizard.datosBasicos.plantillaMapaVersion || ''}
+          onChange={({ templateId, version }) =>
+            onChange((w) => ({
+              ...w,
+              datosBasicos: {
+                ...w.datosBasicos,
+                plantillaMapaId: templateId,
+                plantillaMapaVersion: version,
+              },
+            }))
+          }
         />
       </div>
     </div>
