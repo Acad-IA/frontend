@@ -1,5 +1,5 @@
 import * as Dialog from '@radix-ui/react-dialog';
-import { Pencil, X, Info } from 'lucide-react';
+import { Pencil, X } from 'lucide-react';
 export type Materia = {
   id: string;
   clave: string;
