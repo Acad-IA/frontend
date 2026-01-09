@@ -1,3 +1,4 @@
+import { usePlan } from '@/data';
 import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/planes/$planId/_detalle/datos')({
@@ -5,6 +6,10 @@ export const Route = createFileRoute('/planes/$planId/_detalle/datos')({
 })
 
 function DatosGenerales() {
+  const {data, isFetching} = usePlan('0e0aea4d-b8b4-4e75-8279-6224c3ac769f');
+  if(!isFetching && !data) {
+    return <div>No se encontró el plan de estudios.</div>
+  }
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <Card title="Objetivo General">

@@ -1,63 +1,37 @@
 import { supabaseBrowser } from "../supabase/client";
-import { throwIfError, requireData, getUserIdOrThrow } from "./_helpers";
-import type { Archivo, UUID } from "../types/domain";
+import { invokeEdge } from "../supabase/invokeEdge";
+import { throwIfError } from "./_helpers";
+import type { AppFile } from "./openaiFiles.api";
 
-const DEFAULT_BUCKET = "archivos";
+const EDGE = {
+  signedUrl: "files_signed_url", // Edge: recibe archivoId o ruta_storage y devuelve URL
+} as const;
 
-export type UploadFileInput = {
-  file: File;
-  bucket?: string;
-  pathPrefix?: string; // ej: "planes/<planId>" o "materias/<id>"
+export async function files_list(params?: {
   temporal?: boolean;
-  notas?: string | null;
-};
-
-export async function files_upload(input: UploadFileInput): Promise<Archivo> {
+  search?: string;
+  limit?: number;
+}): Promise<AppFile[]> {
   const supabase = supabaseBrowser();
-  const userId = await getUserIdOrThrow(supabase);
 
-  const bucket = input.bucket ?? DEFAULT_BUCKET;
-  const safeName = input.file.name.replace(/[^\w.\-() ]+/g, "_");
-  const pathPrefix = (input.pathPrefix ?? `usuarios/${userId}`).replace(/\/+$/g, "");
-
-  const storagePath = `${pathPrefix}/${crypto.randomUUID()}-${safeName}`;
-
-  const { data: upData, error: upErr } = await supabase.storage
-    .from(bucket)
-    .upload(storagePath, input.file, { upsert: false });
-
-  throwIfError(upErr);
-  requireData(upData, "No se pudo subir archivo.");
-
-  const { data: row, error: insErr } = await supabase
+  let q = supabase
     .from("archivos")
-    .insert({
-      ruta_storage: `${bucket}/${storagePath}`,
-      nombre: input.file.name,
-      mime_type: input.file.type || null,
-      bytes: input.file.size,
-      subido_por: userId as UUID,
-      temporal: Boolean(input.temporal),
-      notas: input.notas ?? null,
-    })
-    .select("id,ruta_storage,nombre,mime_type,bytes,subido_por,subido_en,temporal,openai_file_id,notas")
-    .single();
+    .select("id,openai_file_id,nombre,mime_type,bytes,ruta_storage,temporal,notas,subido_en")
+    .order("subido_en", { ascending: false });
 
-  throwIfError(insErr);
-  return requireData(row, "No se pudo registrar metadata del archivo.");
+  if (typeof params?.temporal === "boolean") q = q.eq("temporal", params.temporal);
+  if (params?.search?.trim()) q = q.ilike("nombre", `%${params.search.trim()}%`);
+  if (params?.limit) q = q.limit(params.limit);
+
+  const { data, error } = await q;
+  throwIfError(error);
+  return (data ?? []) as AppFile[];
 }
 
-export async function files_signed_url(params: {
-  ruta_storage: string; // "bucket/path/to/file"
-  expiresIn?: number; // segundos
-}): Promise<string> {
-  const supabase = supabaseBrowser();
-  const expires = params.expiresIn ?? 60 * 10;
-
-  const [bucket, ...rest] = params.ruta_storage.split("/");
-  const path = rest.join("/");
-
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expires);
-  throwIfError(error);
-  return requireData(data?.signedUrl, "No se pudo generar URL firmada.");
+/** Para preview/descarga desde espejo — SIN tocar storage directo en el cliente */
+export async function files_get_signed_url(payload: {
+  archivoId: string;      // id interno (tabla archivos)
+  expiresIn?: number;     // segundos
+}): Promise<{ signedUrl: string }> {
+  return invokeEdge<{ signedUrl: string }>(EDGE.signedUrl, payload);
 }
