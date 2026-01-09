@@ -183,10 +183,19 @@ function RouteComponent() {
 
   // Filtrado de planes
   const filteredPlans = useMemo(() => {
-    const term = search.trim().toLowerCase()
+    // Función helper para limpiar texto (quita acentos y hace minúsculas)
+    const cleanText = (text: string) => {
+      return text
+        .normalize('NFD') // Descompone "á" en "a" + "´"
+        .replace(/[\u0300-\u036f]/g, '') // Elimina los símbolos diacríticos
+        .toLowerCase() // Convierte a minúsculas
+    }
+    // Limpiamos el término de búsqueda una sola vez antes de filtrar
+    const term = cleanText(search.trim())
     return planes.filter((p) => {
       const matchName = term
-        ? p.nombrePrograma.toLowerCase().includes(term)
+        ? // Limpiamos también el nombre del programa antes de comparar
+          cleanText(p.nombrePrograma).includes(term)
         : true
       const matchFac =
         facultadSel === 'todas' ? true : p.facultadId === facultadSel

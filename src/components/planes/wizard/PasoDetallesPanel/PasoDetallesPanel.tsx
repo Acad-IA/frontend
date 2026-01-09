@@ -1,4 +1,7 @@
-import type { NewPlanWizardState } from '@/features/planes/new/types'
+import { FileDropzone } from './FileDropZone'
+import ReferenciasParaIA from './ReferenciasParaIA'
+
+import type { NewPlanWizardState } from '@/features/planes/nuevo/types'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -14,7 +17,7 @@ import {
   CARRERAS,
   FACULTADES,
   PLANES_EXISTENTES,
-} from '@/features/planes/new/catalogs'
+} from '@/features/planes/nuevo/catalogs'
 
 export function PasoDetallesPanel({
   wizard,
@@ -42,8 +45,8 @@ export function PasoDetallesPanel({
 
   if (wizard.modoCreacion === 'IA') {
     return (
-      <div className="grid gap-4">
-        <div>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
           <Label htmlFor="desc">Descripción del enfoque</Label>
           <textarea
             id="desc"
@@ -61,24 +64,8 @@ export function PasoDetallesPanel({
             }
           />
         </div>
-        <div>
-          <Label htmlFor="poblacion">Población objetivo</Label>
-          <Input
-            id="poblacion"
-            placeholder="Ej. Egresados de bachillerato con perfil STEM"
-            value={wizard.iaConfig?.poblacionObjetivo || ''}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              onChange((w) => ({
-                ...w,
-                iaConfig: {
-                  ...(w.iaConfig || ({} as any)),
-                  poblacionObjetivo: e.target.value,
-                },
-              }))
-            }
-          />
-        </div>
-        <div>
+
+        <div className="flex flex-col gap-1">
           <Label htmlFor="notas">Notas adicionales</Label>
           <textarea
             id="notas"
@@ -96,6 +83,49 @@ export function PasoDetallesPanel({
             }
           />
         </div>
+        <ReferenciasParaIA
+          selectedArchivoIds={wizard.iaConfig?.archivosReferencia || []}
+          selectedRepositorioIds={wizard.iaConfig?.repositoriosReferencia || []}
+          onToggleArchivo={(id, checked) =>
+            onChange((w) => {
+              const prev = w.iaConfig?.archivosReferencia || []
+              const next = checked
+                ? [...prev, id]
+                : prev.filter((x) => x !== id)
+              return {
+                ...w,
+                iaConfig: {
+                  ...(w.iaConfig || ({} as any)),
+                  archivosReferencia: next,
+                },
+              }
+            })
+          }
+          onToggleRepositorio={(id, checked) =>
+            onChange((w) => {
+              const prev = w.iaConfig?.repositoriosReferencia || []
+              const next = checked
+                ? [...prev, id]
+                : prev.filter((x) => x !== id)
+              return {
+                ...w,
+                iaConfig: {
+                  ...(w.iaConfig || ({} as any)),
+                  repositoriosReferencia: next,
+                },
+              }
+            })
+          }
+          onFilesChange={(files) =>
+            onChange((w) => ({
+              ...w,
+              iaConfig: {
+                ...(w.iaConfig || ({} as any)),
+                archivosAdjuntos: files,
+              },
+            }))
+          }
+        />
         <div className="flex items-center justify-between">
           <div className="text-muted-foreground text-sm">
             Opcional: se pueden adjuntar recursos IA más adelante.
@@ -144,6 +174,7 @@ export function PasoDetallesPanel({
             <select
               id="clonFacultad"
               className="bg-background text-foreground ring-offset-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+              aria-label="Facultad"
               value={wizard.datosBasicos.facultadId}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                 onChange((w) => ({
@@ -168,6 +199,7 @@ export function PasoDetallesPanel({
             <select
               id="clonCarrera"
               className="bg-background text-foreground ring-offset-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+              aria-label="Carrera"
               value={wizard.datosBasicos.carreraId}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                 onChange((w) => ({
@@ -242,10 +274,10 @@ export function PasoDetallesPanel({
     wizard.subModoClonado === 'TRADICIONAL'
   ) {
     return (
-      <div className="grid gap-4">
-        <div>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
           <Label htmlFor="word">Word del plan (obligatorio)</Label>
-          <input
+          {/* <input
             id="word"
             type="file"
             accept=".doc,.docx"
@@ -261,6 +293,21 @@ export function PasoDetallesPanel({
                 },
               }))
             }
+          /> */}
+
+          <FileDropzone
+            acceptedTypes=".doc,.docx"
+            maxFiles={1}
+            onFilesChange={(files) => {
+              const f = files[0] || null
+              onChange((w) => ({
+                ...w,
+                clonTradicional: {
+                  ...(w.clonTradicional || ({} as any)),
+                  archivoWordPlanId: f,
+                },
+              }))
+            }}
           />
         </div>
         <div>
@@ -269,17 +316,32 @@ export function PasoDetallesPanel({
             id="mapa"
             type="file"
             accept=".xls,.xlsx"
+            title="Subir mapa curricular"
             className="bg-background text-foreground ring-offset-background focus-visible:ring-ring file:bg-secondary block w-full rounded-md border px-3 py-2 text-sm shadow-sm file:mr-4 file:rounded-md file:border-0 file:px-3 file:py-1.5 file:text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              onChange((w) => ({
-                ...w,
-                clonTradicional: {
-                  ...(w.clonTradicional || ({} as any)),
-                  archivoMapaExcelId: e.target.files?.[0]
-                    ? `file_${e.target.files[0].name}`
-                    : null,
-                },
-              }))
+              onChange((w) => {
+                const file = e.target.files?.[0] || null
+                const next = file
+                  ? {
+                      id:
+                        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+                          ? (crypto as any).randomUUID()
+                          : `file-${Date.now()}-${Math.random()
+                              .toString(36)
+                              .substr(2, 9)}`,
+                      name: file.name,
+                      size: formatFileSize(file.size),
+                      type: file.name.split('.').pop() || 'file',
+                    }
+                  : null
+                return {
+                  ...w,
+                  clonTradicional: {
+                    ...(w.clonTradicional || ({} as any)),
+                    archivoMapaExcelId: next,
+                  },
+                }
+              })
             }
           />
         </div>
@@ -289,17 +351,32 @@ export function PasoDetallesPanel({
             id="asignaturas"
             type="file"
             accept=".xls,.xlsx,.csv"
+            title="Subir listado de asignaturas"
             className="bg-background text-foreground ring-offset-background focus-visible:ring-ring file:bg-secondary block w-full rounded-md border px-3 py-2 text-sm shadow-sm file:mr-4 file:rounded-md file:border-0 file:px-3 file:py-1.5 file:text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              onChange((w) => ({
-                ...w,
-                clonTradicional: {
-                  ...(w.clonTradicional || ({} as any)),
-                  archivoAsignaturasExcelId: e.target.files?.[0]
-                    ? `file_${e.target.files[0].name}`
-                    : null,
-                },
-              }))
+              onChange((w) => {
+                const file = e.target.files?.[0] || null
+                const next = file
+                  ? {
+                      id:
+                        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+                          ? (crypto as any).randomUUID()
+                          : `file-${Date.now()}-${Math.random()
+                              .toString(36)
+                              .substr(2, 9)}`,
+                      name: file.name,
+                      size: formatFileSize(file.size),
+                      type: file.name.split('.').pop() || 'file',
+                    }
+                  : null
+                return {
+                  ...w,
+                  clonTradicional: {
+                    ...(w.clonTradicional || ({} as any)),
+                    archivoAsignaturasExcelId: next,
+                  },
+                }
+              })
             }
           />
         </div>
@@ -320,4 +397,10 @@ export function PasoDetallesPanel({
       </CardHeader>
     </Card>
   )
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }

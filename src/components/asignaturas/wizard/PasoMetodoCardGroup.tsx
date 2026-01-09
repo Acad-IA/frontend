@@ -4,7 +4,7 @@ import type {
   ModoCreacion,
   NewSubjectWizardState,
   SubModoClonado,
-} from '@/features/asignaturas/new/types'
+} from '@/features/asignaturas/nueva/types'
 
 import {
   Card,
