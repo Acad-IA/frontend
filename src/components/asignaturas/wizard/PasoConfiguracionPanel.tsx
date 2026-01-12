@@ -1,6 +1,6 @@
 import * as Icons from 'lucide-react'
 
-import type { NewSubjectWizardState } from '@/features/asignaturas/new/types'
+import type { NewSubjectWizardState } from '@/features/asignaturas/nueva/types'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -25,7 +25,7 @@ import {
   FACULTADES,
   MATERIAS_MOCK,
   PLANES_MOCK,
-} from '@/features/asignaturas/new/catalogs'
+} from '@/features/asignaturas/nueva/catalogs'
 
 export function PasoConfiguracionPanel({
   wizard,

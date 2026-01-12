@@ -1,4 +1,4 @@
-import type { NewSubjectWizardState } from '@/features/asignaturas/new/types'
+import type { NewSubjectWizardState } from '@/features/asignaturas/nueva/types'
 
 import { Button } from '@/components/ui/button'
 

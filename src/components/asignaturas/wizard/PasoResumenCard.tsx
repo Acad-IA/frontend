@@ -1,6 +1,6 @@
 import * as Icons from 'lucide-react'
 
-import type { NewSubjectWizardState } from '@/features/asignaturas/new/types'
+import type { NewSubjectWizardState } from '@/features/asignaturas/nueva/types'
 
 import {
   Card,
@@ -9,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { ESTRUCTURAS_SEP } from '@/features/asignaturas/new/catalogs'
+import { ESTRUCTURAS_SEP } from '@/features/asignaturas/nueva/catalogs'
 
 export function PasoResumenCard({ wizard }: { wizard: NewSubjectWizardState }) {
   return (
