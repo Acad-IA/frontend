@@ -42,19 +42,34 @@ export type PlanListFilters = {
   offset?: number;
 };
 
+// Helper para limpiar texto (lo movemos fuera para reutilizar o lo dejas en un utils)
+const cleanText = (text: string) => {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+};
+
 export async function plans_list(
   filters: PlanListFilters = {},
 ): Promise<Paged<PlanEstudio>> {
   const supabase = supabaseBrowser();
 
-  // 1. Construimos la query.
-  // TypeScript validará que "planes_estudio" existe en Database
+  // 1. Construimos la query base
+  // NOTA IMPORTANTE: Para filtrar planes basados en facultad (que está en carreras),
+  // necesitamos hacer un INNER JOIN. En Supabase se usa "!inner".
+  // Si filters.facultadId existe, forzamos el inner join, si no, lo dejamos normal.
+
+  const carreraModifier = filters.facultadId && filters.facultadId !== "todas"
+    ? "!inner"
+    : "";
+
   let q = supabase
     .from("planes_estudio")
     .select(
       `
       *,
-      carreras (
+      carreras${carreraModifier} (
         *,
         facultades (*)
       ),
@@ -66,15 +81,30 @@ export async function plans_list(
     .order("actualizado_en", { ascending: false });
 
   // 2. Aplicamos filtros dinámicos
-  if (filters.search?.trim()) {
-    q = q.ilike("nombre", `%${filters.search.trim()}%`);
-  }
-  if (filters.carreraId) q = q.eq("carrera_id", filters.carreraId);
-  if (filters.estadoId) q = q.eq("estado_actual_id", filters.estadoId);
-  if (typeof filters.activo === "boolean") q = q.eq("activo", filters.activo);
 
-  // filtro por FK “hacia arriba” (PostgREST soporta filtros en recursos embebidos)
-  if (filters.facultadId) q = q.eq("carreras.facultad_id", filters.facultadId);
+  // SOLUCIÓN SEARCH: Limpiamos el input y buscamos en la columna generada
+  if (filters.search?.trim()) {
+    const cleanTerm = cleanText(filters.search.trim());
+    // Usamos la columna nueva creada en el Paso 1
+    q = q.ilike("nombre_search", `%${cleanTerm}%`);
+  }
+
+  if (filters.carreraId && filters.carreraId !== "todas") {
+    q = q.eq("carrera_id", filters.carreraId);
+  }
+
+  if (filters.estadoId && filters.estadoId !== "todos") {
+    q = q.eq("estado_actual_id", filters.estadoId);
+  }
+
+  if (typeof filters.activo === "boolean") {
+    q = q.eq("activo", filters.activo);
+  }
+
+  // Filtro por facultad (gracias al !inner arriba, esto filtrará los planes)
+  if (filters.facultadId && filters.facultadId !== "todas") {
+    q = q.eq("carreras.facultad_id", filters.facultadId);
+  }
 
   // 3. Paginación
   const { from, to } = buildRange(filters.limit, filters.offset);
@@ -304,4 +334,20 @@ export async function plans_get_document(
   return invokeEdge<DocumentoResult | null>(EDGE.plans_get_document, {
     planId,
   });
+}
+
+export async function getCatalogos() {
+  const supabase = supabaseBrowser();
+
+  const [facRes, carRes, estRes] = await Promise.all([
+    supabase.from("facultades").select("*").order("nombre"),
+    supabase.from("carreras").select("*").order("nombre"),
+    supabase.from("estados_plan").select("*").order("orden"),
+  ]);
+
+  return {
+    facultades: facRes.data ?? [],
+    carreras: carRes.data ?? [],
+    estados: estRes.data ?? [],
+  };
 }

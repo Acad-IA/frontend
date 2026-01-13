@@ -1,4 +1,4 @@
-import type { Enums, Tables } from "../../types/supabase";
+import type { Database, Enums, Tables } from "../../types/supabase";
 
 export type UUID = string;
 
@@ -50,6 +50,17 @@ export type PlanDatosSep = {
   justificacion_de_la_propuesta_curricular?: string | null;
   propuesta_de_evaluacion_periodica_del_plan_de_estudios?: string | null;
 };
+
+export type PlanEstudioWithRel =
+  & Database["public"]["Tables"]["planes_estudio"]["Row"]
+  & {
+    carreras:
+      | Database["public"]["Tables"]["carreras"]["Row"] & {
+        facultades: Database["public"]["Tables"]["facultades"]["Row"] | null;
+      }
+      | null;
+    estados_plan: Database["public"]["Tables"]["estados_plan"]["Row"] | null;
+  };
 
 export type Paged<T> = { data: Array<T>; count: number | null };
 

@@ -7,6 +7,7 @@ import {
 
 import {
   ai_generate_plan,
+  getCatalogos,
   plan_asignaturas_list,
   plan_lineas_list,
   plans_clone_from_existing,
@@ -89,6 +90,14 @@ export function usePlanDocumento(planId: UUID | null | undefined) {
     queryFn: () => plans_get_document(planId as UUID),
     enabled: Boolean(planId),
     staleTime: 30_000,
+  });
+}
+
+export function useCatalogosPlanes() {
+  return useQuery({
+    queryKey: ["catalogos_planes"],
+    queryFn: getCatalogos,
+    staleTime: 1000 * 60 * 60, // 1 hora de caché (estos datos casi no cambian)
   });
 }
 
