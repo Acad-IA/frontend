@@ -2,12 +2,13 @@ import { useMemo, useState } from "react";
 
 import { CARRERAS } from "../catalogs";
 
-import type { NewPlanWizardState, PlanPreview, TipoCiclo } from "../types";
+import type { NewPlanWizardState, PlanPreview } from "../types";
+import type { NivelPlanEstudio, TipoCiclo } from "@/data/types/domain";
 
 export function useNuevoPlanWizard() {
   const [wizard, setWizard] = useState<NewPlanWizardState>({
     step: 1,
-    modoCreacion: null,
+    tipoOrigen: null,
     datosBasicos: {
       nombrePlan: "",
       carreraId: "",
@@ -40,7 +41,6 @@ export function useNuevoPlanWizard() {
     },
     iaConfig: {
       descripcionEnfoque: "",
-      poblacionObjetivo: "",
       notasAdicionales: "",
       archivosReferencia: [],
       repositoriosReferencia: [],
@@ -56,9 +56,10 @@ export function useNuevoPlanWizard() {
     return fac ? CARRERAS.filter((c) => c.facultadId === fac) : CARRERAS;
   }, [wizard.datosBasicos.facultadId]);
 
-  const canContinueDesdeModo = wizard.modoCreacion === "MANUAL" ||
-    wizard.modoCreacion === "IA" ||
-    (wizard.modoCreacion === "CLONADO" && !!wizard.subModoClonado);
+  const canContinueDesdeModo = wizard.tipoOrigen === "MANUAL" ||
+    wizard.tipoOrigen === "IA" ||
+    (wizard.tipoOrigen === "CLONADO_INTERNO" ||
+      wizard.tipoOrigen === "CLONADO_TRADICIONAL");
 
   const canContinueDesdeBasicos = !!wizard.datosBasicos.nombrePlan &&
     !!wizard.datosBasicos.carreraId &&
@@ -73,24 +74,22 @@ export function useNuevoPlanWizard() {
     !!wizard.datosBasicos.plantillaMapaVersion;
 
   const canContinueDesdeDetalles = (() => {
-    if (wizard.modoCreacion === "MANUAL") return true;
-    if (wizard.modoCreacion === "IA") {
+    if (wizard.tipoOrigen === "MANUAL") return true;
+    if (wizard.tipoOrigen === "IA") {
       // Requerimos descripción del enfoque y notas adicionales
       return !!wizard.iaConfig?.descripcionEnfoque &&
-        !!wizard.iaConfig?.notasAdicionales;
+        !!wizard.iaConfig.notasAdicionales;
     }
-    if (wizard.modoCreacion === "CLONADO") {
-      if (wizard.subModoClonado === "INTERNO") {
-        return !!wizard.clonInterno?.planOrigenId;
-      }
-      if (wizard.subModoClonado === "TRADICIONAL") {
-        const t = wizard.clonTradicional;
-        if (!t) return false;
-        const tieneWord = !!t.archivoWordPlanId;
-        const tieneAlMenosUnExcel = !!t.archivoMapaExcelId ||
-          !!t.archivoAsignaturasExcelId;
-        return tieneWord && tieneAlMenosUnExcel;
-      }
+    if (wizard.tipoOrigen === "CLONADO_INTERNO") {
+      return !!wizard.clonInterno?.planOrigenId;
+    }
+    if (wizard.tipoOrigen === "CLONADO_TRADICIONAL") {
+      const t = wizard.clonTradicional;
+      if (!t) return false;
+      const tieneWord = !!t.archivoWordPlanId;
+      const tieneAlMenosUnExcel = !!t.archivoMapaExcelId ||
+        !!t.archivoAsignaturasExcelId;
+      return tieneWord && tieneAlMenosUnExcel;
     }
     return false;
   })();
@@ -101,7 +100,7 @@ export function useNuevoPlanWizard() {
     // Ensure preview has the stricter types required by `PlanPreview`.
     let tipoCicloSafe: TipoCiclo;
     if (wizard.datosBasicos.tipoCiclo === "") {
-      tipoCicloSafe = "SEMESTRE";
+      tipoCicloSafe = "Semestre";
     } else {
       tipoCicloSafe = wizard.datosBasicos.tipoCiclo;
     }
@@ -112,7 +111,7 @@ export function useNuevoPlanWizard() {
 
     const preview: PlanPreview = {
       nombrePlan: wizard.datosBasicos.nombrePlan || "Plan sin nombre",
-      nivel: wizard.datosBasicos.nivel || "Licenciatura",
+      nivel: wizard.datosBasicos.nivel as NivelPlanEstudio,
       tipoCiclo: tipoCicloSafe,
       numCiclos: numCiclosSafe,
       numAsignaturasAprox: numCiclosSafe * 6,
@@ -121,7 +120,7 @@ export function useNuevoPlanWizard() {
         { id: "perfil", titulo: "Perfil de egreso", resumen: "Borrador…" },
       ],
     };
-    setWizard((w) => ({
+    setWizard((w: NewPlanWizardState) => ({
       ...w,
       isLoading: false,
       resumen: { previewPlan: preview },

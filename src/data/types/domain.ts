@@ -1,4 +1,4 @@
-import type { Database, Enums, Tables } from "../../types/supabase";
+import type { Enums, Tables } from "../../types/supabase";
 
 export type UUID = string;
 
@@ -52,14 +52,14 @@ export type PlanDatosSep = {
 };
 
 export type PlanEstudioWithRel =
-  & Database["public"]["Tables"]["planes_estudio"]["Row"]
+  & Tables<"planes_estudio">
   & {
     carreras:
-      | Database["public"]["Tables"]["carreras"]["Row"] & {
-        facultades: Database["public"]["Tables"]["facultades"]["Row"] | null;
+      | Tables<"carreras"> & {
+        facultades: Tables<"facultades"> | null;
       }
       | null;
-    estados_plan: Database["public"]["Tables"]["estados_plan"]["Row"] | null;
+    estados_plan: Tables<"estados_plan"> | null;
   };
 
 export type Paged<T> = { data: Array<T>; count: number | null };

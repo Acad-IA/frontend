@@ -1,5 +1,6 @@
 import { TemplateSelectorCard } from './TemplateSelectorCard'
 
+import type { NivelPlanEstudio, TipoCiclo } from '@/data/types/domain'
 import type { CARRERAS } from '@/features/planes/nuevo/catalogs'
 import type { NewPlanWizardState } from '@/features/planes/nuevo/types'
 
@@ -13,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
+import { useCatalogosPlanes } from '@/data/hooks/usePlans'
 import {
   FACULTADES,
   NIVELES,
@@ -31,6 +33,18 @@ export function PasoBasicosForm({
   onChange: React.Dispatch<React.SetStateAction<NewPlanWizardState>>
   carrerasFiltradas: typeof CARRERAS
 }) {
+  const { data: catalogos } = useCatalogosPlanes()
+
+  // Preferir los catálogos remotos si están disponibles; si no, usar los locales
+  const facultadesList = catalogos?.facultades ?? FACULTADES
+  const rawCarreras = catalogos?.carreras ?? carrerasFiltradas
+
+  const filteredCarreras = rawCarreras.filter((c: any) => {
+    const facId = wizard.datosBasicos.facultadId
+    if (!facId) return true
+    // soportar ambos shapes: `facultad_id` (BD) o `facultadId` (local)
+    return c.facultad_id ? c.facultad_id === facId : c.facultadId === facId
+  })
   return (
     <div className="flex flex-col gap-2">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -40,7 +54,7 @@ export function PasoBasicosForm({
           </Label>
           <Input
             id="nombrePlan"
-            placeholder="Ej. Ingeniería en Sistemas 2026"
+            placeholder="Ej. Ingeniería en Sistemas (2026)"
             value={wizard.datosBasicos.nombrePlan}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               onChange((w) => ({
@@ -79,7 +93,7 @@ export function PasoBasicosForm({
               <SelectValue placeholder="Ej. Facultad de Ingeniería" />
             </SelectTrigger>
             <SelectContent>
-              {FACULTADES.map((f) => (
+              {facultadesList.map((f: any) => (
                 <SelectItem key={f.id} value={f.id}>
                   {f.nombre}
                 </SelectItem>
@@ -112,7 +126,7 @@ export function PasoBasicosForm({
               <SelectValue placeholder="Ej. Ingeniería en Cibernética y Sistemas Computacionales" />
             </SelectTrigger>
             <SelectContent>
-              {carrerasFiltradas.map((c) => (
+              {filteredCarreras.map((c: any) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.nombre}
                 </SelectItem>
@@ -125,11 +139,13 @@ export function PasoBasicosForm({
           <Label htmlFor="nivel">Nivel</Label>
           <Select
             value={wizard.datosBasicos.nivel}
-            onValueChange={(value) =>
-              onChange((w) => ({
-                ...w,
-                datosBasicos: { ...w.datosBasicos, nivel: value },
-              }))
+            onValueChange={(value: NivelPlanEstudio) =>
+              onChange(
+                (w): NewPlanWizardState => ({
+                  ...w,
+                  datosBasicos: { ...w.datosBasicos, nivel: value },
+                }),
+              )
             }
           >
             <SelectTrigger
@@ -157,7 +173,7 @@ export function PasoBasicosForm({
           <Label htmlFor="tipoCiclo">Tipo de ciclo</Label>
           <Select
             value={wizard.datosBasicos.tipoCiclo}
-            onValueChange={(value) =>
+            onValueChange={(value: TipoCiclo) =>
               onChange((w) => ({
                 ...w,
                 datosBasicos: {
@@ -180,8 +196,8 @@ export function PasoBasicosForm({
             </SelectTrigger>
             <SelectContent>
               {TIPOS_CICLO.map((t) => (
-                <SelectItem key={t.value} value={t.value}>
-                  {t.label}
+                <SelectItem key={t} value={t}>
+                  {t}
                 </SelectItem>
               ))}
             </SelectContent>
