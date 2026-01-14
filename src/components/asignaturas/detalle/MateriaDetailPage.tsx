@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,11 +39,29 @@ export interface BibliografiaTabProps {
   isSaving: boolean
 }
 
+export interface AsignaturaDatos {
+  [key: string]: string
+}
+
+export interface AsignaturaResponse {
+  datos: AsignaturaDatos
+}
+
 export default function MateriaDetailPage() {
+  const { data: asignaturasApi, isLoading: loadingAsig } = useSubject(
+    '9d4dda6a-488f-428a-8a07-38081592a641',
+  )
   // 1. Asegúrate de tener estos estados en tu componente principal
   const [messages, setMessages] = useState<IAMessage[]>([])
   const [datosGenerales, setDatosGenerales] = useState({})
   const [campos, setCampos] = useState<CampoEstructura[]>([])
+
+  /* ---------- sincronizar API ---------- */
+  useEffect(() => {
+    if (asignaturasApi?.datos) {
+      setDatosGenerales(asignaturasApi.datos)
+    }
+  }, [asignaturasApi])
 
   // 2. Funciones de manejo para la IA
   const handleSendMessage = (text: string, campoId?: string) => {
@@ -112,17 +130,15 @@ export default function MateriaDetailPage() {
           <div className="flex items-start justify-between gap-6">
             <div className="space-y-3">
               <Badge className="border border-blue-700 bg-blue-900/50">
-                IA-401
+                {asignaturasApi?.codigo}
               </Badge>
 
-              <h1 className="text-3xl font-bold">
-                Inteligencia Artificial Aplicada
-              </h1>
+              <h1 className="text-3xl font-bold">{asignaturasApi?.nombre}</h1>
 
               <div className="flex flex-wrap gap-4 text-sm text-blue-200">
                 <span className="flex items-center gap-1">
                   <GraduationCap className="h-4 w-4" />
-                  Ingeniería en Sistemas Computacionales
+                  {asignaturasApi?.planes_estudio?.datos?.nombre}
                 </span>
 
                 <span>Facultad de Ingeniería</span>
@@ -162,11 +178,14 @@ export default function MateriaDetailPage() {
 
             {/* ================= TAB: DATOS GENERALES ================= */}
             <TabsContent value="datos">
-              <DatosGenerales />
+              <DatosGenerales data={datosGenerales} isLoading={loadingAsig} />
             </TabsContent>
 
             <TabsContent value="contenido">
-              <ContenidoTematico></ContenidoTematico>
+              <ContenidoTematico
+                data={asignaturasApi}
+                isLoading={loadingAsig}
+              ></ContenidoTematico>
             </TabsContent>
 
             <TabsContent value="bibliografia">
@@ -215,13 +234,13 @@ export default function MateriaDetailPage() {
 }
 
 /* ================= TAB CONTENT ================= */
-
-function DatosGenerales() {
-  const { data: asignaturasApi, isLoading: loadingAsig } = useSubject(
-    /*planId*/ '9d4dda6a-488f-428a-8a07-38081592a641',
-  )
-
-  console.log(asignaturasApi.datos)
+interface DatosGeneralesProps {
+  data: AsignaturaDatos
+  isLoading: boolean
+}
+function DatosGenerales({ data, isLoading }: DatosGeneralesProps) {
+  const formatTitle = (key: string): string =>
+    key.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
 
   return (
     <div className="animate-in fade-in mx-auto max-w-7xl space-y-8 px-4 py-8 duration-500">
@@ -249,26 +268,16 @@ function DatosGenerales() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         {/* Columna Principal (Más ancha) */}
         <div className="space-y-6 md:col-span-2">
-          <div className="space-y-6 md:col-span-2">
-            <InfoCard
-              title="Competencias a Desarrollar"
-              subtitle="Competencias profesionales que se desarrollarán"
-              isList={true}
-              initialContent={`• Diseñar algoritmos de machine learning para clasificación y predicción\n• Implementar redes neuronales profundas para procesamiento de imágenes\n• Evaluar y optimizar modelos de IA considerando métricas`}
-            />
+          {isLoading && <p>Cargando información...</p>}
 
-            <InfoCard
-              title="Objetivo General"
-              initialContent="Formar profesionales capaces de diseñar, implementar y evaluar sistemas de inteligencia artificial que resuelvan problemas complejos."
-            />
-          </div>
-
-          <div className="space-y-6">
-            <InfoCard
-              title="Justificación"
-              initialContent="La inteligencia artificial es una de las tecnologías más disruptivas..."
-            />
-          </div>
+          {!isLoading &&
+            Object.entries(data).map(([key, value]) => (
+              <InfoCard
+                key={key}
+                title={formatTitle(key)}
+                initialContent={value}
+              />
+            ))}
         </div>
 
         {/* Columna Lateral (Información Secundaria) */}
