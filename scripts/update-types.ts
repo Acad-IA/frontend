@@ -1,6 +1,7 @@
 // scripts/update-types.ts
-// Uso:
-// bun run scripts/update-types.ts
+/* Uso:
+bun run scripts/update-types.ts
+*/
 import { $ } from "bun";
 
 console.log("🔄 Generando tipos de Supabase...");

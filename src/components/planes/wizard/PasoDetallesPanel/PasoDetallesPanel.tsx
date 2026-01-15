@@ -1,6 +1,7 @@
 import { FileDropzone } from './FileDropZone'
 import ReferenciasParaIA from './ReferenciasParaIA'
 
+import type { UploadedFile } from './FileDropZone'
 import type { NewPlanWizardState } from '@/features/planes/nuevo/types'
 
 import { Button } from '@/components/ui/button'
@@ -116,14 +117,16 @@ export function PasoDetallesPanel({
               }
             })
           }
-          onFilesChange={(files) =>
-            onChange((w) => ({
-              ...w,
-              iaConfig: {
-                ...(w.iaConfig || ({} as any)),
-                archivosAdjuntos: files,
-              },
-            }))
+          onFilesChange={(files: Array<UploadedFile>) =>
+            onChange(
+              (w): NewPlanWizardState => ({
+                ...w,
+                iaConfig: {
+                  ...(w.iaConfig || ({} as any)),
+                  archivosAdjuntos: files,
+                },
+              }),
+            )
           }
         />
         <div className="flex items-center justify-between">

@@ -1,3 +1,4 @@
+import type { UploadedFile } from "@/components/planes/wizard/PasoDetallesPanel/FileDropZone";
 import type {
   NivelPlanEstudio,
   TipoCiclo,
@@ -24,10 +25,7 @@ export type NewPlanWizardState = {
     tipoCiclo: TipoCiclo | "";
     numCiclos: number | undefined;
     // Selección de plantillas (obligatorias)
-    plantillaPlanId?: string;
-    plantillaPlanVersion?: string;
-    plantillaMapaId?: string;
-    plantillaMapaVersion?: string;
+    estructuraPlanId: string | null;
   };
   clonInterno?: { planOrigenId: string | null };
   clonTradicional?: {
@@ -58,7 +56,7 @@ export type NewPlanWizardState = {
     archivosReferencia: Array<string>;
     repositoriosReferencia?: Array<string>;
     archivosAdjuntos?: Array<
-      { id: string; name: string; size: string; type: string }
+      UploadedFile
     >;
   };
   resumen: { previewPlan?: PlanPreview };

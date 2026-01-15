@@ -51,7 +51,6 @@ export default function NuevoPlanModalContainer() {
   const {
     wizard,
     setWizard,
-    carrerasFiltradas,
     canContinueDesdeModo,
     canContinueDesdeBasicos,
     canContinueDesdeDetalles,
@@ -125,7 +124,10 @@ export default function NuevoPlanModalContainer() {
             {({ methods }) => {
               const currentIndex = Wizard.utils.getIndex(methods.current.id) + 1
               const totalSteps = Wizard.steps.length
-              const nextStep = Wizard.steps[currentIndex]
+              const nextStep = Wizard.steps[currentIndex] ?? {
+                title: '',
+                description: '',
+              }
 
               return (
                 <>
@@ -154,7 +156,6 @@ export default function NuevoPlanModalContainer() {
                           <PasoBasicosForm
                             wizard={wizard}
                             onChange={setWizard}
-                            carrerasFiltradas={carrerasFiltradas}
                           />
                         </Wizard.Stepper.Panel>
                       )}

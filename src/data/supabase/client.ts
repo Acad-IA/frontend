@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getEnv } from "./env";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "src/types/supabase.js";
+import type { Database } from "src/types/supabase";
 
 let _client: SupabaseClient<Database> | null = null;
 

@@ -1,6 +1,4 @@
-import { useMemo, useState } from "react";
-
-import { CARRERAS } from "../catalogs";
+import { useState } from "react";
 
 import type { NewPlanWizardState, PlanPreview } from "../types";
 import type { NivelPlanEstudio, TipoCiclo } from "@/data/types/domain";
@@ -16,10 +14,7 @@ export function useNuevoPlanWizard() {
       nivel: "",
       tipoCiclo: "",
       numCiclos: undefined,
-      plantillaPlanId: "",
-      plantillaPlanVersion: "",
-      plantillaMapaId: "",
-      plantillaMapaVersion: "",
+      estructuraPlanId: null,
     },
     // datosBasicos: {
     //   nombrePlan: "Medicina",
@@ -51,11 +46,6 @@ export function useNuevoPlanWizard() {
     errorMessage: null,
   });
 
-  const carrerasFiltradas = useMemo(() => {
-    const fac = wizard.datosBasicos.facultadId;
-    return fac ? CARRERAS.filter((c) => c.facultadId === fac) : CARRERAS;
-  }, [wizard.datosBasicos.facultadId]);
-
   const canContinueDesdeModo = wizard.tipoOrigen === "MANUAL" ||
     wizard.tipoOrigen === "IA" ||
     (wizard.tipoOrigen === "CLONADO_INTERNO" ||
@@ -68,10 +58,7 @@ export function useNuevoPlanWizard() {
     (wizard.datosBasicos.numCiclos !== undefined &&
       wizard.datosBasicos.numCiclos > 0) &&
     // Requerir ambas plantillas (plan y mapa) con versión
-    !!wizard.datosBasicos.plantillaPlanId &&
-    !!wizard.datosBasicos.plantillaPlanVersion &&
-    !!wizard.datosBasicos.plantillaMapaId &&
-    !!wizard.datosBasicos.plantillaMapaVersion;
+    !!wizard.datosBasicos.estructuraPlanId;
 
   const canContinueDesdeDetalles = (() => {
     if (wizard.tipoOrigen === "MANUAL") return true;
@@ -130,7 +117,6 @@ export function useNuevoPlanWizard() {
   return {
     wizard,
     setWizard,
-    carrerasFiltradas,
     canContinueDesdeModo,
     canContinueDesdeBasicos,
     canContinueDesdeDetalles,

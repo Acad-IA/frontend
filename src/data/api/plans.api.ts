@@ -14,6 +14,7 @@ import type {
   TipoCiclo,
   UUID,
 } from "../types/domain";
+import type { UploadedFile } from "@/components/planes/wizard/PasoDetallesPanel/FileDropZone";
 
 const EDGE = {
   plans_create_manual: "plans_create_manual",
@@ -220,6 +221,7 @@ export type AIGeneratePlanInput = {
     notasAdicionales?: string;
     archivosReferencia?: Array<UUID>;
     repositoriosIds?: Array<UUID>;
+    archivosAdjuntos: Array<UploadedFile>;
     usarMCP?: boolean;
   };
 };
@@ -339,15 +341,20 @@ export async function plans_get_document(
 export async function getCatalogos() {
   const supabase = supabaseBrowser();
 
-  const [facRes, carRes, estRes] = await Promise.all([
-    supabase.from("facultades").select("*").order("nombre"),
-    supabase.from("carreras").select("*").order("nombre"),
-    supabase.from("estados_plan").select("*").order("orden"),
-  ]);
+  const [facultadesRes, carrerasRes, estadosRes, estructurasPlanRes] =
+    await Promise.all([
+      supabase.from("facultades").select("*").order("nombre"),
+      supabase.from("carreras").select("*").order("nombre"),
+      supabase.from("estados_plan").select("*").order("orden"),
+      supabase.from("estructuras_plan").select("*").order("creado_en", {
+        ascending: true,
+      }),
+    ]);
 
   return {
-    facultades: facRes.data ?? [],
-    carreras: carRes.data ?? [],
-    estados: estRes.data ?? [],
+    facultades: facultadesRes.data ?? [],
+    carreras: carrerasRes.data ?? [],
+    estados: estadosRes.data ?? [],
+    estructurasPlan: estructurasPlanRes.data ?? [],
   };
 }
