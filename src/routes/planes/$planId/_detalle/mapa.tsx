@@ -116,7 +116,7 @@ function MateriaCardItem({
   onClick: () => void
 }) {
   return (
-    <div
+    <button
       draggable
       onDragStart={(e) => onDragStart(e, materia.id)}
       onClick={onClick}
@@ -149,7 +149,7 @@ function MateriaCardItem({
           className="text-slate-300 opacity-0 transition-opacity group-hover:opacity-100"
         />
       </div>
-    </div>
+    </button>
   )
 }
 
