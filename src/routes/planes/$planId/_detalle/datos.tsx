@@ -1,12 +1,13 @@
-import { usePlan } from '@/data'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Pencil, Check, X, Sparkles, AlertCircle } from 'lucide-react'
 import { useState, useEffect } from 'react'
+
 import type { DatosGeneralesField } from '@/types/plan'
+
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Pencil, Check, X, Sparkles, AlertCircle } from 'lucide-react'
-//import { toast } from 'sonner' // Asegúrate de tener sonner instalado o quita la línea
-
+import { usePlan } from '@/data'
+// import { toast } from 'sonner' // Asegúrate de tener sonner instalado o quita la línea
 export const Route = createFileRoute('/planes/$planId/_detalle/datos')({
   component: DatosGeneralesPage,
 })
@@ -18,9 +19,9 @@ const formatLabel = (key: string) => {
 
 function DatosGeneralesPage() {
   const { data } = usePlan('0e0aea4d-b8b4-4e75-8279-6224c3ac769f')
-
+  const navigate = useNavigate()
   // Inicializamos campos como un arreglo vacío
-  const [campos, setCampos] = useState<DatosGeneralesField[]>([])
+  const [campos, setCampos] = useState<Array<DatosGeneralesField>>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
 
@@ -30,7 +31,7 @@ function DatosGeneralesPage() {
     const sourceData = data?.datos
 
     if (sourceData && typeof sourceData === 'object') {
-      const datosTransformados: DatosGeneralesField[] = Object.entries(
+      const datosTransformados: Array<DatosGeneralesField> = Object.entries(
         sourceData,
       ).map(([key, value], index) => ({
         id: (index + 1).toString(),
@@ -43,6 +44,7 @@ function DatosGeneralesPage() {
 
       setCampos(datosTransformados)
     }
+    console.log(data)
   }, [data])
 
   // 3. Manejadores de acciones (Ahora como funciones locales)
@@ -63,14 +65,20 @@ function DatosGeneralesPage() {
     )
     setEditingId(null)
     setEditValue('')
-    //toast.success('Cambios guardados localmente')
+    // toast.success('Cambios guardados localmente')
   }
 
-  const handleIARequest = (id: string) => {
-    //toast.info('La IA está analizando el campo ' + id)
-    // Aquí conectarías con tu endpoint de IA
+  const handleIARequest = (descripcion: string) => {
+    navigate({
+      to: '/planes/$planId/iaplan',
+      params: {
+        planId: '1', // o dinámico
+      },
+      state: {
+        prefill: descripcion,
+      } as any,
+    })
   }
-
   return (
     <div className="animate-in fade-in container mx-auto px-6 py-6 duration-500">
       <div className="mb-6">
@@ -112,7 +120,7 @@ function DatosGeneralesPage() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-teal-600"
-                      onClick={() => handleIARequest(campo.id)}
+                      onClick={() => handleIARequest(campo.value)}
                     >
                       <Sparkles size={14} />
                     </Button>
