@@ -1,24 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useState, useMemo } from 'react'
-import type { Materia, LineaCurricular } from '@/types/plan'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   Plus,
   Copy,
@@ -28,6 +8,28 @@ import {
   BookOpen,
   Loader2,
 } from 'lucide-react'
+import { useState, useMemo } from 'react'
+
+import type { Materia } from '@/types/plan'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { usePlanAsignaturas, usePlanLineas } from '@/data'
 
 // --- Configuración de Estilos ---
@@ -44,7 +46,7 @@ const tipoConfig: Record<string, { label: string; className: string }> = {
 }
 
 // --- Mapeadores de API ---
-const mapAsignaturas = (asigApi: any[] = []): Materia[] => {
+const mapAsignaturas = (asigApi: Array<any> = []): Array<Materia> => {
   return asigApi.map((asig) => ({
     id: asig.id,
     clave: asig.codigo,
@@ -66,6 +68,7 @@ export const Route = createFileRoute('/planes/$planId/_detalle/materias')({
 
 function MateriasPage() {
   const { planId } = Route.useParams()
+  const navigate = useNavigate()
 
   // 1. Fetch de datos reales
   const { data: asignaturasApi, isLoading: loadingAsig } = usePlanAsignaturas(
@@ -224,6 +227,18 @@ function MateriasPage() {
                 <TableRow
                   key={materia.id}
                   className="group cursor-pointer transition-colors hover:bg-slate-50/80"
+                  onClick={() =>
+                    navigate({
+                      to: '/planes/$planId/asignaturas/$asignaturaId',
+                      params: {
+                        planId,
+                        asignaturaId: 'asignatura', // 👈 puede ser índice, consecutivo o slug
+                      },
+                      state: {
+                        realId: materia.id, // 👈 ID largo oculto
+                      } as any,
+                    })
+                  }
                 >
                   <TableCell className="font-mono text-xs font-bold text-slate-400">
                     {materia.clave}

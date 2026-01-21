@@ -1,37 +1,27 @@
+import { Link, useRouterState } from '@tanstack/react-router'
+import { ArrowLeft, GraduationCap, Pencil, Sparkles } from 'lucide-react'
 import { useCallback, useState, useEffect } from 'react'
-import { Link } from '@tanstack/react-router'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+import { BibliographyItem } from './BibliographyItem'
+import { ContenidoTematico } from './ContenidoTematico'
+import { DocumentoSEPTab } from './DocumentoSEPTab'
+import { HistorialTab } from './HistorialTab'
+import { IAMateriaTab } from './IAMateriaTab'
+
+import type { CampoEstructura, IAMessage, IASugerencia } from '@/types/materia'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  ArrowLeft,
-  GraduationCap,
-  Edit2,
-  Save,
-  Pencil,
-  Sparkles,
-} from 'lucide-react'
-import { ContenidoTematico } from './ContenidoTematico'
-import { BibliographyItem } from './BibliographyItem'
-import { IAMateriaTab } from './IAMateriaTab'
-import type {
-  CampoEstructura,
-  IAMessage,
-  IASugerencia,
-  UnidadTematica,
-} from '@/types/materia'
+import { useSubject } from '@/data/hooks/useSubjects'
 import {
   mockMateria,
   mockEstructura,
   mockDocumentoSep,
-  mockHistorial,
 } from '@/data/mockMateriaData'
-import { DocumentoSEPTab } from './DocumentoSEPTab'
-import { HistorialTab } from './HistorialTab'
-import { useSubject } from '@/data/hooks/useSubjects'
 
 export interface BibliografiaEntry {
   id: string
@@ -41,8 +31,8 @@ export interface BibliografiaEntry {
   fuenteBiblioteca?: any
 }
 export interface BibliografiaTabProps {
-  bibliografia: BibliografiaEntry[]
-  onSave: (bibliografia: BibliografiaEntry[]) => void
+  bibliografia: Array<BibliografiaEntry>
+  onSave: (bibliografia: Array<BibliografiaEntry>) => void
   isSaving: boolean
 }
 
@@ -90,13 +80,15 @@ function EditableHeaderField({
   )
 }
 export default function MateriaDetailPage() {
+  const routerState = useRouterState()
+  const state = routerState.location.state as any
   const { data: asignaturasApi, isLoading: loadingAsig } = useSubject(
-    '9d4dda6a-488f-428a-8a07-38081592a641',
+    state?.realId,
   )
   // 1. Asegúrate de tener estos estados en tu componente principal
-  const [messages, setMessages] = useState<IAMessage[]>([])
+  const [messages, setMessages] = useState<Array<IAMessage>>([])
   const [datosGenerales, setDatosGenerales] = useState({})
-  const [campos, setCampos] = useState<CampoEstructura[]>([])
+  const [campos, setCampos] = useState<Array<CampoEstructura>>([])
 
   // Dentro de MateriaDetailPage
   const [headerData, setHeaderData] = useState({
@@ -142,16 +134,16 @@ export default function MateriaDetailPage() {
     setMessages([...messages, newMessage])
 
     // Aquí llamarías a tu API de OpenAI/Claude
-    //toast.info("Enviando consulta a la IA...");
+    // toast.info("Enviando consulta a la IA...");
   }
 
   const handleAcceptSuggestion = (sugerencia: IASugerencia) => {
     // Lógica para actualizar el valor del campo en tu estado de datosGenerales
-    //toast.success(`Sugerencia aplicada a ${sugerencia.campoNombre}`);
+    // toast.success(`Sugerencia aplicada a ${sugerencia.campoNombre}`);
   }
 
   // Dentro de tu componente principal (donde están los Tabs)
-  const [bibliografia, setBibliografia] = useState<BibliografiaEntry[]>([
+  const [bibliografia, setBibliografia] = useState<Array<BibliografiaEntry>>([
     {
       id: '1',
       tipo: 'BASICA',
@@ -160,7 +152,7 @@ export default function MateriaDetailPage() {
   ])
   const [isSaving, setIsSaving] = useState(false)
 
-  const handleSaveBibliografia = (data: BibliografiaEntry[]) => {
+  const handleSaveBibliografia = (data: Array<BibliografiaEntry>) => {
     setIsSaving(true)
     // Aquí iría tu llamada a la API
     setBibliografia(data)
@@ -168,7 +160,7 @@ export default function MateriaDetailPage() {
     // Simulamos un guardado
     setTimeout(() => {
       setIsSaving(false)
-      //toast.success("Cambios guardados");
+      // toast.success("Cambios guardados");
     }, 1000)
   }
 
@@ -304,7 +296,7 @@ export default function MateriaDetailPage() {
                   (id) =>
                     console.log(
                       'Rechazada',
-                    ) /*toast.error("Sugerencia rechazada")*/
+                    ) /* toast.error("Sugerencia rechazada")*/
                 }
               />
             </TabsContent>
@@ -507,7 +499,7 @@ function InfoCard({
 }
 
 // Vista de Requisitos
-function RequirementsView({ items }: { items: any[] }) {
+function RequirementsView({ items }: { items: Array<any> }) {
   return (
     <div className="space-y-3">
       {items.map((req, i) => (
@@ -528,7 +520,7 @@ function RequirementsView({ items }: { items: any[] }) {
 }
 
 // Vista de Evaluación
-function EvaluationView({ items }: { items: any[] }) {
+function EvaluationView({ items }: { items: Array<any> }) {
   return (
     <div className="space-y-2">
       {items.map((item, i) => (
