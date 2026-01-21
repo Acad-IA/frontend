@@ -3,7 +3,7 @@ import * as Icons from 'lucide-react'
 
 import { useNuevoPlanWizard } from './hooks/useNuevoPlanWizard'
 
-import type { NewPlanWizardState } from './types'
+// import type { NewPlanWizardState } from './types'
 
 import { PasoBasicosForm } from '@/components/planes/wizard/PasoBasicosForm/PasoBasicosForm'
 import { PasoDetallesPanel } from '@/components/planes/wizard/PasoDetallesPanel/PasoDetallesPanel'
@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { useGeneratePlanAI } from '@/data/hooks/usePlans'
+// import { useGeneratePlanAI } from '@/data/hooks/usePlans'
 
 // Mock de permisos/rol
 const auth_get_current_user_role = () => 'JEFE_CARRERA' as const
@@ -48,8 +48,7 @@ const Wizard = defineStepper(
 export default function NuevoPlanModalContainer() {
   const navigate = useNavigate()
   const role = auth_get_current_user_role()
-  const generatePlanAI = useGeneratePlanAI()
-  // const persistPlanFromAI = usePersistPlanFromAI()
+  // const generatePlanAI = useGeneratePlanAI()
 
   const {
     wizard,
@@ -63,74 +62,7 @@ export default function NuevoPlanModalContainer() {
     navigate({ to: '/planes', resetScroll: false })
   }
 
-  const crearPlan = async () => {
-    setWizard(
-      (w: NewPlanWizardState): NewPlanWizardState => ({
-        ...w,
-        isLoading: true,
-        errorMessage: null,
-      }),
-    )
-
-    try {
-      if (wizard.tipoOrigen === 'IA') {
-        const tipoCicloSafe = (wizard.datosBasicos.tipoCiclo ||
-          'Semestre') as any
-        const numCiclosSafe =
-          typeof wizard.datosBasicos.numCiclos === 'number'
-            ? wizard.datosBasicos.numCiclos
-            : 1
-
-        const aiInput = {
-          datosBasicos: {
-            nombrePlan: wizard.datosBasicos.nombrePlan,
-            carreraId: wizard.datosBasicos.carreraId,
-            facultadId: wizard.datosBasicos.facultadId || undefined,
-            nivel: wizard.datosBasicos.nivel as string,
-            tipoCiclo: tipoCicloSafe,
-            numCiclos: numCiclosSafe,
-            estructuraPlanId: wizard.datosBasicos.estructuraPlanId as string,
-          },
-          iaConfig: {
-            descripcionEnfoque: wizard.iaConfig?.descripcionEnfoque || '',
-            notasAdicionales: wizard.iaConfig?.notasAdicionales || '',
-            archivosReferencia: wizard.iaConfig?.archivosReferencia || [],
-            repositoriosIds: wizard.iaConfig?.repositoriosReferencia || [],
-            archivosAdjuntos: wizard.iaConfig?.archivosAdjuntos || [],
-          },
-        }
-
-        const response = await generatePlanAI.mutateAsync(aiInput as any)
-        // const createdPlan = await persistPlanFromAI.mutateAsync({
-        //   jsonPlan: generatedJson,
-        // })
-        // navigate({ to: `/planes/${createdPlan.id}` })
-        console.log('Plan generado por IA:', response)
-        return
-      }
-
-      // Fallback: comportamiento previo para otros modos (mock IDs)
-      await new Promise((r) => setTimeout(r, 900))
-      const nuevoId = (() => {
-        if (wizard.tipoOrigen === 'MANUAL') return 'plan_new_manual_001'
-        if (
-          wizard.tipoOrigen === 'CLONADO_INTERNO' ||
-          wizard.tipoOrigen === 'CLONADO_TRADICIONAL'
-        )
-          return 'plan_new_clone_001'
-        return 'plan_new_import_001'
-      })()
-      navigate({ to: `/planes/${nuevoId}` })
-    } catch (err: any) {
-      setWizard((w) => ({
-        ...w,
-        isLoading: false,
-        errorMessage: err?.message ?? 'Error generando el plan con IA',
-      }))
-    } finally {
-      setWizard((w) => ({ ...w, isLoading: false }))
-    }
-  }
+  // Crear plan: ahora la lógica vive en WizardControls
 
   return (
     <Dialog open={true} onOpenChange={(open) => !open && handleClose()}>
@@ -233,7 +165,6 @@ export default function NuevoPlanModalContainer() {
                         errorMessage={wizard.errorMessage}
                         onPrev={() => methods.prev()}
                         onNext={() => methods.next()}
-                        onCreate={crearPlan}
                         disablePrev={
                           Wizard.utils.getIndex(methods.current.id) === 0 ||
                           wizard.isLoading
@@ -252,6 +183,8 @@ export default function NuevoPlanModalContainer() {
                           Wizard.utils.getIndex(methods.current.id) >=
                           Wizard.steps.length - 1
                         }
+                        wizard={wizard}
+                        setWizard={setWizard}
                       />
                     </Wizard.Stepper.Controls>
                   </div>
