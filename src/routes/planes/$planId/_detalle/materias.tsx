@@ -71,12 +71,9 @@ function MateriasPage() {
   const navigate = useNavigate()
 
   // 1. Fetch de datos reales
-  const { data: asignaturasApi, isLoading: loadingAsig } = usePlanAsignaturas(
-    '0e0aea4d-b8b4-4e75-8279-6224c3ac769f',
-  )
-  const { data: lineasApi, isLoading: loadingLineas } = usePlanLineas(
-    '0e0aea4d-b8b4-4e75-8279-6224c3ac769f',
-  )
+  const { data: asignaturasApi, isLoading: loadingAsig } =
+    usePlanAsignaturas(planId)
+  const { data: lineasApi, isLoading: loadingLineas } = usePlanLineas(planId)
 
   // 2. Estados de filtrado
   const [searchTerm, setSearchTerm] = useState('')
@@ -232,7 +229,7 @@ function MateriasPage() {
                       to: '/planes/$planId/asignaturas/$asignaturaId',
                       params: {
                         planId,
-                        asignaturaId: 'asignatura', // 👈 puede ser índice, consecutivo o slug
+                        asignaturaId: materia.id, // 👈 puede ser índice, consecutivo o slug
                       },
                       state: {
                         realId: materia.id, // 👈 ID largo oculto

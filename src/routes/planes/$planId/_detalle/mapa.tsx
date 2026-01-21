@@ -161,12 +161,9 @@ function MapaCurricularPage() {
   const { planId } = Route.useParams() // Idealmente usa el ID de la ruta
 
   // 1. Fetch de Datos
-  const { data: asignaturasApi, isLoading: loadingAsig } = usePlanAsignaturas(
-    /* planId*/ '0e0aea4d-b8b4-4e75-8279-6224c3ac769f',
-  )
-  const { data: lineasApi, isLoading: loadingLineas } = usePlanLineas(
-    /* planId*/ '0e0aea4d-b8b4-4e75-8279-6224c3ac769f',
-  )
+  const { data: asignaturasApi, isLoading: loadingAsig } =
+    usePlanAsignaturas(planId)
+  const { data: lineasApi, isLoading: loadingLineas } = usePlanLineas(planId)
 
   // 2. Estado Local (Para interactividad)
   const [materias, setMaterias] = useState<Array<Materia>>([])
