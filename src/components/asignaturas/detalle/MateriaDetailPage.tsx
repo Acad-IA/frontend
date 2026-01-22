@@ -73,15 +73,13 @@ function EditableHeaderField({
   }
 
   return (
-    <span
-      contentEditable
-      suppressContentEditableWarning
-      onKeyDown={handleKeyDown}
-      onBlur={handleBlur}
-      className={`cursor-text rounded px-1 transition-all outline-none focus:ring-2 focus:ring-blue-400 ${className}`}
-    >
-      {value}
-    </span>
+    <input
+      type="text"
+      value={String(value)}
+      onChange={(e) => onSave(e.target.value)}
+      onBlur={(e) => onSave(e.target.value)}
+      className={`border-none bg-transparent outline-none focus:ring-2 focus:ring-blue-400 ${className}`}
+    />
   )
 }
 
@@ -95,6 +93,9 @@ export default function MateriaDetailPage() {
   const routerState = useRouterState()
   const state = routerState.location.state as any
   const { asignaturaId } = useParams({
+    from: '/planes/$planId/asignaturas/$asignaturaId',
+  })
+  const { planId } = useParams({
     from: '/planes/$planId/asignaturas/$asignaturaId',
   })
   const { data: asignaturasApi, isLoading: loadingAsig } =
@@ -116,10 +117,10 @@ export default function MateriaDetailPage() {
   useEffect(() => {
     if (asignaturasApi) {
       setHeaderData({
-        codigo: asignaturasApi?.codigo ?? '',
-        nombre: asignaturasApi?.nombre ?? '',
-        creditos: asignaturasApi?.creditos ?? '',
-        ciclo: asignaturasApi?.numero_ciclo ?? 0,
+        codigo: asignaturasApi.codigo ?? '',
+        nombre: asignaturasApi.nombre,
+        creditos: asignaturasApi.creditos,
+        ciclo: asignaturasApi.numero_ciclo ?? 0,
       })
     }
   }, [asignaturasApi])
@@ -194,6 +195,7 @@ export default function MateriaDetailPage() {
         <div className="mx-auto max-w-7xl px-6 py-10">
           <Link
             to="/planes/$planId"
+            params={{ planId }}
             className="mb-4 flex items-center gap-2 text-sm text-blue-200 hover:text-white"
           >
             <ArrowLeft className="h-4 w-4" /> Volver al plan

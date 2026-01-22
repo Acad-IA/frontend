@@ -177,7 +177,29 @@ function MapaCurricularPage() {
   const manejarAgregarLinea = (nombre: string) => {
     const nombreNormalizado = nombre.trim()
 
-    // Validar si es Área Común (insensible a mayúsculas/minúsculas)
+    // 1. Validar que no esté vacío
+    if (!nombreNormalizado) return
+
+    // 2. Validar duplicados (Insensible a mayúsculas/minúsculas y acentos)
+    const nombreParaComparar = nombreNormalizado
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+
+    const yaExiste = lineas.some((l) => {
+      const lineaNombreBase = l.nombre
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+      return lineaNombreBase === nombreParaComparar
+    })
+
+    if (yaExiste) {
+      alert(`La línea "${nombreNormalizado}" ya existe.`)
+      return
+    }
+
+    // 3. Validar Área Común (usando tu lógica previa)
     const esAreaComun =
       nombreNormalizado.toLowerCase() === 'área común' ||
       nombreNormalizado.toLowerCase() === 'area comun'
@@ -187,10 +209,12 @@ function MapaCurricularPage() {
       return
     }
 
+    // 4. Agregar la línea si todo está bien
     const nueva = {
       id: crypto.randomUUID(),
       nombre: nombreNormalizado,
       orden: lineas.length + 1,
+      color: '#1976d2',
     }
 
     setLineas([...lineas, nueva])
@@ -198,6 +222,7 @@ function MapaCurricularPage() {
     if (esAreaComun) {
       setHasAreaComun(true)
     }
+
     setNombreNuevaLinea('') // Limpiar input
   }
 
@@ -599,19 +624,46 @@ function MapaCurricularPage() {
                   <label className="text-xs font-bold text-slate-500 uppercase">
                     Créditos
                   </label>
-                  <Input type="number" value={editingData.creditos} />
+                  <Input
+                    type="number"
+                    value={editingData.creditos}
+                    onChange={(e) =>
+                      setEditingData({
+                        ...editingData,
+                        creditos: Number(e.target.value),
+                      })
+                    }
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-500 uppercase">
                     HD (Horas Docente)
                   </label>
-                  <Input type="number" value={editingData.hd} />
+                  <Input
+                    type="number"
+                    value={editingData.hd}
+                    onChange={(e) =>
+                      setEditingData({
+                        ...editingData,
+                        hd: Number(e.target.value),
+                      })
+                    }
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-500 uppercase">
                     HI (Horas Indep.)
                   </label>
-                  <Input type="number" value={editingData.hi} />
+                  <Input
+                    type="number"
+                    value={editingData.hi}
+                    onChange={(e) =>
+                      setEditingData({
+                        ...editingData,
+                        hi: Number(e.target.value),
+                      })
+                    }
+                  />
                 </div>
               </div>
 
@@ -621,11 +673,22 @@ function MapaCurricularPage() {
                   <label className="text-xs font-bold text-slate-500 uppercase">
                     Ciclo
                   </label>
-                  <Select value={editingData.ciclo?.toString() || 'null'}>
+                  <Select
+                    value={editingData.ciclo?.toString() || 'unassigned'}
+                    onValueChange={(val) =>
+                      setEditingData({
+                        ...editingData,
+                        ciclo: val === 'unassigned' ? null : Number(val),
+                      })
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="unassigned">
+                        -- Sin Asignar --
+                      </SelectItem>
                       {ciclosArray.map((n) => (
                         <SelectItem key={n} value={n.toString()}>
                           Ciclo {n}
@@ -634,15 +697,27 @@ function MapaCurricularPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-500 uppercase">
                     Línea Curricular
                   </label>
-                  <Select value={editingData.lineaCurricularId || 'null'}>
+                  <Select
+                    value={editingData.lineaCurricularId || 'unassigned'}
+                    onValueChange={(val) =>
+                      setEditingData({
+                        ...editingData,
+                        lineaCurricularId: val === 'unassigned' ? null : val,
+                      })
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="unassigned">
+                        -- Sin Asignar --
+                      </SelectItem>
                       {lineas.map((l) => (
                         <SelectItem key={l.id} value={l.id}>
                           {l.nombre}
@@ -689,7 +764,12 @@ function MapaCurricularPage() {
                 <label className="text-xs font-bold text-slate-500 uppercase">
                   Tipo
                 </label>
-                <Select value={editingData.tipo}>
+                <Select
+                  value={editingData.tipo}
+                  onValueChange={(val: 'obligatoria' | 'optativa') =>
+                    setEditingData({ ...editingData, tipo: val })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
