@@ -116,11 +116,27 @@ export function useCreatePlanManual() {
 }
 
 export function useGeneratePlanAI() {
+  const qc = useQueryClient()
   return useMutation({
     mutationFn: ai_generate_plan,
+    onSuccess: (data) => {
+      // Asumiendo que la Edge Function devuelve { ok: true, plan: { id: ... } }
+      console.log('success de ai_generate_plan')
+
+      const newPlan = data.plan
+
+      if (newPlan) {
+        // 1. Invalidar la lista para que aparezca el nuevo plan
+        qc.invalidateQueries({ queryKey: ['planes', 'list'] })
+
+        // 2. (Opcional) Pre-cargar el dato individual para que la navegación sea instantánea
+        // qc.setQueryData(["planes", "detail", newPlan.id], newPlan);
+      }
+    },
   })
 }
 
+// Funcion obsoleta porque ahora el plan se persiste directamente en useGeneratePlanAI
 export function usePersistPlanFromAI() {
   const qc = useQueryClient()
 
