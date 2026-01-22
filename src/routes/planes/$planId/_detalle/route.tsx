@@ -5,12 +5,19 @@ import {
   Clock,
   Hash,
   CalendarDays,
-  Rocket,
-  BookOpen,
-  CheckCircle2,
+  Save,
 } from 'lucide-react'
+import { useState, useEffect } from 'react'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
+import { usePlan } from '@/data/hooks/usePlans'
 
 export const Route = createFileRoute('/planes/$planId/_detalle')({
   component: RouteComponent,
@@ -18,10 +25,55 @@ export const Route = createFileRoute('/planes/$planId/_detalle')({
 
 function RouteComponent() {
   const { planId } = Route.useParams()
+  const { data } = usePlan(planId)
+
+  // Estados locales para manejar la edición "en vivo" antes de persistir
+  const [nombrePlan, setNombrePlan] = useState('')
+  const [nivelPlan, setNivelPlan] = useState('')
+  const [isDirty, setIsDirty] = useState(false)
+
+  useEffect(() => {
+    if (data) {
+      setNombrePlan(data.nombre || '')
+      setNivelPlan(data.nivel || '')
+    }
+  }, [data])
+
+  const niveles = [
+    'Licenciatura',
+    'Maestría',
+    'Doctorado',
+    'Diplomado',
+    'Especialidad',
+  ]
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault() // Evita el salto de línea
+      e.currentTarget.blur() // Quita el foco, lo que dispara el onBlur y "guarda" en el estado
+    }
+  }
+
+  const handleSave = () => {
+    console.log('Guardando en DB...', { nombrePlan, nivelPlan })
+    // Aquí iría tu mutation
+    setIsDirty(false)
+  }
 
   return (
     <div className="min-h-screen bg-white">
-      {/* 1. Header Superior con Sombra (Volver a planes) */}
+      {/* Botón Flotante de Guardar */}
+      {isDirty && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 fixed right-8 bottom-8 z-50 duration-300">
+          <Button
+            onClick={handleSave}
+            className="gap-2 rounded-full bg-teal-600 px-6 shadow-xl hover:bg-teal-700"
+          >
+            <Save size={16} /> Guardar cambios del Plan
+          </Button>
+        </div>
+      )}
+      {/* 1. Header Superior */}
       <div className="sticky top-0 z-20 border-b bg-white/50 shadow-sm backdrop-blur-sm">
         <div className="px-6 py-2">
           <Link
@@ -33,50 +85,70 @@ function RouteComponent() {
         </div>
       </div>
 
-      {/* 2. Contenido Principal con Padding */}
       <div className="mx-auto max-w-[1600px] space-y-8 p-8">
-        {/* Header del Plan y Badges */}
+        {/* Header del Plan */}
         <div className="flex flex-col items-start justify-between gap-4 md:flex-row">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-              Plan de Estudios 2024
+            <h1 className="flex items-baseline gap-2 text-3xl font-bold tracking-tight text-slate-900">
+              <span>{nivelPlan} en</span>
+              <span
+                role="textbox"
+                tabIndex={0}
+                contentEditable
+                suppressContentEditableWarning
+                spellCheck={false} // Quita el subrayado rojo de error ortográfico
+                onKeyDown={handleKeyDown}
+                onBlur={(e) => setNombrePlan(e.currentTarget.textContent || '')}
+                className="cursor-text border-b border-transparent decoration-transparent transition-colors outline-none select-text hover:border-slate-300 focus:border-teal-500"
+                style={{ WebkitTextDecoration: 'none', textDecoration: 'none' }} // Doble seguridad contra subrayados
+              >
+                {nombrePlan}
+              </span>
             </h1>
             <p className="mt-1 text-lg font-medium text-slate-500">
-              Ingeniería en Sistemas Computacionales
+              {data?.carreras?.facultades?.nombre}{' '}
+              {data?.carreras?.nombre_corto}
             </p>
           </div>
 
-          {/* Badges de la derecha */}
           <div className="flex gap-2">
+            {/* <Badge className="gap-1 border-teal-200 bg-teal-50 px-3 text-teal-700 hover:bg-teal-100">
+              <CheckCircle2 size={12} /> {data?.estados_plan?.etiqueta}
+            </Badge> */}
             <Badge
-              variant="secondary"
-              className="gap-1 border-blue-100 bg-blue-50 px-3 text-blue-700"
+              className={`gap-1 border-teal-200 bg-teal-50 px-3 text-teal-700 hover:bg-teal-100`}
             >
-              <Rocket size={12} /> Ingeniería
-            </Badge>
-            <Badge
-              variant="secondary"
-              className="gap-1 border-orange-100 bg-orange-50 px-3 text-orange-700"
-            >
-              <BookOpen size={12} /> Licenciatura
-            </Badge>
-            <Badge className="gap-1 border-teal-200 bg-teal-50 px-3 text-teal-700 hover:bg-teal-100">
-              <CheckCircle2 size={12} /> En Revisión
+              {data?.estados_plan?.etiqueta}
             </Badge>
           </div>
         </div>
 
-        {/* 3. Cards de Información (Nivel, Duración, etc.) */}
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <InfoCard
-            icon={<GraduationCap className="text-slate-400" />}
-            label="Nivel"
-            value="Superior"
-          />
+        {/* 3. Cards de Información con Context Menu */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+          <ContextMenu>
+            <ContextMenuTrigger>
+              {/* Eliminamos el div extra y aplicamos el estilo directamente al trigger si es necesario, 
+          pero con asChild, la InfoCard será el trigger real */}
+              <InfoCard
+                icon={<GraduationCap className="text-slate-400" />}
+                label="Nivel"
+                value={nivelPlan}
+                isEditable
+              />
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-48">
+              {niveles.map((n) => (
+                <ContextMenuItem key={n} onClick={() => setNivelPlan(n)}>
+                  {n}
+                </ContextMenuItem>
+              ))}
+            </ContextMenuContent>
+          </ContextMenu>
+
           <InfoCard
             icon={<Clock className="text-slate-400" />}
             label="Duración"
-            value="9 Semestres"
+            value={`${data?.numero_ciclos || 0} Ciclos`}
           />
           <InfoCard
             icon={<Hash className="text-slate-400" />}
@@ -86,7 +158,7 @@ function RouteComponent() {
           <InfoCard
             icon={<CalendarDays className="text-slate-400" />}
             label="Creación"
-            value="14 ene 2024"
+            value={data?.creado_en?.split('T')[0]} // Cortamos la fecha para que no sea tan larga
           />
         </div>
 
@@ -117,7 +189,6 @@ function RouteComponent() {
           </nav>
         </div>
 
-        {/* 5. Contenido del Tab */}
         <main className="animate-in fade-in pt-2 duration-500">
           <Outlet />
         </main>
@@ -126,24 +197,37 @@ function RouteComponent() {
   )
 }
 
-// Sub-componente para las tarjetas de información
 function InfoCard({
   icon,
   label,
   value,
+  isEditable,
 }: {
   icon: React.ReactNode
   label: string
-  value: string
+  value: string | number | undefined
+  isEditable?: boolean
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-slate-200/60 bg-slate-50/50 p-4 shadow-sm">
-      <div className="rounded-lg border bg-white p-2 shadow-sm">{icon}</div>
-      <div>
-        <p className="mb-1 text-[10px] leading-none font-bold tracking-wider text-slate-400 uppercase">
+    <div
+      className={`flex h-[72px] w-full items-center gap-4 rounded-xl border border-slate-200/60 bg-slate-50/50 p-4 shadow-sm transition-all ${
+        isEditable
+          ? 'cursor-context-menu hover:border-teal-200 hover:bg-white'
+          : ''
+      }`}
+    >
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-white shadow-sm">
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        {' '}
+        {/* min-w-0 es vital para que el truncate funcione en flex */}
+        <p className="mb-0.5 truncate text-[10px] font-bold tracking-wider text-slate-400 uppercase">
           {label}
         </p>
-        <p className="text-sm font-semibold text-slate-700">{value}</p>
+        <p className="truncate text-sm font-semibold text-slate-700">
+          {value || '---'}
+        </p>
       </div>
     </div>
   )
@@ -163,9 +247,7 @@ function Tab({
       to={to}
       params={params}
       className="border-b-2 border-transparent pb-3 text-sm font-medium text-slate-500 transition-all hover:text-slate-800"
-      activeProps={{
-        className: 'border-teal-600 text-teal-700 font-bold',
-      }}
+      activeProps={{ className: 'border-teal-600 text-teal-700 font-bold' }}
     >
       {children}
     </Link>

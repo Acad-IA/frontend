@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as PlanesPlanesListRouteRouteImport } from './routes/planes/PlanesListRoute'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
 import { Route as PlanesListaRouteRouteImport } from './routes/planes/_lista/route'
+import { Route as PlanesPlanIdIndexRouteImport } from './routes/planes/$planId/index'
 import { Route as PlanesListaNuevoRouteImport } from './routes/planes/_lista/nuevo'
 import { Route as PlanesPlanIdAsignaturasRouteRouteImport } from './routes/planes/$planId/asignaturas/route'
 import { Route as PlanesPlanIdDetalleRouteRouteImport } from './routes/planes/$planId/_detalle/route'
@@ -58,6 +59,11 @@ const DemoTanstackQueryRoute = DemoTanstackQueryRouteImport.update({
 const PlanesListaRouteRoute = PlanesListaRouteRouteImport.update({
   id: '/planes/_lista',
   path: '/planes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanesPlanIdIndexRoute = PlanesPlanIdIndexRouteImport.update({
+  id: '/planes/$planId/',
+  path: '/planes/$planId/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlanesListaNuevoRoute = PlanesListaNuevoRouteImport.update({
@@ -152,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/planes/$planId': typeof PlanesPlanIdDetalleRouteRouteWithChildren
   '/planes/$planId/asignaturas': typeof PlanesPlanIdAsignaturasListaRouteRouteWithChildren
   '/planes/nuevo': typeof PlanesListaNuevoRoute
+  '/planes/$planId/': typeof PlanesPlanIdIndexRoute
   '/planes/$planId/asignaturas/$asignaturaId': typeof PlanesPlanIdAsignaturasAsignaturaIdRouteRoute
   '/planes/$planId/datos': typeof PlanesPlanIdDetalleDatosRoute
   '/planes/$planId/documento': typeof PlanesPlanIdDetalleDocumentoRoute
@@ -170,7 +177,7 @@ export interface FileRoutesByTo {
   '/planes': typeof PlanesListaRouteRouteWithChildren
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/planes/PlanesListRoute': typeof PlanesPlanesListRouteRoute
-  '/planes/$planId': typeof PlanesPlanIdDetalleRouteRouteWithChildren
+  '/planes/$planId': typeof PlanesPlanIdIndexRoute
   '/planes/nuevo': typeof PlanesListaNuevoRoute
   '/planes/$planId/asignaturas/$asignaturaId': typeof PlanesPlanIdAsignaturasAsignaturaIdRouteRoute
   '/planes/$planId/asignaturas': typeof PlanesPlanIdAsignaturasIndexRoute
@@ -194,6 +201,7 @@ export interface FileRoutesById {
   '/planes/$planId/_detalle': typeof PlanesPlanIdDetalleRouteRouteWithChildren
   '/planes/$planId/asignaturas': typeof PlanesPlanIdAsignaturasRouteRouteWithChildren
   '/planes/_lista/nuevo': typeof PlanesListaNuevoRoute
+  '/planes/$planId/': typeof PlanesPlanIdIndexRoute
   '/planes/$planId/asignaturas/$asignaturaId': typeof PlanesPlanIdAsignaturasAsignaturaIdRouteRoute
   '/planes/$planId/asignaturas/_lista': typeof PlanesPlanIdAsignaturasListaRouteRouteWithChildren
   '/planes/$planId/_detalle/datos': typeof PlanesPlanIdDetalleDatosRoute
@@ -218,6 +226,7 @@ export interface FileRouteTypes {
     | '/planes/$planId'
     | '/planes/$planId/asignaturas'
     | '/planes/nuevo'
+    | '/planes/$planId/'
     | '/planes/$planId/asignaturas/$asignaturaId'
     | '/planes/$planId/datos'
     | '/planes/$planId/documento'
@@ -259,6 +268,7 @@ export interface FileRouteTypes {
     | '/planes/$planId/_detalle'
     | '/planes/$planId/asignaturas'
     | '/planes/_lista/nuevo'
+    | '/planes/$planId/'
     | '/planes/$planId/asignaturas/$asignaturaId'
     | '/planes/$planId/asignaturas/_lista'
     | '/planes/$planId/_detalle/datos'
@@ -281,6 +291,7 @@ export interface RootRouteChildren {
   PlanesPlanesListRouteRoute: typeof PlanesPlanesListRouteRoute
   PlanesPlanIdDetalleRouteRoute: typeof PlanesPlanIdDetalleRouteRouteWithChildren
   PlanesPlanIdAsignaturasRouteRoute: typeof PlanesPlanIdAsignaturasRouteRouteWithChildren
+  PlanesPlanIdIndexRoute: typeof PlanesPlanIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -325,6 +336,13 @@ declare module '@tanstack/react-router' {
       path: '/planes'
       fullPath: '/planes'
       preLoaderRoute: typeof PlanesListaRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/planes/$planId/': {
+      id: '/planes/$planId/'
+      path: '/planes/$planId'
+      fullPath: '/planes/$planId/'
+      preLoaderRoute: typeof PlanesPlanIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/planes/_lista/nuevo': {
@@ -510,6 +528,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlanesPlanIdDetalleRouteRoute: PlanesPlanIdDetalleRouteRouteWithChildren,
   PlanesPlanIdAsignaturasRouteRoute:
     PlanesPlanIdAsignaturasRouteRouteWithChildren,
+  PlanesPlanIdIndexRoute: PlanesPlanIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -73,7 +73,7 @@ function DatosGeneralesPage() {
     navigate({
       to: '/planes/$planId/iaplan',
       params: {
-        planId: '1', // o dinámico
+        planId: planId, // o dinámico
       },
       state: {
         prefill: descripcion,
