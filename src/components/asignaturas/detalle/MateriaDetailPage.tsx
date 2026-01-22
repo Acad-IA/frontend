@@ -1,4 +1,9 @@
-import { Link, useRouterState } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  Link,
+  useParams,
+  useRouterState,
+} from '@tanstack/react-router'
 import { ArrowLeft, GraduationCap, Pencil, Sparkles } from 'lucide-react'
 import { useCallback, useState, useEffect } from 'react'
 
@@ -79,12 +84,21 @@ function EditableHeaderField({
     </span>
   )
 }
+
+export const Route = createFileRoute(
+  '/planes/$planId/asignaturas/$asignaturaId',
+)({
+  component: MateriaDetailPage,
+})
+
 export default function MateriaDetailPage() {
   const routerState = useRouterState()
   const state = routerState.location.state as any
-  const { data: asignaturasApi, isLoading: loadingAsig } = useSubject(
-    state?.realId,
-  )
+  const { asignaturaId } = useParams({
+    from: '/planes/$planId/asignaturas/$asignaturaId',
+  })
+  const { data: asignaturasApi, isLoading: loadingAsig } =
+    useSubject(asignaturaId)
   // 1. Asegúrate de tener estos estados en tu componente principal
   const [messages, setMessages] = useState<Array<IAMessage>>([])
   const [datosGenerales, setDatosGenerales] = useState({})
@@ -179,7 +193,7 @@ export default function MateriaDetailPage() {
       <section className="bg-gradient-to-b from-[#0b1d3a] to-[#0e2a5c] text-white">
         <div className="mx-auto max-w-7xl px-6 py-10">
           <Link
-            to="/planes"
+            to="/planes/$planId"
             className="mb-4 flex items-center gap-2 text-sm text-blue-200 hover:text-white"
           >
             <ArrowLeft className="h-4 w-4" /> Volver al plan
@@ -280,6 +294,7 @@ export default function MateriaDetailPage() {
             <TabsContent value="bibliografia">
               <BibliographyItem
                 bibliografia={bibliografia}
+                id={asignaturaId}
                 onSave={handleSaveBibliografia}
                 isSaving={isSaving}
               />
@@ -313,7 +328,7 @@ export default function MateriaDetailPage() {
             </TabsContent>
 
             <TabsContent value="historial">
-              <HistorialTab />
+              <HistorialTab asignaturaId={asignaturaId} />
             </TabsContent>
           </Tabs>
         </div>

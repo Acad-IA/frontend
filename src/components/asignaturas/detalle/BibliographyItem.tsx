@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import {
   Plus,
   Search,
@@ -8,25 +7,8 @@ import {
   Edit3,
   Save,
 } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { useEffect, useState } from 'react'
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,10 +19,29 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { useSubjectBibliografia } from '@/data/hooks/useSubjects'
-//import { toast } from 'sonner';
-//import { mockLibraryResources } from '@/data/mockMateriaData';
+import { cn } from '@/lib/utils'
+// import { toast } from 'sonner';
+// import { mockLibraryResources } from '@/data/mockMateriaData';
 
 export const mockLibraryResources = [
   {
@@ -84,19 +85,20 @@ export interface BibliografiaEntry {
 }
 
 interface BibliografiaTabProps {
-  bibliografia: BibliografiaEntry[]
-  onSave: (bibliografia: BibliografiaEntry[]) => void
+  bibliografia: Array<BibliografiaEntry>
+  onSave: (bibliografia: Array<BibliografiaEntry>) => void
   isSaving: boolean
 }
 
 export function BibliographyItem({
   bibliografia,
+  asignaturaId,
   onSave,
   isSaving,
 }: BibliografiaTabProps) {
   const { data: bibliografia2, isLoading: loadinmateria } =
-    useSubjectBibliografia('9d4dda6a-488f-428a-8a07-38081592a641')
-  const [entries, setEntries] = useState<BibliografiaEntry[]>(bibliografia)
+    useSubjectBibliografia(asignaturaId)
+  const [entries, setEntries] = useState<Array<BibliografiaEntry>>(bibliografia)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isLibraryDialogOpen, setIsLibraryDialogOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -128,7 +130,7 @@ export function BibliographyItem({
     }
     setEntries([...entries, newEntry])
     setIsAddDialogOpen(false)
-    //toast.success('Referencia manual añadida');
+    // toast.success('Referencia manual añadida');
   }
 
   const handleAddFromLibrary = (
@@ -145,7 +147,7 @@ export function BibliographyItem({
     }
     setEntries([...entries, newEntry])
     setIsLibraryDialogOpen(false)
-    //toast.success('Añadido desde biblioteca');
+    // toast.success('Añadido desde biblioteca');
   }
 
   const handleUpdateCita = (id: string, cita: string) => {

@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { format, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale'
 import {
   History,
   FileText,
@@ -6,31 +7,30 @@ import {
   BookMarked,
   Sparkles,
   FileCheck,
-  User,
   Filter,
   Calendar,
   Loader2,
   Eye,
 } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { useState, useMemo } from 'react'
+
 import { Badge } from '@/components/ui/badge'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
-import { format, parseISO } from 'date-fns'
-import { es } from 'date-fns/locale'
-import { useSubjectHistorial } from '@/data/hooks/useSubjects'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { useSubjectHistorial } from '@/data/hooks/useSubjects'
+import { cn } from '@/lib/utils'
 
 const tipoConfig: Record<string, { label: string; icon: any; color: string }> =
   {
@@ -53,11 +53,9 @@ const tipoConfig: Record<string, { label: string; icon: any; color: string }> =
     },
   }
 
-export function HistorialTab() {
+export function HistorialTab({ asignaturaId }) {
   // 1. Obtenemos los datos directamente dentro del componente
-  const { data: rawData, isLoading } = useSubjectHistorial(
-    '9d4dda6a-488f-428a-8a07-38081592a641',
-  )
+  const { data: rawData, isLoading } = useSubjectHistorial(asignaturaId)
 
   const [filtros, setFiltros] = useState<Set<string>>(
     new Set(['datos', 'contenido', 'bibliografia', 'ia', 'documento']),
@@ -164,7 +162,7 @@ export function HistorialTab() {
       groups[dateKey].push(cambio)
       return groups
     },
-    {} as Record<string, any[]>,
+    {} as Record<string, Array<any>>,
   )
 
   const sortedDates = Object.keys(groupedHistorial).sort((a, b) =>

@@ -233,6 +233,7 @@ function MateriasPage() {
                       },
                       state: {
                         realId: materia.id, // 👈 ID largo oculto
+                        asignaturaId: materia.id,
                       } as any,
                     })
                   }
