@@ -7,7 +7,7 @@ import {
   CalendarDays,
   Save,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, forwardRef } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -145,7 +145,7 @@ function RouteComponent() {
         {/* 3. Cards de Información con Context Menu */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
           <DropdownMenu>
-            <DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild>
               <InfoCard
                 icon={<GraduationCap className="text-slate-400" />}
                 label="Nivel"
@@ -221,31 +221,32 @@ function RouteComponent() {
   )
 }
 
-function InfoCard({
-  icon,
-  label,
-  value,
-  isEditable,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string | number | undefined
-  isEditable?: boolean
-}) {
+const InfoCard = forwardRef<
+  HTMLDivElement,
+  {
+    icon: React.ReactNode
+    label: string
+    value: string | number | undefined
+    isEditable?: boolean
+  } & React.HTMLAttributes<HTMLDivElement>
+>(function InfoCard(
+  { icon, label, value, isEditable, className, ...props },
+  ref,
+) {
   return (
     <div
+      ref={ref}
+      {...props}
       className={`flex h-[72px] w-full items-center gap-4 rounded-xl border border-slate-200/60 bg-slate-50/50 p-4 shadow-sm transition-all ${
         isEditable
           ? 'cursor-pointer hover:border-teal-200 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/40'
           : ''
-      }`}
+      } ${className ?? ''}`}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-white shadow-sm">
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        {' '}
-        {/* min-w-0 es vital para que el truncate funcione en flex */}
         <p className="mb-0.5 truncate text-[10px] font-bold tracking-wider text-slate-400 uppercase">
           {label}
         </p>
@@ -255,7 +256,7 @@ function InfoCard({
       </div>
     </div>
   )
-}
+})
 
 function Tab({
   to,
