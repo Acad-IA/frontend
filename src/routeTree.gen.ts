@@ -148,7 +148,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/planes': typeof PlanesListaRouteRouteWithChildren
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/planes/$planId': typeof PlanesPlanIdIndexRoute
+  '/planes/$planId': typeof PlanesPlanIdDetalleRouteRouteWithChildren
   '/planes/$planId/asignaturas': typeof PlanesPlanIdAsignaturasListaRouteRouteWithChildren
   '/planes/nuevo': typeof PlanesListaNuevoRoute
   '/planes/$planId/': typeof PlanesPlanIdIndexRoute
@@ -169,10 +169,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/planes': typeof PlanesListaRouteRouteWithChildren
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-<<<<<<< HEAD
-  '/planes/PlanesListRoute': typeof PlanesPlanesListRouteRoute
-=======
->>>>>>> 4950f7efbf664bbd31ac8a673fe594af5baf07f6
   '/planes/$planId': typeof PlanesPlanIdIndexRoute
   '/planes/nuevo': typeof PlanesListaNuevoRoute
   '/planes/$planId/asignaturas/$asignaturaId': typeof PlanesPlanIdAsignaturasAsignaturaIdRouteRoute
@@ -325,11 +321,7 @@ declare module '@tanstack/react-router' {
     '/planes/$planId/': {
       id: '/planes/$planId/'
       path: '/planes/$planId'
-<<<<<<< HEAD
       fullPath: '/planes/$planId/'
-=======
-      fullPath: '/planes/$planId'
->>>>>>> 4950f7efbf664bbd31ac8a673fe594af5baf07f6
       preLoaderRoute: typeof PlanesPlanIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
