@@ -106,7 +106,7 @@ function RouteComponent() {
       if (field && !selectedFields.find((sf) => sf.key === field.key)) {
         setSelectedFields([field])
       }
-      setInput(`Mejora este campo: [${field?.label}] `)
+      setInput(`Mejora este campo: ${field?.label} `)
     }
   }, [availableFields])
 

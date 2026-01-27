@@ -1,357 +1,406 @@
-import { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, Bot, User, Check, X, RefreshCw, Lightbulb, Wand2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useRouterState } from '@tanstack/react-router'
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import type { IAMessage, IASugerencia, CampoEstructura } from '@/types/materia';
-import { cn } from '@/lib/utils';
-//import { toast } from 'sonner';
+  Sparkles,
+  Send,
+  Target,
+  UserCheck,
+  Lightbulb,
+  FileText,
+  GraduationCap,
+  BookOpen,
+  Check,
+  X,
+} from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 
-interface IAMateriaTabProps {
-  campos: CampoEstructura[];
-  datosGenerales: Record<string, any>;
-  messages: IAMessage[];
-  onSendMessage: (message: string, campoId?: string) => void;
-  onAcceptSuggestion: (sugerencia: IASugerencia) => void;
-  onRejectSuggestion: (messageId: string) => void;
+import type { IAMessage, IASugerencia, CampoEstructura } from '@/types/materia'
+
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
+
+// Tipos importados de tu archivo de materia
+
+const PRESETS = [
+  {
+    id: 'mejorar-objetivo',
+    label: 'Mejorar objetivo',
+    icon: Target,
+    prompt: 'Mejora la redacción del objetivo de esta asignatura...',
+  },
+  {
+    id: 'contenido-tematico',
+    label: 'Sugerir contenido',
+    icon: BookOpen,
+    prompt: 'Genera un desglose de temas para esta materia...',
+  },
+  {
+    id: 'actividades',
+    label: 'Actividades de aprendizaje',
+    icon: GraduationCap,
+    prompt: 'Sugiere actividades prácticas para los temas seleccionados...',
+  },
+  {
+    id: 'bibliografia',
+    label: 'Actualizar bibliografía',
+    icon: FileText,
+    prompt: 'Recomienda bibliografía reciente para esta asignatura...',
+  },
+]
+
+interface SelectedField {
+  key: string
+  label: string
+  value: string
 }
 
-const quickActions = [
-  { id: 'mejorar-objetivos', label: 'Mejorar objetivos', icon: Wand2, prompt: 'Mejora el :objetivo_general para que sea más específico y medible' },
-  { id: 'generar-contenido', label: 'Generar contenido temático', icon: Lightbulb, prompt: 'Sugiere un contenido temático completo basado en los objetivos y competencias' },
-  { id: 'alinear-perfil', label: 'Alinear con perfil de egreso', icon: RefreshCw, prompt: 'Revisa las :competencias y alinéalas con el perfil de egreso del plan' },
-  { id: 'ajustar-biblio', label: 'Recomendar bibliografía', icon: Sparkles, prompt: 'Recomienda bibliografía actualizada basándote en el contenido temático' },
-];
+interface IAMateriaTabProps {
+  campos: Array<CampoEstructura>
+  datosGenerales: Record<string, any>
+  messages: Array<IAMessage>
+  onSendMessage: (message: string, campoId?: string) => void
+  onAcceptSuggestion: (sugerencia: IASugerencia) => void
+  onRejectSuggestion: (messageId: string) => void
+}
 
-export function IAMateriaTab({ campos, datosGenerales, messages, onSendMessage, onAcceptSuggestion, onRejectSuggestion }: IAMateriaTabProps) {
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [showFieldSelector, setShowFieldSelector] = useState(false);
-  const [fieldSelectorPosition, setFieldSelectorPosition] = useState({ top: 0, left: 0 });
-  const [cursorPosition, setCursorPosition] = useState(0);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+export function IAMateriaTab({
+  campos,
+  datosGenerales,
+  messages,
+  onSendMessage,
+  onAcceptSuggestion,
+  onRejectSuggestion,
+}: IAMateriaTabProps) {
+  const routerState = useRouterState()
+
+  // ESTADOS PRINCIPALES (Igual que en Planes)
+  const [input, setInput] = useState('')
+  const [selectedFields, setSelectedFields] = useState<Array<SelectedField>>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // 1. Transformar datos de la materia para el menú
+  const availableFields = useMemo(() => {
+    // Extraemos las claves directamente del objeto datosGenerales
+    // ["nombre", "descripcion", "perfil_de_egreso", "fines_de_aprendizaje_o_formacion"]
+    return Object.keys(datosGenerales).map((key) => {
+      // Buscamos si existe un nombre amigable en la estructura de campos
+      const estructuraCampo = campos.find((c) => c.id === key)
+
+      // Si existe en 'campos', usamos su nombre; si no, formateamos la clave (ej: perfil_de_egreso -> Perfil De Egreso)
+      const labelAmigable =
+        estructuraCampo?.nombre ||
+        key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+
+      return {
+        key: key,
+        label: labelAmigable,
+        value: String(datosGenerales[key] || ''),
+      }
+    })
+  }, [campos, datosGenerales])
+
+  // 2. Manejar el estado inicial si viene de "Datos de Materia" (Prefill)
 
   useEffect(() => {
+    const state = routerState.location.state as any
+
+    if (state?.prefillCampo && availableFields.length > 0) {
+      const field = availableFields.find((f) => f.key === state.prefillCampo)
+
+      if (field && !selectedFields.find((sf) => sf.key === field.key)) {
+        setSelectedFields([field])
+        // Sincronizamos el texto inicial con el campo pre-seleccionado
+        setInput(`Mejora el campo ${field.key}: `)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableFields])
+
+  // Scroll automático
+  useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages]);
+  }, [messages, isLoading])
 
+  // 3. Lógica para el disparador ":"
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    const pos = e.target.selectionStart;
-    setInput(value);
-    setCursorPosition(pos);
+    const val = e.target.value
+    setInput(val)
+    setShowSuggestions(val.endsWith(':'))
+  }
 
-    // Check for : character to trigger field selector
-    const lastChar = value.charAt(pos - 1);
-    if (lastChar === ':') {
-      const rect = textareaRef.current?.getBoundingClientRect();
-      if (rect) {
-        setFieldSelectorPosition({ top: rect.bottom + 8, left: rect.left });
-        setShowFieldSelector(true);
+  const toggleField = (field: SelectedField) => {
+    setSelectedFields((prev) => {
+      const isSelected = prev.find((f) => f.key === field.key)
+
+      // Si lo estamos seleccionando (no estaba antes)
+      if (!isSelected) {
+        // Actualizamos el texto del input:
+        // Si termina en ":", lo reemplazamos por el key para que sea "Mejora perfil_de_egreso "
+        // Si no, simplemente lo añadimos al final.
+        setInput((prevText) => {
+          const [beforeColon, afterColon = ''] = prevText.split(':')
+
+          // Campos ya escritos después de :
+          const existingKeys = afterColon
+            .split(',')
+            .map((k) => k.trim())
+            .filter(Boolean)
+
+          // Si ya existe, no lo volvemos a agregar
+          if (existingKeys.includes(field.key)) {
+            return prevText
+          }
+
+          const updatedKeys = [...existingKeys, field.key].join(', ')
+
+          return `${beforeColon.trim()}: ${updatedKeys} `
+        })
+
+        return [field]
       }
-    } else if (showFieldSelector && (lastChar === ' ' || !value.includes(':'))) {
-      setShowFieldSelector(false);
-    }
-  };
 
-  const insertFieldMention = (campoId: string) => {
-    const beforeCursor = input.slice(0, cursorPosition);
-    const afterCursor = input.slice(cursorPosition);
-    const lastColonIndex = beforeCursor.lastIndexOf(':');
-    const newInput = beforeCursor.slice(0, lastColonIndex) + `:${campoId}` + afterCursor;
-    setInput(newInput);
-    setShowFieldSelector(false);
-    textareaRef.current?.focus();
-  };
+      // Si lo estamos deseleccionando, solo quitamos el tag
+      return prev.filter((f) => f.key !== field.key)
+    })
+    setShowSuggestions(false)
+  }
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  const buildPrompt = (userInput: string) => {
+    if (selectedFields.length === 0) return userInput
+    const fieldsText = selectedFields
+      .map((f) => `- ${f.label}: ${f.value || '(vacio)'}`)
+      .join('\n')
 
-    // Extract field mention if any
-    const fieldMatch = input.match(/:(\w+)/);
-    const campoId = fieldMatch ? fieldMatch[1] : undefined;
+    return `${userInput}\n\nCampos a analizar:\n${fieldsText}`.trim()
+  }
 
-    setIsLoading(true);
-    onSendMessage(input, campoId);
-    setInput('');
+  const handleSend = async (promptOverride?: string) => {
+    const rawText = promptOverride || input
+    if (!rawText.trim() && selectedFields.length === 0) return
 
-    // Simulate AI response delay
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
-  };
+    const finalPrompt = buildPrompt(rawText)
 
-  const handleQuickAction = (prompt: string) => {
-    setInput(prompt);
-    textareaRef.current?.focus();
-  };
+    setIsLoading(true)
+    // Llamamos a la función que viene por props
+    onSendMessage(finalPrompt, selectedFields[0]?.key)
 
-  const renderMessageContent = (content: string) => {
-    // Render field mentions as styled badges
-    return content.split(/(:[\w_]+)/g).map((part, i) => {
-      if (part.startsWith(':')) {
-        const campo = campos.find(c => c.id === part.slice(1));
-        return (
-          <span key={i} className="field-mention mx-0.5">
-            {campo?.nombre || part}
-          </span>
-        );
-      }
-      return part;
-    });
-  };
+    setInput('')
+    setSelectedFields([])
+
+    // Simular carga local para el feedback visual
+    setTimeout(() => setIsLoading(false), 1200)
+  }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-display text-2xl font-semibold text-foreground flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-accent" />
-            IA de la materia
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Usa <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">:</kbd> para mencionar campos específicos
-          </p>
+    <div className="flex h-[calc(100vh-160px)] max-h-[calc(100vh-160px)] w-full gap-6 overflow-hidden p-4">
+      {/* PANEL DE CHAT PRINCIPAL */}
+      <div className="relative flex min-w-0 flex-[3] flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-50/50 shadow-sm">
+        {/* Barra superior */}
+        <div className="shrink-0 border-b bg-white p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+              IA de Asignatura
+            </span>
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chat area */}
-        <Card className="lg:col-span-2 card-elevated flex flex-col h-[600px]">
-          <CardHeader className="pb-2 border-b">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Conversación
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 flex flex-col p-0">
-            <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-              <div className="space-y-4">
-                {messages.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Bot className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
-                    <p className="text-muted-foreground">
-                      Inicia una conversación para mejorar tu materia con IA
-                    </p>
-                  </div>
-                ) : (
-                  messages.map((message) => (
-                    <div key={message.id} className={cn(
-                      "flex gap-3",
-                      message.role === 'user' ? "justify-end" : "justify-start"
-                    )}>
-                      {message.role === 'assistant' && (
-                        <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
-                          <Bot className="w-4 h-4 text-accent" />
-                        </div>
+        {/* CONTENIDO DEL CHAT */}
+        <div className="relative min-h-0 flex-1">
+          <ScrollArea ref={scrollRef} className="h-full w-full">
+            <div className="mx-auto max-w-3xl space-y-6 p-6">
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'} items-start gap-3`}
+                >
+                  <Avatar
+                    className={`h-8 w-8 shrink-0 border ${msg.role === 'assistant' ? 'bg-teal-50' : 'bg-slate-200'}`}
+                  >
+                    <AvatarFallback className="text-[10px]">
+                      {msg.role === 'assistant' ? (
+                        <Sparkles size={14} className="text-teal-600" />
+                      ) : (
+                        <UserCheck size={14} />
                       )}
-                      <div className={cn(
-                        "max-w-[80%] rounded-lg px-4 py-3",
-                        message.role === 'user' 
-                          ? "bg-primary text-primary-foreground" 
-                          : "bg-muted"
-                      )}>
-                        <p className="text-sm whitespace-pre-wrap">
-                          {renderMessageContent(message.content)}
-                        </p>
-                        {message.sugerencia && !message.sugerencia.aceptada && (
-                          <div className="mt-3 p-3 bg-background/80 rounded-md border">
-                            <p className="text-xs font-medium text-muted-foreground mb-2">
-                              Sugerencia para: {message.sugerencia.campoNombre}
-                            </p>
-                            <div className="text-sm text-foreground bg-accent/10 p-2 rounded mb-3 max-h-32 overflow-y-auto">
-                              {message.sugerencia.valorSugerido}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button 
-                                size="sm" 
-                                onClick={() => onAcceptSuggestion(message.sugerencia!)}
-                                className="bg-success hover:bg-success/90 text-success-foreground"
-                              >
-                                <Check className="w-3 h-3 mr-1" />
-                                Aplicar
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => onRejectSuggestion(message.id)}
-                              >
-                                <X className="w-3 h-3 mr-1" />
-                                Rechazar
-                              </Button>
-                            </div>
+                    </AvatarFallback>
+                  </Avatar>
+                  <div
+                    className={`flex max-w-[85%] flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+                  >
+                    <div
+                      className={cn(
+                        'rounded-2xl p-3 text-sm whitespace-pre-wrap shadow-sm',
+                        msg.role === 'user'
+                          ? 'rounded-tr-none bg-teal-600 text-white'
+                          : 'rounded-tl-none border bg-white text-slate-700',
+                      )}
+                    >
+                      {msg.content}
+                    </div>
+
+                    {/* Renderizado de Sugerencias (Homologado con lógica de Materia) */}
+                    {msg.sugerencia && !msg.sugerencia.aceptada && (
+                      <div className="animate-in fade-in slide-in-from-top-1 mt-3 w-full">
+                        <div className="rounded-xl border border-teal-100 bg-white p-4 shadow-md">
+                          <p className="mb-2 text-[10px] font-bold text-slate-400 uppercase">
+                            Propuesta para: {msg.sugerencia.campoNombre}
+                          </p>
+                          <div className="mb-4 max-h-40 overflow-y-auto rounded-lg bg-slate-50 p-3 text-xs text-slate-600 italic">
+                            {msg.sugerencia.valorSugerido}
                           </div>
-                        )}
-                        {message.sugerencia?.aceptada && (
-                          <Badge className="mt-2 badge-library">
-                            <Check className="w-3 h-3 mr-1" />
-                            Sugerencia aplicada
-                          </Badge>
-                        )}
-                      </div>
-                      {message.role === 'user' && (
-                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                          <User className="w-4 h-4 text-primary-foreground" />
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                onAcceptSuggestion(msg.sugerencia!)
+                              }
+                              className="h-8 bg-teal-600 text-xs hover:bg-teal-700"
+                            >
+                              <Check size={14} className="mr-1" /> Aplicar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => onRejectSuggestion(msg.id)}
+                              className="h-8 text-xs"
+                            >
+                              <X size={14} className="mr-1" /> Descartar
+                            </Button>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  ))
-                )}
-                {isLoading && (
-                  <div className="flex gap-3">
-                    <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
-                      <Bot className="w-4 h-4 text-accent animate-pulse" />
-                    </div>
-                    <div className="bg-muted rounded-lg px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-accent rounded-full animate-bounce [animation-delay:-0.3s]" />
-                        <div className="w-2 h-2 bg-accent rounded-full animate-bounce [animation-delay:-0.15s]" />
-                        <div className="w-2 h-2 bg-accent rounded-full animate-bounce" />
                       </div>
-                    </div>
+                    )}
+                    {msg.sugerencia?.aceptada && (
+                      <Badge className="mt-2 border-teal-200 bg-teal-100 text-teal-700 hover:bg-teal-100">
+                        <Check className="mr-1 h-3 w-3" /> Sugerencia aplicada
+                      </Badge>
+                    )}
                   </div>
-                )}
-              </div>
-            </ScrollArea>
+                </div>
+              ))}
+              {isLoading && (
+                <div className="flex gap-2 p-4">
+                  <div className="h-2 w-2 animate-bounce rounded-full bg-teal-400" />
+                  <div className="h-2 w-2 animate-bounce rounded-full bg-teal-400 [animation-delay:0.2s]" />
+                  <div className="h-2 w-2 animate-bounce rounded-full bg-teal-400 [animation-delay:0.4s]" />
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
 
-            {/* Input area */}
-            <div className="p-4 border-t">
-              <div className="relative">
+        {/* INPUT FIJO AL FONDO */}
+        <div className="shrink-0 border-t bg-white p-4">
+          <div className="relative mx-auto max-w-4xl">
+            {/* MENÚ DE SUGERENCIAS FLOTANTE */}
+            {showSuggestions && (
+              <div className="animate-in slide-in-from-bottom-2 absolute bottom-full z-50 mb-2 w-72 overflow-hidden rounded-xl border bg-white shadow-2xl">
+                <div className="border-b bg-slate-50 px-3 py-2 text-[10px] font-bold tracking-wider text-slate-500 uppercase">
+                  Seleccionar campo de materia
+                </div>
+                <div className="max-h-64 overflow-y-auto p-1">
+                  {availableFields.map((field) => (
+                    <button
+                      key={field.key}
+                      onClick={() => toggleField(field)}
+                      className="group flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-teal-50"
+                    >
+                      <span className="text-slate-700 group-hover:text-teal-700">
+                        {field.label}
+                      </span>
+                      {selectedFields.find((f) => f.key === field.key) && (
+                        <Check size={14} className="text-teal-600" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* CONTENEDOR DEL INPUT */}
+            <div className="flex flex-col gap-2 rounded-xl border bg-slate-50 p-2 transition-all focus-within:bg-white focus-within:ring-1 focus-within:ring-teal-500">
+              {/* Visualización de Tags */}
+              {selectedFields.length > 0 && (
+                <div className="flex flex-wrap gap-2 px-2 pt-1">
+                  {selectedFields.map((field) => (
+                    <div
+                      key={field.key}
+                      className="animate-in zoom-in-95 flex items-center gap-1 rounded-md border border-teal-200 bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-800"
+                    >
+                      <span className="opacity-70">Campo:</span> {field.label}
+                      <button
+                        onClick={() => toggleField(field)}
+                        className="ml-1 rounded-full p-0.5 transition-colors hover:bg-teal-200"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-end gap-2">
                 <Textarea
-                  ref={textareaRef}
                   value={input}
                   onChange={handleInputChange}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
+                      e.preventDefault()
+                      handleSend()
                     }
                   }}
-                  placeholder="Escribe tu mensaje... Usa : para mencionar campos"
-                  className="min-h-[80px] pr-12 resize-none"
-                  disabled={isLoading}
+                  placeholder={
+                    selectedFields.length > 0
+                      ? 'Instrucciones para los campos seleccionados...'
+                      : 'Escribe tu solicitud o ":" para campos...'
+                  }
+                  className="max-h-[120px] min-h-[40px] flex-1 resize-none border-none bg-transparent py-2 text-sm shadow-none focus-visible:ring-0"
                 />
                 <Button
-                  size="sm"
-                  onClick={handleSend}
-                  disabled={!input.trim() || isLoading}
-                  className="absolute bottom-3 right-3 h-8 w-8 p-0"
+                  onClick={() => handleSend()}
+                  disabled={
+                    (!input.trim() && selectedFields.length === 0) || isLoading
+                  }
+                  size="icon"
+                  className="mb-1 h-9 w-9 shrink-0 bg-teal-600 hover:bg-teal-700"
                 >
-                  <Send className="w-4 h-4" />
+                  <Send size={16} className="text-white" />
                 </Button>
               </div>
-
-              {/* Field selector popover */}
-              {showFieldSelector && (
-                <div className="absolute z-50 mt-1 w-64 bg-popover border rounded-lg shadow-lg">
-                  <Command>
-                    <CommandInput placeholder="Buscar campo..." />
-                    <CommandList>
-                      <CommandEmpty>No se encontró el campo</CommandEmpty>
-                      <CommandGroup heading="Campos disponibles">
-                        {campos.map((campo) => (
-                          <CommandItem
-                            key={campo.id}
-                            value={campo.id}
-                            onSelect={() => insertFieldMention(campo.id)}
-                            className="cursor-pointer"
-                          >
-                            <span className="font-mono text-xs text-accent mr-2">
-                              :{campo.id}
-                            </span>
-                            <span>{campo.nombre}</span>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </div>
-              )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+      </div>
 
-        {/* Sidebar with quick actions and fields */}
-        <div className="space-y-4">
-          {/* Quick actions */}
-          <Card className="card-elevated">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Acciones rápidas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {quickActions.map((action) => {
-                const Icon = action.icon;
-                return (
-                  <Button
-                    key={action.id}
-                    variant="outline"
-                    className="w-full justify-start text-left h-auto py-3"
-                    onClick={() => handleQuickAction(action.prompt)}
-                  >
-                    <Icon className="w-4 h-4 mr-2 text-accent flex-shrink-0" />
-                    <span className="text-sm">{action.label}</span>
-                  </Button>
-                );
-              })}
-            </CardContent>
-          </Card>
-
-          {/* Available fields */}
-          <Card className="card-elevated">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Campos de la materia</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[280px]">
-                <div className="space-y-2">
-                  {campos.map((campo) => {
-                    const hasValue = !!datosGenerales[campo.id];
-                    return (
-                      <div 
-                        key={campo.id}
-                        className={cn(
-                          "p-2 rounded-md border cursor-pointer transition-colors hover:bg-muted/50",
-                          hasValue ? "border-success/30" : "border-warning/30"
-                        )}
-                        onClick={() => {
-                          setInput(prev => prev + `:${campo.id} `);
-                          textareaRef.current?.focus();
-                        }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-mono text-accent">:{campo.id}</span>
-                          {hasValue ? (
-                            <Badge variant="outline" className="text-xs text-success border-success/30">
-                              Completo
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-xs text-warning border-warning/30">
-                              Vacío
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-foreground mt-1">{campo.nombre}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+      {/* PANEL LATERAL (ACCIONES RÁPIDAS) */}
+      <div className="flex flex-[1] flex-col gap-4 overflow-y-auto pr-2">
+        <h4 className="flex items-center gap-2 text-left text-sm font-bold text-slate-800">
+          <Lightbulb size={18} className="text-orange-500" /> Acciones rápidas
+        </h4>
+        <div className="space-y-2">
+          {PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              onClick={() => handleSend(preset.prompt)}
+              className="group flex w-full items-center gap-3 rounded-xl border bg-white p-3 text-left text-sm shadow-sm transition-all hover:border-teal-500 hover:bg-teal-50"
+            >
+              <div className="rounded-lg bg-slate-100 p-2 text-slate-500 group-hover:bg-teal-100 group-hover:text-teal-600">
+                <preset.icon size={16} />
+              </div>
+              <span className="leading-tight font-medium text-slate-700">
+                {preset.label}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
     </div>
-  );
+  )
 }
