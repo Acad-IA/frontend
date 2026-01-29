@@ -50,36 +50,59 @@ function DatosGeneralesPage() {
 
   // Efecto para transformar data?.datos en el arreglo de campos
   useEffect(() => {
-    const properties = data?.estructuras_plan?.definicion?.properties
+    const definicion = data?.estructuras_plan?.definicion as any
+    const properties = definicion?.properties
+    const requiredOrder = definicion?.required as Array<string> | undefined
 
-    const valores = data?.datos as Record<string, unknown>
+    const valores = (data?.datos as Record<string, unknown>) || {}
 
     if (properties && typeof properties === 'object') {
-      const datosTransformados: Array<DatosGeneralesField> = Object.entries(
-        properties,
-      ).map(([key, schema], index) => {
-        const rawValue = valores[key]
+      let keys = Object.keys(properties)
 
-        return {
-          id: (index + 1).toString(),
-          label: schema?.title || formatLabel(key),
-          helperText: schema?.description || '',
-          holder: schema?.examples || '',
-          value:
-            rawValue !== undefined && rawValue !== null ? String(rawValue) : '',
+      // Ordenar llaves basado en la lista "required" si existe
+      if (Array.isArray(requiredOrder)) {
+        keys = keys.sort((a, b) => {
+          const indexA = requiredOrder.indexOf(a)
+          const indexB = requiredOrder.indexOf(b)
+          // Si 'a' está en la lista y 'b' no -> 'a' primero (-1)
+          if (indexA !== -1 && indexB === -1) return -1
+          // Si 'b' está en la lista y 'a' no -> 'b' primero (1)
+          if (indexA === -1 && indexB !== -1) return 1
+          // Si ambos están, comparar índices
+          if (indexA !== -1 && indexB !== -1) return indexA - indexB
+          // Ninguno en la lista, mantener orden relativo
+          return 0
+        })
+      }
 
-          requerido: true,
+      const datosTransformados: Array<DatosGeneralesField> = keys.map(
+        (key, index) => {
+          const schema = properties[key]
+          const rawValue = valores[key]
 
-          // 👇 TIPO DE CAMPO
-          tipo: Array.isArray(schema?.enum)
-            ? 'select'
-            : schema?.type === 'number'
-              ? 'number'
-              : 'texto',
+          return {
+            id: (index + 1).toString(),
+            label: schema?.title || formatLabel(key),
+            helperText: schema?.description || '',
+            holder: schema?.examples || '',
+            value:
+              rawValue !== undefined && rawValue !== null
+                ? String(rawValue)
+                : '',
 
-          opciones: schema?.enum || [],
-        }
-      })
+            requerido: true,
+
+            // 👇 TIPO DE CAMPO
+            tipo: Array.isArray(schema?.enum)
+              ? 'select'
+              : schema?.type === 'number'
+                ? 'number'
+                : 'texto',
+
+            opciones: schema?.enum || [],
+          }
+        },
+      )
 
       setCampos(datosTransformados)
     }
@@ -205,7 +228,7 @@ function DatosGeneralesPage() {
                       value={editValue}
                       onChange={(e) => setEditValue(e.target.value)}
                       className="placeholder:text-muted-foreground/70 min-h-30 not-italic placeholder:italic"
-                      placeholder={`Ej. ${campo.holder[0] as string}`}
+                      placeholder={`Ej. ${campo.holder[0]}`}
                     />
                     <div className="flex justify-end gap-2">
                       <Button
