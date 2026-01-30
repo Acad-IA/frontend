@@ -223,7 +223,7 @@ function RouteComponent() {
               Mapa Curricular
             </Tab>
             <Tab to="/planes/$planId/asignaturas" params={{ planId }}>
-              Materias
+              Asignaturas
             </Tab>
             <Tab to="/planes/$planId/flujo" params={{ planId }}>
               Flujo y Estados

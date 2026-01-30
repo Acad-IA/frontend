@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { useState, useMemo } from 'react'
 
-import type { Materia } from '@/types/plan'
+import type { Asignatura } from '@/types/plan'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -46,7 +46,7 @@ const tipoConfig: Record<string, { label: string; className: string }> = {
 }
 
 // --- Mapeadores de API ---
-const mapAsignaturas = (asigApi: Array<any> = []): Array<Materia> => {
+const mapAsignaturas = (asigApi: Array<any> = []): Array<Asignatura> => {
   return asigApi.map((asig) => ({
     id: asig.id,
     clave: asig.codigo,
@@ -63,10 +63,10 @@ const mapAsignaturas = (asigApi: Array<any> = []): Array<Materia> => {
 }
 
 export const Route = createFileRoute('/planes/$planId/_detalle/asignaturas')({
-  component: MateriasPage,
+  component: AsignaturasPage,
 })
 
-function MateriasPage() {
+function AsignaturasPage() {
   const { planId } = Route.useParams()
   const navigate = useNavigate()
 
@@ -82,13 +82,13 @@ function MateriasPage() {
   const [filterLinea, setFilterLinea] = useState<string>('all')
 
   // 3. Procesamiento de datos
-  const materias = useMemo(
+  const asignaturas = useMemo(
     () => mapAsignaturas(asignaturasApi),
     [asignaturasApi],
   )
   const lineas = useMemo(() => lineasApi || [], [lineasApi])
 
-  const filteredMaterias = materias.filter((m) => {
+  const filteredAsignaturas = asignaturas.filter((m) => {
     const matchesSearch =
       m.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       m.clave.toLowerCase().includes(searchTerm.toLowerCase())
@@ -119,11 +119,11 @@ function MateriasPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-foreground text-xl font-bold">
-            Materias del Plan
+            Asignaturas del Plan
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            {materias.length} materias en total • {filteredMaterias.length}{' '}
-            filtradas
+            {asignaturas.length} asignaturas en total •{' '}
+            {filteredAsignaturas.length} filtradas
           </p>
         </div>
 
@@ -132,7 +132,7 @@ function MateriasPage() {
             <Copy className="mr-2 h-4 w-4" /> Clonar
           </Button>
           <Button className="bg-emerald-700 hover:bg-emerald-800">
-            <Plus className="mr-2 h-4 w-4" /> Nueva Materia
+            <Plus className="mr-2 h-4 w-4" /> Nueva Asignatura
           </Button>
         </div>
       </div>
@@ -207,12 +207,12 @@ function MateriasPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredMaterias.length === 0 ? (
+            {filteredAsignaturas.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="h-40 text-center">
                   <div className="text-muted-foreground flex flex-col items-center justify-center">
                     <BookOpen className="mb-2 h-10 w-10 opacity-20" />
-                    <p className="font-medium">No se encontraron materias</p>
+                    <p className="font-medium">No se encontraron asignaturas</p>
                     <p className="text-xs">
                       Intenta cambiar los filtros de búsqueda
                     </p>
@@ -220,59 +220,59 @@ function MateriasPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredMaterias.map((materia) => (
+              filteredAsignaturas.map((asignatura) => (
                 <TableRow
-                  key={materia.id}
+                  key={asignatura.id}
                   className="group cursor-pointer transition-colors hover:bg-slate-50/80"
                   onClick={() =>
                     navigate({
                       to: '/planes/$planId/asignaturas/$asignaturaId',
                       params: {
                         planId,
-                        asignaturaId: materia.id, // 👈 puede ser índice, consecutivo o slug
+                        asignaturaId: asignatura.id, // 👈 puede ser índice, consecutivo o slug
                       },
                       state: {
-                        realId: materia.id, // 👈 ID largo oculto
-                        asignaturaId: materia.id,
+                        realId: asignatura.id, // 👈 ID largo oculto
+                        asignaturaId: asignatura.id,
                       } as any,
                     })
                   }
                 >
                   <TableCell className="font-mono text-xs font-bold text-slate-400">
-                    {materia.clave}
+                    {asignatura.clave}
                   </TableCell>
                   <TableCell className="font-semibold text-slate-700">
-                    {materia.nombre}
+                    {asignatura.nombre}
                   </TableCell>
                   <TableCell className="text-center font-medium">
-                    {materia.creditos}
+                    {asignatura.creditos}
                   </TableCell>
                   <TableCell className="text-center">
-                    {materia.ciclo ? (
+                    {asignatura.ciclo ? (
                       <Badge variant="outline" className="font-normal">
-                        Ciclo {materia.ciclo}
+                        Ciclo {asignatura.ciclo}
                       </Badge>
                     ) : (
                       <span className="text-slate-300">—</span>
                     )}
                   </TableCell>
                   <TableCell className="text-sm text-slate-600">
-                    {getLineaNombre(materia.lineaCurricularId)}
+                    {getLineaNombre(asignatura.lineaCurricularId)}
                   </TableCell>
                   <TableCell>
                     <Badge
                       variant="outline"
-                      className={`capitalize shadow-sm ${tipoConfig[materia.tipo]?.className}`}
+                      className={`capitalize shadow-sm ${tipoConfig[asignatura.tipo]?.className}`}
                     >
-                      {tipoConfig[materia.tipo]?.label}
+                      {tipoConfig[asignatura.tipo]?.label}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <Badge
                       variant="outline"
-                      className={`capitalize shadow-sm ${statusConfig[materia.estado]?.className}`}
+                      className={`capitalize shadow-sm ${statusConfig[asignatura.estado]?.className}`}
                     >
-                      {statusConfig[materia.estado]?.label}
+                      {statusConfig[asignatura.estado]?.label}
                     </Badge>
                   </TableCell>
                   <TableCell>
