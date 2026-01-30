@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { useMemo, useState, useEffect } from 'react'
 
-import type { Materia, LineaCurricular } from '@/types/plan'
+import type { Asignatura, LineaCurricular } from '@/types/plan'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -47,7 +47,9 @@ const mapLineasToLineaCurricular = (
   }))
 }
 
-const mapAsignaturasToMaterias = (asigApi: Array<any> = []): Array<Materia> => {
+const mapAsignaturasToAsignaturas = (
+  asigApi: Array<any> = [],
+): Array<Asignatura> => {
   return asigApi.map((asig) => ({
     id: asig.id,
     clave: asig.codigo,
@@ -104,13 +106,13 @@ function StatItem({
   )
 }
 
-function MateriaCardItem({
-  materia,
+function AsignaturaCardItem({
+  asignatura,
   onDragStart,
   isDragging,
   onClick,
 }: {
-  materia: Materia
+  asignatura: Asignatura
   onDragStart: (e: React.DragEvent, id: string) => void
   isDragging: boolean
   onClick: () => void
@@ -118,7 +120,7 @@ function MateriaCardItem({
   return (
     <button
       draggable
-      onDragStart={(e) => onDragStart(e, materia.id)}
+      onDragStart={(e) => onDragStart(e, asignatura.id)}
       onClick={onClick}
       className={`group cursor-grab rounded-lg border bg-white p-3 shadow-sm transition-all active:cursor-grabbing ${
         isDragging
@@ -128,21 +130,21 @@ function MateriaCardItem({
     >
       <div className="mb-1 flex items-start justify-between">
         <span className="font-mono text-[10px] font-bold text-slate-400">
-          {materia.clave}
+          {asignatura.clave}
         </span>
         <Badge
           variant="outline"
-          className={`px-1 py-0 text-[9px] uppercase ${statusBadge[materia.estado] || ''}`}
+          className={`px-1 py-0 text-[9px] uppercase ${statusBadge[asignatura.estado] || ''}`}
         >
-          {materia.estado}
+          {asignatura.estado}
         </Badge>
       </div>
       <p className="mb-1 text-xs leading-tight font-bold text-slate-700">
-        {materia.nombre}
+        {asignatura.nombre}
       </p>
       <div className="mt-2 flex items-center justify-between">
         <span className="text-[10px] text-slate-500">
-          {materia.creditos} CR • HD:{materia.hd} • HI:{materia.hi}
+          {asignatura.creditos} CR • HD:{asignatura.hd} • HI:{asignatura.hi}
         </span>
         <GripVertical
           size={12}
@@ -166,11 +168,14 @@ function MapaCurricularPage() {
   const { data: lineasApi, isLoading: loadingLineas } = usePlanLineas(planId)
 
   // 2. Estado Local (Para interactividad)
-  const [materias, setMaterias] = useState<Array<Materia>>([])
+  const [asignaturas, setAsignaturas] = useState<Array<Asignatura>>([])
   const [lineas, setLineas] = useState<Array<LineaCurricular>>([])
-  const [draggedMateria, setDraggedMateria] = useState<string | null>(null)
+  const [draggedAsignatura, setDraggedAsignatura] = useState<string | null>(
+    null,
+  )
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [selectedMateria, setSelectedMateria] = useState<Materia | null>(null)
+  const [selectedAsignatura, setSelectedAsignatura] =
+    useState<Asignatura | null>(null)
   const [hasAreaComun, setHasAreaComun] = useState(false)
   const [nombreNuevaLinea, setNombreNuevaLinea] = useState('') // Para el input de nombre personalizado
 
@@ -236,7 +241,8 @@ function MapaCurricularPage() {
 
   // 3. Sincronizar API -> Estado Local
   useEffect(() => {
-    if (asignaturasApi) setMaterias(mapAsignaturasToMaterias(asignaturasApi))
+    if (asignaturasApi)
+      setAsignaturas(mapAsignaturasToAsignaturas(asignaturasApi))
   }, [asignaturasApi])
 
   useEffect(() => {
@@ -247,23 +253,23 @@ function MapaCurricularPage() {
   const ciclosArray = Array.from({ length: ciclosTotales }, (_, i) => i + 1)
 
   // Nuevo estado para controlar los datos temporales del modal de edición
-  const [editingData, setEditingData] = useState<Materia | null>(null)
+  const [editingData, setEditingData] = useState<Asignatura | null>(null)
 
   // 1. FUNCION DE GUARDAR MODAL
   const handleSaveChanges = () => {
     if (!editingData) return
-    console.log(materias)
+    console.log(asignaturas)
 
-    setMaterias((prev) =>
+    setAsignaturas((prev) =>
       prev.map((m) => (m.id === editingData.id ? { ...editingData } : m)),
     )
     setIsEditModalOpen(false)
   }
 
   // 2. MODIFICACIÓN: Zona de soltado siempre visible
-  // Cambiamos la condición: Mostramos la sección si hay materias sin asignar
+  // Cambiamos la condición: Mostramos la sección si hay asignaturas sin asignar
   // O si simplemente queremos tener el "depósito" disponible.
-  const unassignedMaterias = materias.filter((m) => m.ciclo === null)
+  const unassignedAsignaturas = asignaturas.filter((m) => m.ciclo === null)
 
   // --- Lógica de Gestión ---
   const agregarLinea = (nombre: string) => {
@@ -272,7 +278,7 @@ function MapaCurricularPage() {
   }
 
   const borrarLinea = (id: string) => {
-    setMaterias((prev) =>
+    setAsignaturas((prev) =>
       prev.map((m) =>
         m.lineaCurricularId === id
           ? { ...m, ciclo: null, lineaCurricularId: null }
@@ -284,7 +290,7 @@ function MapaCurricularPage() {
 
   // --- Selectores/Cálculos ---
   const getTotalesCiclo = (ciclo: number) => {
-    return materias
+    return asignaturas
       .filter((m) => m.ciclo === ciclo)
       .reduce(
         (acc, m) => ({
@@ -297,7 +303,7 @@ function MapaCurricularPage() {
   }
 
   const getSubtotalLinea = (lineaId: string) => {
-    return materias
+    return asignaturas
       .filter((m) => m.lineaCurricularId === lineaId && m.ciclo !== null)
       .reduce(
         (acc, m) => ({
@@ -310,7 +316,7 @@ function MapaCurricularPage() {
   }
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
-    setDraggedMateria(id)
+    setDraggedAsignatura(id)
     e.dataTransfer.effectAllowed = 'move'
   }
   const handleDragOver = (e: React.DragEvent) => e.preventDefault()
@@ -320,21 +326,21 @@ function MapaCurricularPage() {
     lineaId: string | null,
   ) => {
     e.preventDefault()
-    if (draggedMateria) {
-      setMaterias((prev) =>
+    if (draggedAsignatura) {
+      setAsignaturas((prev) =>
         prev.map((m) =>
-          m.id === draggedMateria
+          m.id === draggedAsignatura
             ? { ...m, ciclo, lineaCurricularId: lineaId }
             : m,
         ),
       )
-      setDraggedMateria(null)
+      setDraggedAsignatura(null)
     }
   }
 
   const stats = useMemo(
     () =>
-      materias.reduce(
+      asignaturas.reduce(
         (acc, m) => {
           if (m.ciclo !== null) {
             acc.cr += m.creditos || 0
@@ -345,7 +351,7 @@ function MapaCurricularPage() {
         },
         { cr: 0, hd: 0, hi: 0 },
       ),
-    [materias],
+    [asignaturas],
   )
 
   if (loadingAsig || loadingLineas)
@@ -358,14 +364,14 @@ function MapaCurricularPage() {
         <div>
           <h2 className="text-xl font-bold">Mapa Curricular</h2>
           <p className="text-sm text-slate-500">
-            Organiza las materias de la petición por línea y ciclo
+            Organiza las asignaturas de la petición por línea y ciclo
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {materias.filter((m) => !m.ciclo).length > 0 && (
+          {asignaturas.filter((m) => !m.ciclo).length > 0 && (
             <Badge className="border-amber-100 bg-amber-50 text-amber-600 hover:bg-amber-50">
               <AlertTriangle size={14} className="mr-1" />{' '}
-              {materias.filter((m) => !m.ciclo).length} sin asignar
+              {asignaturas.filter((m) => !m.ciclo).length} sin asignar
             </Badge>
           )}
           <DropdownMenu>
@@ -474,16 +480,16 @@ function MapaCurricularPage() {
                     onDrop={(e) => handleDrop(e, ciclo, linea.id)}
                     className="min-h-[140px] space-y-2 rounded-xl border-2 border-dashed border-slate-100 bg-slate-50/20 p-2"
                   >
-                    {materias
+                    {asignaturas
                       .filter(
                         (m) =>
                           m.ciclo === ciclo && m.lineaCurricularId === linea.id,
                       )
                       .map((m) => (
-                        <MateriaCardItem
+                        <AsignaturaCardItem
                           key={m.id}
-                          materia={m}
-                          isDragging={draggedMateria === m.id}
+                          asignatura={m}
+                          isDragging={draggedAsignatura === m.id}
                           onDragStart={handleDragStart}
                           onClick={() => {
                             setEditingData(m)
@@ -534,35 +540,35 @@ function MapaCurricularPage() {
         </div>
       </div>
 
-      {/* Materias Sin Asignar */}
+      {/* Asignaturas Sin Asignar */}
       {/* SECCIÓN DE MATERIAS SIN ASIGNAR (Mejorada para estar siempre disponible) */}
       <div className="mt-10 rounded-2xl border border-slate-200 bg-slate-50 p-6">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2 text-slate-600">
             <h3 className="text-sm font-bold tracking-wider uppercase">
-              Bandeja de Entrada / Materias sin asignar
+              Bandeja de Entrada / Asignaturas sin asignar
             </h3>
-            <Badge variant="secondary">{unassignedMaterias.length}</Badge>
+            <Badge variant="secondary">{unassignedAsignaturas.length}</Badge>
           </div>
           <p className="text-xs text-slate-400">
-            Arrastra una materia aquí para quitarla del mapa
+            Arrastra una asignatura aquí para quitarla del mapa
           </p>
         </div>
 
         <div
           className={`flex min-h-[120px] flex-wrap gap-4 rounded-xl border-2 border-dashed p-4 transition-colors ${
-            draggedMateria
+            draggedAsignatura
               ? 'border-teal-300 bg-teal-50/50'
               : 'border-slate-200 bg-white/50'
           }`}
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, null, null)} // Limpia ciclo y línea
         >
-          {unassignedMaterias.map((m) => (
+          {unassignedAsignaturas.map((m) => (
             <div key={m.id} className="w-[200px]">
-              <MateriaCardItem
-                materia={m}
-                isDragging={draggedMateria === m.id}
+              <AsignaturaCardItem
+                asignatura={m}
+                isDragging={draggedAsignatura === m.id}
                 onDragStart={handleDragStart}
                 onClick={() => {
                   setEditingData(m) // Cargamos los datos en el estado de edición
@@ -571,9 +577,9 @@ function MapaCurricularPage() {
               />
             </div>
           ))}
-          {unassignedMaterias.length === 0 && (
+          {unassignedAsignaturas.length === 0 && (
             <div className="flex w-full items-center justify-center text-sm text-slate-400">
-              No hay materias pendientes. Arrastra una materia aquí para
+              No hay asignaturas pendientes. Arrastra una asignatura aquí para
               desasignarla.
             </div>
           )}
@@ -585,7 +591,7 @@ function MapaCurricularPage() {
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
             <DialogTitle className="font-bold text-slate-700">
-              Editar Materia
+              Editar Asignatura
             </DialogTitle>
           </DialogHeader>
 
@@ -735,10 +741,10 @@ function MapaCurricularPage() {
                 </label>
                 <Select>
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar materia..." />
+                    <SelectValue placeholder="Seleccionar asignatura..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {materias.map((m) => (
+                    {asignaturas.map((m) => (
                       <SelectItem key={m.id} value={m.clave}>
                         {m.nombre}
                       </SelectItem>

@@ -23,10 +23,10 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import type {
-  DocumentoMateria,
-  Materia,
-  MateriaStructure,
-} from '@/types/materia'
+  DocumentoAsignatura,
+  Asignatura,
+  AsignaturaStructure,
+} from '@/types/asignatura'
 import { cn } from '@/lib/utils'
 import { useSubjectBibliografia } from '@/data/hooks/useSubjects'
 //import { toast } from 'sonner';
@@ -34,9 +34,9 @@ import { useSubjectBibliografia } from '@/data/hooks/useSubjects'
 //import { es } from 'date-fns/locale';
 
 interface DocumentoSEPTabProps {
-  documento: DocumentoMateria | null
-  materia: Materia
-  estructura: MateriaStructure
+  documento: DocumentoAsignatura | null
+  asignatura: Asignatura
+  estructura: AsignaturaStructure
   datosGenerales: Record<string, any>
   onRegenerate: () => void
   isRegenerating: boolean
@@ -44,7 +44,7 @@ interface DocumentoSEPTabProps {
 
 export function DocumentoSEPTab({
   documento,
-  materia,
+  asignatura,
   estructura,
   datosGenerales,
   onRegenerate,
@@ -112,7 +112,7 @@ export function DocumentoSEPTab({
                 <AlertDialogTitle>¿Regenerar documento SEP?</AlertDialogTitle>
                 <AlertDialogDescription>
                   Se creará una nueva versión del documento con los datos
-                  actuales de la materia. La versión anterior quedará en el
+                  actuales de la asignatura. La versión anterior quedará en el
                   historial.
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -139,7 +139,7 @@ export function DocumentoSEPTab({
                     <div className="flex items-center gap-2">
                       <FileText className="text-primary h-5 w-5" />
                       <span className="text-foreground font-medium">
-                        Programa de Estudios - {materia.clave}
+                        Programa de Estudios - {asignatura.clave}
                       </span>
                     </div>
                     <Badge variant="outline">Versión {documento.version}</Badge>
@@ -155,28 +155,29 @@ export function DocumentoSEPTab({
                         Secretaría de Educación Pública
                       </p>
                       <h1 className="font-display text-primary mb-1 text-2xl font-bold">
-                        {materia.nombre}
+                        {asignatura.nombre}
                       </h1>
                       <p className="text-muted-foreground text-sm">
-                        Clave: {materia.clave} | Créditos:{' '}
-                        {materia.creditos || 'N/A'}
+                        Clave: {asignatura.clave} | Créditos:{' '}
+                        {asignatura.creditos || 'N/A'}
                       </p>
                     </div>
 
                     {/* Datos de la institución */}
                     <div className="space-y-1 text-sm">
                       <p>
-                        <strong>Carrera:</strong> {materia.carrera}
+                        <strong>Carrera:</strong> {asignatura.carrera}
                       </p>
                       <p>
-                        <strong>Facultad:</strong> {materia.facultad}
+                        <strong>Facultad:</strong> {asignatura.facultad}
                       </p>
                       <p>
-                        <strong>Plan de estudios:</strong> {materia.planNombre}
+                        <strong>Plan de estudios:</strong>{' '}
+                        {asignatura.planNombre}
                       </p>
-                      {materia.ciclo && (
+                      {asignatura.ciclo && (
                         <p>
-                          <strong>Ciclo:</strong> {materia.ciclo}
+                          <strong>Ciclo:</strong> {asignatura.ciclo}
                         </p>
                       )}
                     </div>

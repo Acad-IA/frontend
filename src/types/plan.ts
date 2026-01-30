@@ -12,9 +12,9 @@ export type TipoPlan =
   | 'Doctorado'
   | 'Especialidad'
 
-export type TipoMateria = 'obligatoria' | 'optativa' | 'troncal'
+export type TipoAsignatura = 'obligatoria' | 'optativa' | 'troncal'
 
-export type MateriaStatus = 'borrador' | 'revisada' | 'aprobada'
+export type AsignaturaStatus = 'borrador' | 'revisada' | 'aprobada'
 
 export interface Facultad {
   id: string
@@ -36,15 +36,15 @@ export interface LineaCurricular {
   color?: string
 }
 
-export interface Materia {
+export interface Asignatura {
   id: string
   clave: string
   nombre: string
   creditos: number
   ciclo: number | null
   lineaCurricularId: string | null
-  tipo: TipoMateria
-  estado: MateriaStatus
+  tipo: TipoAsignatura
+  estado: AsignaturaStatus
   orden?: number
   hd: number // <--- Añadir
   hi: number // <--- Añadir
@@ -103,7 +103,7 @@ export interface DocumentoPlan {
 export type PlanTab =
   | 'datos-generales'
   | 'mapa-curricular'
-  | 'materias'
+  | 'asignaturas'
   | 'flujo'
   | 'ia'
   | 'documento'

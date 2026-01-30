@@ -41,7 +41,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useSubjectBibliografia } from '@/data/hooks/useSubjects'
 import { cn } from '@/lib/utils'
 // import { toast } from 'sonner';
-// import { mockLibraryResources } from '@/data/mockMateriaData';
+// import { mockLibraryResources } from '@/data/mockAsignaturaData';
 
 export const mockLibraryResources = [
   {
@@ -99,7 +99,7 @@ export function BibliographyItem({
 }: BibliografiaTabProps) {
   console.log(id)
 
-  const { data: bibliografia2, isLoading: loadinmateria } =
+  const { data: bibliografia2, isLoading: loadinasignatura } =
     useSubjectBibliografia(id)
   const [entries, setEntries] = useState<Array<BibliografiaEntry>>(bibliografia)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)

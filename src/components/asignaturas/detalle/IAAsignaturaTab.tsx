@@ -13,7 +13,11 @@ import {
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo } from 'react'
 
-import type { IAMessage, IASugerencia, CampoEstructura } from '@/types/materia'
+import type {
+  IAMessage,
+  IASugerencia,
+  CampoEstructura,
+} from '@/types/asignatura'
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -22,7 +26,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
-// Tipos importados de tu archivo de materia
+// Tipos importados de tu archivo de asignatura
 
 const PRESETS = [
   {
@@ -35,7 +39,7 @@ const PRESETS = [
     id: 'contenido-tematico',
     label: 'Sugerir contenido',
     icon: BookOpen,
-    prompt: 'Genera un desglose de temas para esta materia...',
+    prompt: 'Genera un desglose de temas para esta asignatura...',
   },
   {
     id: 'actividades',
@@ -57,7 +61,7 @@ interface SelectedField {
   value: string
 }
 
-interface IAMateriaTabProps {
+interface IAAsignaturaTabProps {
   campos: Array<CampoEstructura>
   datosGenerales: Record<string, any>
   messages: Array<IAMessage>
@@ -66,14 +70,14 @@ interface IAMateriaTabProps {
   onRejectSuggestion: (messageId: string) => void
 }
 
-export function IAMateriaTab({
+export function IAAsignaturaTab({
   campos,
   datosGenerales,
   messages,
   onSendMessage,
   onAcceptSuggestion,
   onRejectSuggestion,
-}: IAMateriaTabProps) {
+}: IAAsignaturaTabProps) {
   const routerState = useRouterState()
 
   // ESTADOS PRINCIPALES (Igual que en Planes)
@@ -83,7 +87,7 @@ export function IAMateriaTab({
   const [isLoading, setIsLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // 1. Transformar datos de la materia para el menú
+  // 1. Transformar datos de la asignatura para el menú
   const availableFields = useMemo(() => {
     // Extraemos las claves directamente del objeto datosGenerales
     // ["nombre", "descripcion", "perfil_de_egreso", "fines_de_aprendizaje_o_formacion"]
@@ -105,7 +109,7 @@ export function IAMateriaTab({
     })
   }, [campos, datosGenerales])
 
-  // 2. Manejar el estado inicial si viene de "Datos de Materia" (Prefill)
+  // 2. Manejar el estado inicial si viene de "Datos de Asignatura" (Prefill)
 
   useEffect(() => {
     const state = routerState.location.state as any
@@ -244,7 +248,7 @@ export function IAMateriaTab({
                       {msg.content}
                     </div>
 
-                    {/* Renderizado de Sugerencias (Homologado con lógica de Materia) */}
+                    {/* Renderizado de Sugerencias (Homologado con lógica de Asignatura) */}
                     {msg.sugerencia && !msg.sugerencia.aceptada && (
                       <div className="animate-in fade-in slide-in-from-top-1 mt-3 w-full">
                         <div className="rounded-xl border border-teal-100 bg-white p-4 shadow-md">
@@ -302,7 +306,7 @@ export function IAMateriaTab({
             {showSuggestions && (
               <div className="animate-in slide-in-from-bottom-2 absolute bottom-full z-50 mb-2 w-72 overflow-hidden rounded-xl border bg-white shadow-2xl">
                 <div className="border-b bg-slate-50 px-3 py-2 text-[10px] font-bold tracking-wider text-slate-500 uppercase">
-                  Seleccionar campo de materia
+                  Seleccionar campo de asignatura
                 </div>
                 <div className="max-h-64 overflow-y-auto p-1">
                   {availableFields.map((field) => (

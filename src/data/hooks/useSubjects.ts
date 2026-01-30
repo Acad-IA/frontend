@@ -91,7 +91,7 @@ export function usePersistSubjectFromAI() {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: (payload: { planId: UUID; jsonMateria: any }) =>
+    mutationFn: (payload: { planId: UUID; jsonAsignatura: any }) =>
       subjects_persist_from_ai(payload),
     onSuccess: (subject) => {
       qc.setQueryData(qk.asignatura(subject.id), subject)
