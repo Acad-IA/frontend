@@ -333,7 +333,7 @@ export async function plans_import_from_files(payload: {
   }
   archivoWordPlanId: UUID
   archivoMapaExcelId?: UUID | null
-  archivoMateriasExcelId?: UUID | null
+  archivoAsignaturasExcelId?: UUID | null
 }): Promise<PlanEstudio> {
   return invokeEdge<PlanEstudio>(EDGE.plans_import_from_files, payload)
 }

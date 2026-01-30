@@ -12,9 +12,13 @@ import { BibliographyItem } from './BibliographyItem'
 import { ContenidoTematico } from './ContenidoTematico'
 import { DocumentoSEPTab } from './DocumentoSEPTab'
 import { HistorialTab } from './HistorialTab'
-import { IAMateriaTab } from './IAMateriaTab'
+import { IAAsignaturaTab } from './IAAsignaturaTab'
 
-import type { CampoEstructura, IAMessage, IASugerencia } from '@/types/materia'
+import type {
+  CampoEstructura,
+  IAMessage,
+  IASugerencia,
+} from '@/types/asignatura'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -30,10 +34,10 @@ import {
 } from '@/components/ui/tooltip'
 import { useSubject } from '@/data/hooks/useSubjects'
 import {
-  mockMateria,
+  mockAsignatura,
   mockEstructura,
   mockDocumentoSep,
-} from '@/data/mockMateriaData'
+} from '@/data/mockAsignaturaData'
 
 export interface BibliografiaEntry {
   id: string
@@ -101,10 +105,10 @@ function EditableHeaderField({
 export const Route = createFileRoute(
   '/planes/$planId/asignaturas/$asignaturaId',
 )({
-  component: MateriaDetailPage,
+  component: AsignaturaDetailPage,
 })
 
-export default function MateriaDetailPage() {
+export default function AsignaturaDetailPage() {
   const routerState = useRouterState()
   const state = routerState.location.state as any
   const { asignaturaId } = useParams({
@@ -121,7 +125,7 @@ export default function MateriaDetailPage() {
   const [campos, setCampos] = useState<Array<CampoEstructura>>([])
   const [activeTab, setActiveTab] = useState('datos')
 
-  // Dentro de MateriaDetailPage
+  // Dentro de AsignaturaDetailPage
   const [headerData, setHeaderData] = useState({
     codigo: '',
     nombre: '',
@@ -315,7 +319,7 @@ export default function MateriaDetailPage() {
               <TabsTrigger value="datos">Datos generales</TabsTrigger>
               <TabsTrigger value="contenido">Contenido temático</TabsTrigger>
               <TabsTrigger value="bibliografia">Bibliografía</TabsTrigger>
-              <TabsTrigger value="ia">IA de la materia</TabsTrigger>
+              <TabsTrigger value="ia">IA de la asignatura</TabsTrigger>
               <TabsTrigger value="sep">Documento SEP</TabsTrigger>
               <TabsTrigger value="historial">Historial</TabsTrigger>
             </TabsList>
@@ -348,7 +352,7 @@ export default function MateriaDetailPage() {
             </TabsContent>
 
             <TabsContent value="ia">
-              <IAMateriaTab
+              <IAAsignaturaTab
                 campos={campos}
                 datosGenerales={datosGenerales}
                 messages={messages}
@@ -366,7 +370,7 @@ export default function MateriaDetailPage() {
             <TabsContent value="sep">
               <DocumentoSEPTab
                 documento={mockDocumentoSep}
-                materia={mockMateria}
+                asignatura={mockAsignatura}
                 estructura={mockEstructura}
                 datosGenerales={datosGenerales}
                 onRegenerate={handleRegenerateDocument}
