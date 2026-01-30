@@ -34,7 +34,7 @@ export function PasoBasicosForm({
   const estructurasPlanList = catalogos?.estructurasPlan ?? []
 
   const filteredCarreras = rawCarreras.filter((c: any) => {
-    const facId = wizard.datosBasicos.facultadId
+    const facId = wizard.datosBasicos.facultad.id
     if (!facId) return true
     // soportar ambos shapes: `facultad_id` (BD) o `facultadId` (local)
     return c.facultad_id ? c.facultad_id === facId : c.facultadId === facId
@@ -68,15 +68,20 @@ export function PasoBasicosForm({
         <div className="grid gap-1">
           <Label htmlFor="facultad">Facultad</Label>
           <Select
-            value={wizard.datosBasicos.facultadId}
+            value={wizard.datosBasicos.facultad.id}
             onValueChange={(value) =>
               onChange(
                 (w): NewPlanWizardState => ({
                   ...w,
                   datosBasicos: {
                     ...w.datosBasicos,
-                    facultadId: value,
-                    carreraId: '',
+                    facultad: {
+                      id: value,
+                      nombre:
+                        facultadesList.find((f) => f.id === value)?.nombre ||
+                        '',
+                    },
+                    carrera: { id: '', nombre: '' },
                   },
                 }),
               )
@@ -86,7 +91,7 @@ export function PasoBasicosForm({
               id="facultad"
               className={cn(
                 'w-full min-w-0 [&>span]:block! [&>span]:truncate!',
-                !wizard.datosBasicos.facultadId
+                !wizard.datosBasicos.facultad.id
                   ? 'text-muted-foreground font-normal italic opacity-70' // Es Placeholder
                   : 'font-medium not-italic', // Tiene Valor (Medium)
               )}
@@ -106,22 +111,30 @@ export function PasoBasicosForm({
         <div className="grid gap-1">
           <Label htmlFor="carrera">Carrera</Label>
           <Select
-            value={wizard.datosBasicos.carreraId}
+            value={wizard.datosBasicos.carrera.id}
             onValueChange={(value) =>
               onChange(
                 (w): NewPlanWizardState => ({
                   ...w,
-                  datosBasicos: { ...w.datosBasicos, carreraId: value },
+                  datosBasicos: {
+                    ...w.datosBasicos,
+                    carrera: {
+                      id: value,
+                      nombre:
+                        filteredCarreras.find((c) => c.id === value)?.nombre ||
+                        '',
+                    },
+                  },
                 }),
               )
             }
-            disabled={!wizard.datosBasicos.facultadId}
+            disabled={!wizard.datosBasicos.facultad.id}
           >
             <SelectTrigger
               id="carrera"
               className={cn(
                 'w-full min-w-0 [&>span]:block! [&>span]:truncate!',
-                !wizard.datosBasicos.carreraId
+                !wizard.datosBasicos.carrera.id
                   ? 'text-muted-foreground font-normal italic opacity-70' // Es Placeholder
                   : 'font-medium not-italic', // Tiene Valor (Medium)
               )}

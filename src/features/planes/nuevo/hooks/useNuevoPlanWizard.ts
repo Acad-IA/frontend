@@ -8,8 +8,8 @@ export function useNuevoPlanWizard() {
     tipoOrigen: null,
     datosBasicos: {
       nombrePlan: '',
-      carreraId: '',
-      facultadId: '',
+      facultad: { id: '', nombre: '' },
+      carrera: { id: '', nombre: '' },
       nivel: '',
       tipoCiclo: '',
       numCiclos: undefined,
@@ -53,8 +53,8 @@ export function useNuevoPlanWizard() {
 
   const canContinueDesdeBasicos =
     !!wizard.datosBasicos.nombrePlan &&
-    !!wizard.datosBasicos.carreraId &&
-    !!wizard.datosBasicos.facultadId &&
+    !!wizard.datosBasicos.carrera.id &&
+    !!wizard.datosBasicos.facultad.id &&
     !!wizard.datosBasicos.nivel &&
     wizard.datosBasicos.numCiclos !== undefined &&
     wizard.datosBasicos.numCiclos > 0 &&

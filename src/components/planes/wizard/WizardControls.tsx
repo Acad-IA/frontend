@@ -57,8 +57,8 @@ export function WizardControls({
         const aiInput = {
           datosBasicos: {
             nombrePlan: wizard.datosBasicos.nombrePlan,
-            carreraId: wizard.datosBasicos.carreraId,
-            facultadId: wizard.datosBasicos.facultadId || undefined,
+            carreraId: wizard.datosBasicos.carrera.id || undefined,
+            facultadId: wizard.datosBasicos.facultad.id || undefined,
             nivel: wizard.datosBasicos.nivel as string,
             tipoCiclo: tipoCicloSafe,
             numCiclos: numCiclosSafe,
@@ -90,7 +90,7 @@ export function WizardControls({
       if (wizard.tipoOrigen === 'MANUAL') {
         // Crear plan vacío manualmente usando el hook
         const plan = await createPlanManual.mutateAsync({
-          carreraId: wizard.datosBasicos.carreraId,
+          carreraId: wizard.datosBasicos.carrera.id,
           estructuraId: wizard.datosBasicos.estructuraPlanId as string,
           nombre: wizard.datosBasicos.nombrePlan,
           nivel: wizard.datosBasicos.nivel as NivelPlanEstudio,

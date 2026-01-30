@@ -19,8 +19,14 @@ export type NewPlanWizardState = {
   tipoOrigen: TipoOrigen | null
   datosBasicos: {
     nombrePlan: string
-    carreraId: string
-    facultadId: string
+    facultad: {
+      id: string
+      nombre: string
+    }
+    carrera: {
+      id: string
+      nombre: string
+    }
     nivel: NivelPlanEstudio | ''
     tipoCiclo: TipoCiclo | ''
     numCiclos: number | undefined
