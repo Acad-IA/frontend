@@ -18,7 +18,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { usePlan } from '@/data'
+import { usePlan, useUpdatePlanFields } from '@/data'
 
 // import { toast } from 'sonner' // Asegúrate de tener sonner instalado o quita la línea
 export const Route = createFileRoute('/planes/$planId/_detalle/')({
@@ -39,7 +39,7 @@ function DatosGeneralesPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const location = useLocation()
-
+  const updatePlan = useUpdatePlanFields()
   // Confetti al llegar desde creación
   useEffect(() => {
     if (location.state.showConfetti) {
@@ -122,14 +122,47 @@ function DatosGeneralesPage() {
     setEditValue('')
   }
 
-  const handleSave = (id: string) => {
-    // Actualizamos el estado local de la lista
+  const handleSave = (campo: DatosGeneralesField) => {
+    if (!data?.datos) return
+
+    const currentValue = (data.datos as any)[campo.clave]
+
+    let newValue: any
+
+    if (
+      typeof currentValue === 'object' &&
+      currentValue !== null &&
+      'description' in currentValue
+    ) {
+      // Caso 1: objeto con description
+      newValue = {
+        ...currentValue,
+        description: editValue,
+      }
+    } else {
+      // Caso 2: valor plano (string, number, etc)
+      newValue = editValue
+    }
+
+    const datosActualizados = {
+      ...data.datos,
+      [campo.clave]: newValue,
+    }
+
+    updatePlan.mutate({
+      planId,
+      patch: {
+        datos: datosActualizados,
+      },
+    })
+
+    // UI optimista
     setCampos((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, value: editValue } : c)),
+      prev.map((c) => (c.id === campo.id ? { ...c, value: editValue } : c)),
     )
+
     setEditingId(null)
     setEditValue('')
-    // toast.success('Cambios guardados localmente')
   }
 
   const handleIARequest = (clave: string) => {
@@ -245,7 +278,7 @@ function DatosGeneralesPage() {
                       <Button
                         size="sm"
                         className="bg-teal-600 hover:bg-teal-700"
-                        onClick={() => handleSave(campo.id)}
+                        onClick={() => handleSave(campo)}
                       >
                         <Check size={14} className="mr-1" /> Guardar
                       </Button>

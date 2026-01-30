@@ -157,10 +157,15 @@ function AsignaturaCardItem({
 
 export const Route = createFileRoute('/planes/$planId/_detalle/mapa')({
   component: MapaCurricularPage,
+  validateSearch: (search: { ciclo?: number }) => ({
+    ciclo: search.ciclo ?? null,
+  }),
 })
 
 function MapaCurricularPage() {
   const { planId } = Route.useParams() // Idealmente usa el ID de la ruta
+  const { ciclo } = Route.useSearch()
+  console.log(ciclo)
 
   // 1. Fetch de Datos
   const { data: asignaturasApi, isLoading: loadingAsig } =
@@ -249,7 +254,7 @@ function MapaCurricularPage() {
     if (lineasApi) setLineas(mapLineasToLineaCurricular(lineasApi))
   }, [lineasApi])
 
-  const ciclosTotales = 9
+  const ciclosTotales = Number(ciclo)
   const ciclosArray = Array.from({ length: ciclosTotales }, (_, i) => i + 1)
 
   // Nuevo estado para controlar los datos temporales del modal de edición

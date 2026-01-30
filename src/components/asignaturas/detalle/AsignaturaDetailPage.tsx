@@ -442,20 +442,13 @@ function DatosGenerales({
                     ? config.examples[0]
                     : ''
 
-                // 2. CONTENIDO REAL (Viene de data.datos -> valoresActuales)
-                // El problema: Si 'description' en 'datos' es igual a la de la 'estructura',
-                // el usuario aún no ha redactado nada real.
-
                 const valActual = valoresActuales[key]
 
-                // Lógica para determinar si mostrar el contenido o dejarlo vacío (para que salga el placeholder)
-                // Si el contenido en 'datos' es idéntico a la instrucción de la 'estructura',
-                // asumimos que no hay contenido real todavía.
                 const isContentEmpty =
                   !valActual?.description ||
                   valActual.description === config.description
 
-                const currentContent = valActual?.description ?? ''
+                const currentContent = valActual ?? ''
 
                 return (
                   <InfoCard

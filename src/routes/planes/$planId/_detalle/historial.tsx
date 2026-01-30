@@ -27,6 +27,9 @@ import { usePlanHistorial } from '@/data/hooks/usePlans'
 
 export const Route = createFileRoute('/planes/$planId/_detalle/historial')({
   component: RouteComponent,
+  validateSearch: (search: { structure?: any }) => ({
+    structure: search.structure ?? null,
+  }),
 })
 
 const getEventConfig = (tipo: string, campo: string) => {
@@ -58,6 +61,9 @@ const getEventConfig = (tipo: string, campo: string) => {
 function RouteComponent() {
   const { planId } = Route.useParams()
   const { data: rawData, isLoading } = usePlanHistorial(planId)
+  const { structure } = Route.useSearch()
+  console.log(structure?.vigencia?.title)
+  console.log(structure)
 
   // ESTADOS PARA EL MODAL
   const [selectedEvent, setSelectedEvent] = useState<any>(null)
@@ -77,7 +83,9 @@ function RouteComponent() {
         description:
           item.campo === 'datos'
             ? `Actualización general de: ${item.valor_nuevo?.nombre || 'información del plan'}`
-            : `Se modificó el campo ${item.campo}`,
+            : `Se modificó el campo ${
+                structure?.[item.campo]?.title ?? item.campo
+              }`,
         date: parseISO(item.cambiado_en),
         icon: config.icon,
         campo: item.campo,
