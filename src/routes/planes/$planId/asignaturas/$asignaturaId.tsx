@@ -1,6 +1,6 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
 
-import MateriaDetailPage from '@/components/asignaturas/detalle/MateriaDetailPage'
+import AsignaturaDetailPage from '@/components/asignaturas/detalle/AsignaturaDetailPage'
 import { NotFoundPage } from '@/components/ui/NotFoundPage'
 import { subjects_get } from '@/data/api/subjects.api'
 import { qk } from '@/data/query/keys'
@@ -38,7 +38,7 @@ function RouteComponent() {
 
   return (
     <div>
-      <MateriaDetailPage></MateriaDetailPage>
+      <AsignaturaDetailPage></AsignaturaDetailPage>
     </div>
   )
 }
