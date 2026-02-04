@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { useState, useMemo } from 'react'
 
-import type { Asignatura } from '@/types/plan'
+import type { Asignatura, AsignaturaStatus, TipoAsignatura } from '@/types/plan'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -33,17 +33,24 @@ import {
 import { usePlanAsignaturas, usePlanLineas } from '@/data'
 
 // --- Configuración de Estilos ---
-const statusConfig: Record<string, { label: string; className: string }> = {
+const statusConfig: Record<
+  AsignaturaStatus,
+  { label: string; className: string }
+> = {
   borrador: { label: 'Borrador', className: 'bg-slate-100 text-slate-600' },
   revisada: { label: 'Revisada', className: 'bg-amber-100 text-amber-700' },
   aprobada: { label: 'Aprobada', className: 'bg-emerald-100 text-emerald-700' },
 }
 
-const tipoConfig: Record<string, { label: string; className: string }> = {
-  obligatoria: { label: 'Obligatoria', className: 'bg-blue-100 text-blue-700' },
-  optativa: { label: 'Optativa', className: 'bg-purple-100 text-purple-700' },
-  troncal: { label: 'Troncal', className: 'bg-slate-100 text-slate-700' },
-}
+const tipoConfig: Record<TipoAsignatura, { label: string; className: string }> =
+  {
+    obligatoria: {
+      label: 'Obligatoria',
+      className: 'bg-blue-100 text-blue-700',
+    },
+    optativa: { label: 'Optativa', className: 'bg-purple-100 text-purple-700' },
+    troncal: { label: 'Troncal', className: 'bg-slate-100 text-slate-700' },
+  }
 
 // --- Mapeadores de API ---
 const mapAsignaturas = (asigApi: Array<any> = []): Array<Asignatura> => {
@@ -59,10 +66,13 @@ const mapAsignaturas = (asigApi: Array<any> = []): Array<Asignatura> => {
     estado: 'borrador', // O el campo que venga de tu API
     hd: Math.floor((asig.horas_semana ?? 0) / 2),
     hi: Math.ceil((asig.horas_semana ?? 0) / 2),
+    prerrequisitos: Array.isArray(asig.prerrequisitos)
+      ? asig.prerrequisitos
+      : [],
   }))
 }
 
-export const Route = createFileRoute('/planes/$planId/_detalle/asignaturas')({
+export const Route = createFileRoute('/planes/$planId/_detalle/asignaturas/')({
   component: AsignaturasPage,
 })
 
@@ -131,7 +141,17 @@ function AsignaturasPage() {
           <Button variant="outline" size="sm">
             <Copy className="mr-2 h-4 w-4" /> Clonar
           </Button>
-          <Button className="bg-emerald-700 hover:bg-emerald-800">
+          <Button
+            onClick={() => {
+              console.log('planId desde asignaturas', planId)
+
+              navigate({
+                to: `/planes/${planId}/asignaturas/nueva`,
+                resetScroll: false,
+              })
+            }}
+            className="ring-offset-background bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-11 items-center justify-center gap-2 rounded-md px-8 text-sm font-medium shadow-md transition-colors"
+          >
             <Plus className="mr-2 h-4 w-4" /> Nueva Asignatura
           </Button>
         </div>
@@ -262,17 +282,17 @@ function AsignaturasPage() {
                   <TableCell>
                     <Badge
                       variant="outline"
-                      className={`capitalize shadow-sm ${tipoConfig[asignatura.tipo]?.className}`}
+                      className={`capitalize shadow-sm ${tipoConfig[asignatura.tipo].className}`}
                     >
-                      {tipoConfig[asignatura.tipo]?.label}
+                      {tipoConfig[asignatura.tipo].label}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     <Badge
                       variant="outline"
-                      className={`capitalize shadow-sm ${statusConfig[asignatura.estado]?.className}`}
+                      className={`capitalize shadow-sm ${statusConfig[asignatura.estado].className}`}
                     >
-                      {statusConfig[asignatura.estado]?.label}
+                      {statusConfig[asignatura.estado].label}
                     </Badge>
                   </TableCell>
                   <TableCell>

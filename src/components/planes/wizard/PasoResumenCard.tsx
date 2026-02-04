@@ -45,8 +45,8 @@ export function PasoResumenCard({ wizard }: { wizard: NewPlanWizardState }) {
                     Facultad/Carrera:{' '}
                   </span>
                   <span className="font-medium">
-                    {wizard.datosBasicos.facultadId || '—'} /{' '}
-                    {wizard.datosBasicos.carreraId || '—'}
+                    {wizard.datosBasicos.facultad.nombre || '—'} /{' '}
+                    {wizard.datosBasicos.carrera.nombre || '—'}
                   </span>
                 </div>
                 <div>

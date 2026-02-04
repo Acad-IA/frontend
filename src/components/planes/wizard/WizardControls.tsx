@@ -57,8 +57,8 @@ export function WizardControls({
         const aiInput = {
           datosBasicos: {
             nombrePlan: wizard.datosBasicos.nombrePlan,
-            carreraId: wizard.datosBasicos.carreraId,
-            facultadId: wizard.datosBasicos.facultadId || undefined,
+            carreraId: wizard.datosBasicos.carrera.id || undefined,
+            facultadId: wizard.datosBasicos.facultad.id || undefined,
             nivel: wizard.datosBasicos.nivel as string,
             tipoCiclo: tipoCicloSafe,
             numCiclos: numCiclosSafe,
@@ -81,7 +81,7 @@ export function WizardControls({
         console.log(`${new Date().toISOString()} - Plan IA generado`, data)
 
         navigate({
-          to: `/planes/${data.plan.id}/datos`,
+          to: `/planes/${data.plan.id}`,
           state: { showConfetti: true },
         })
         return
@@ -90,7 +90,7 @@ export function WizardControls({
       if (wizard.tipoOrigen === 'MANUAL') {
         // Crear plan vacío manualmente usando el hook
         const plan = await createPlanManual.mutateAsync({
-          carreraId: wizard.datosBasicos.carreraId,
+          carreraId: wizard.datosBasicos.carrera.id,
           estructuraId: wizard.datosBasicos.estructuraPlanId as string,
           nombre: wizard.datosBasicos.nombrePlan,
           nivel: wizard.datosBasicos.nivel as NivelPlanEstudio,
@@ -101,7 +101,7 @@ export function WizardControls({
 
         // Navegar al nuevo plan
         navigate({
-          to: `/planes/${plan.id}/datos`,
+          to: `/planes/${plan.id}`,
           state: { showConfetti: true },
         })
         return
