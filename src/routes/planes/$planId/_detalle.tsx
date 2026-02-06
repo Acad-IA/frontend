@@ -76,31 +76,43 @@ function RouteComponent() {
     mutate({ planId, patch })
   }
 
+  const MAX_CHARACTERS = 200
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
+    // 1. Permitir teclas de control (Borrar, flechas, etc.) siempre
+    const isControlKey =
+      e.key === 'Backspace' ||
+      e.key === 'Delete' ||
+      e.key.includes('Arrow') ||
+      e.metaKey ||
+      e.ctrlKey
+
     if (e.key === 'Enter') {
       e.preventDefault()
-      e.currentTarget.blur() // Esto disparará el onBlur automáticamente
+      e.currentTarget.blur()
+      return
+    }
+
+    // 2. Bloquear si excede los 200 caracteres y no es una tecla de control
+    const currentText = e.currentTarget.textContent || ''
+    if (currentText.length >= MAX_CHARACTERS && !isControlKey) {
+      e.preventDefault()
     }
   }
 
-  const handleBlurNombre = (e: React.FocusEvent<HTMLSpanElement>) => {
-    const nuevoNombre = e.currentTarget.textContent || ''
-    setNombrePlan(nuevoNombre)
+  const handlePaste = (e: React.ClipboardEvent<HTMLSpanElement>) => {
+    e.preventDefault()
+    const text = e.clipboardData.getData('text/plain')
+    const currentText = e.currentTarget.textContent || ''
 
-    // Solo guardamos si el valor es realmente distinto al de la base de datos
-    if (nuevoNombre !== data?.nombre) {
-      persistChange({ nombre: nuevoNombre })
+    // Calcular cuánto espacio queda
+    const remainingSpace = MAX_CHARACTERS - currentText.length
+
+    if (remainingSpace > 0) {
+      const slicedText = text.slice(0, remainingSpace)
+      document.execCommand('insertText', false, slicedText)
     }
   }
-
-  const handleSelectNivel = (n: string) => {
-    setNivelPlan(n)
-    // Guardamos inmediatamente al seleccionar
-    if (n !== data?.nivel) {
-      persistChange({ nivel: n })
-    }
-  }
-
   return (
     <div className="min-h-screen bg-white">
       {/* 1. Header Superior */}
@@ -127,8 +139,9 @@ function RouteComponent() {
         ) : (
           <div className="flex flex-col items-start justify-between gap-4 md:flex-row">
             <div>
-              <h1 className="flex items-baseline gap-2 text-3xl font-bold tracking-tight text-slate-900">
-                <span>{nivelPlan} en</span>
+              <h1 className="flex flex-wrap items-baseline gap-2 text-3xl leading-tight font-bold tracking-tight text-slate-900">
+                {/* El prefijo "Nivel en" lo mantenemos simple */}
+                <span className="shrink-0">{nivelPlan} en</span>
                 <span
                   role="textbox"
                   tabIndex={0}
@@ -136,14 +149,17 @@ function RouteComponent() {
                   suppressContentEditableWarning
                   spellCheck={false}
                   onKeyDown={handleKeyDown}
+                  onPaste={handlePaste} // Añadido para controlar lo que pegan
                   onBlur={(e) => {
-                    const nuevoNombre = e.currentTarget.textContent || ''
+                    const nuevoNombre =
+                      e.currentTarget.textContent?.trim() || ''
                     setNombrePlan(nuevoNombre)
                     if (nuevoNombre !== data?.nombre) {
                       mutate({ planId, patch: { nombre: nuevoNombre } })
                     }
                   }}
-                  className="cursor-text border-b border-transparent transition-colors outline-none select-text hover:border-slate-300 focus:border-teal-500"
+                  // Clases añadidas: break-words y whitespace-pre-wrap para el wrap
+                  className="block w-full cursor-text border-b border-transparent break-words whitespace-pre-wrap transition-colors outline-none select-text hover:border-slate-300 focus:border-teal-500 sm:inline-block sm:w-auto"
                   style={{ textDecoration: 'none' }}
                 >
                   {nombrePlan}

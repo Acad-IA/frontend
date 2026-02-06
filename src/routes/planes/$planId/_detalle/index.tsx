@@ -93,7 +93,6 @@ function DatosGeneralesPage() {
 
             requerido: true,
 
-            // 👇 TIPO DE CAMPO
             tipo: Array.isArray(schema?.enum)
               ? 'select'
               : schema?.type === 'number'

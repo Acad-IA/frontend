@@ -284,6 +284,16 @@ function MapaCurricularPage() {
   const ciclosTotales = Number(ciclo)
   const ciclosArray = Array.from({ length: ciclosTotales }, (_, i) => i + 1)
   const [editingData, setEditingData] = useState<Asignatura | null>(null)
+  const handleIntegerChange = (value: string) => {
+    if (value === '') return value
+
+    // Solo números, máximo 3 cifras
+    const regex = /^\d{1,3}$/
+
+    if (!regex.test(value)) return null
+
+    return value
+  }
   const handleDecimalChange = (value: string, max?: number): string | null => {
     if (value === '') return ''
 
@@ -562,7 +572,6 @@ function MapaCurricularPage() {
                 >
                   {editingLineaId === linea.id ? (
                     <Input
-                      autoFocus
                       className="h-7 bg-white text-xs"
                       value={tempNombreLinea}
                       onChange={(e) => setTempNombreLinea(e.target.value)}
@@ -572,6 +581,7 @@ function MapaCurricularPage() {
                       }
                     />
                   ) : (
+                    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
                     <span
                       className="cursor-pointer text-xs font-bold hover:underline"
                       onClick={() => {
@@ -727,6 +737,7 @@ function MapaCurricularPage() {
                     Clave
                   </label>
                   <Input
+                    maxLength={100}
                     value={editingData.clave}
                     onChange={(e) =>
                       setEditingData({ ...editingData, clave: e.target.value })
@@ -738,6 +749,7 @@ function MapaCurricularPage() {
                     Nombre
                   </label>
                   <Input
+                    maxLength={200}
                     value={editingData.nombre}
                     onChange={(e) =>
                       setEditingData({ ...editingData, nombre: e.target.value })
@@ -775,7 +787,7 @@ function MapaCurricularPage() {
                     type="number"
                     value={editingData.hd}
                     onChange={(e) => {
-                      const val = handleDecimalChange(e.target.value, 10)
+                      const val = handleIntegerChange(e.target.value)
                       if (val !== null) {
                         setEditingData({
                           ...editingData,
@@ -793,7 +805,7 @@ function MapaCurricularPage() {
                     type="number"
                     value={editingData.hi}
                     onChange={(e) => {
-                      const val = handleDecimalChange(e.target.value, 10)
+                      const val = handleIntegerChange(e.target.value)
                       if (val !== null) {
                         setEditingData({
                           ...editingData,
