@@ -107,8 +107,6 @@ function DatosGeneralesPage() {
 
       setCampos(datosTransformados)
     }
-
-    console.log(properties)
   }, [data])
 
   // 3. Manejadores de acciones (Ahora como funciones locales)
@@ -166,8 +164,6 @@ function DatosGeneralesPage() {
   }
 
   const handleIARequest = (clave: string) => {
-    console.log(clave)
-
     navigate({
       to: '/planes/$planId/iaplan',
       params: {
@@ -190,9 +186,8 @@ function DatosGeneralesPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {campos.map((campo, key) => {
+        {campos.map((campo) => {
           const isEditing = editingId === campo.id
-          console.log(campo)
 
           return (
             <div

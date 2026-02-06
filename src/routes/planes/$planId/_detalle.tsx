@@ -26,8 +26,6 @@ import { qk } from '@/data/query/keys'
 export const Route = createFileRoute('/planes/$planId/_detalle')({
   loader: async ({ context: { queryClient }, params: { planId } }) => {
     try {
-      console.log('loader')
-
       await queryClient.ensureQueryData({
         queryKey: qk.plan(planId),
         queryFn: () => plans_get(planId),
@@ -35,8 +33,6 @@ export const Route = createFileRoute('/planes/$planId/_detalle')({
     } catch (e: any) {
       // PGRST116: The result contains 0 rows
       if (e?.code === 'PGRST116') {
-        console.log('not found on', Route.path)
-
         throw notFound()
       }
       throw e
@@ -85,7 +81,6 @@ function RouteComponent() {
   }
 
   const handleSave = () => {
-    console.log('Guardando en DB...', { nombrePlan, nivelPlan })
     // Aquí iría tu mutation
     setIsDirty(false)
   }
@@ -221,11 +216,7 @@ function RouteComponent() {
             <Tab to="/planes/$planId/" params={{ planId }}>
               Datos Generales
             </Tab>
-            <Tab
-              to="/planes/$planId/mapa"
-              params={{ planId }}
-              search={{ ciclo: data?.numero_ciclos }}
-            >
+            <Tab to="/planes/$planId/mapa" params={{ planId }}>
               Mapa Curricular
             </Tab>
             <Tab to="/planes/$planId/asignaturas" params={{ planId }}>
@@ -240,13 +231,7 @@ function RouteComponent() {
             <Tab to="/planes/$planId/documento" params={{ planId }}>
               Documento
             </Tab>
-            <Tab
-              to="/planes/$planId/historial"
-              params={{ planId }}
-              search={{
-                structure: data?.estructuras_plan?.definicion?.properties,
-              }}
-            >
+            <Tab to="/planes/$planId/historial" params={{ planId }}>
               Historial
             </Tab>
           </nav>
@@ -300,7 +285,6 @@ const InfoCard = forwardRef<
 function Tab({
   to,
   params,
-  search,
   children,
 }: {
   to: string
@@ -308,12 +292,10 @@ function Tab({
   search?: any
   children: React.ReactNode
 }) {
-  console.log(search)
   return (
     <Link
       to={to}
       params={params}
-      search={search}
       className="border-b-2 border-transparent pb-3 text-sm font-medium text-slate-500 transition-all hover:text-slate-800"
       activeProps={{ className: 'border-teal-600 text-teal-700 font-bold' }}
       activeOptions={{
