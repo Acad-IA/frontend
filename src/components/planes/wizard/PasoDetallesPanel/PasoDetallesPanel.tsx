@@ -48,7 +48,7 @@ export function PasoDetallesPanel({
           <textarea
             id="desc"
             className="bg-background text-foreground ring-offset-background focus-visible:ring-ring min-h-24 w-full rounded-md border px-3 py-2 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-            placeholder="Describe el enfoque del programa…"
+            placeholder="Define el perfil de egreso, visión pedagógica y sector profesional. Ej.: Programa semestral orientado a la Industria 4.0, con enfoque en competencias directivas y emprendimiento tecnológico..."
             maxLength={7000}
             value={wizard.iaConfig?.descripcionEnfoqueAcademico || ''}
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
@@ -73,7 +73,7 @@ export function PasoDetallesPanel({
           <textarea
             id="notas"
             className="bg-background text-foreground ring-offset-background focus-visible:ring-ring min-h-24 w-full rounded-md border px-3 py-2 text-sm shadow-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-            placeholder="Lineamientos institucionales, restricciones, etc."
+            placeholder="Opcional: Estándares, estructura y limitaciones. Ej.: Estructura de 9 ciclos, carga pesada en ciencias básicas, sigue normativa CACEI, incluye 15% de materias optativas..."
             maxLength={7000}
             value={wizard.iaConfig?.instruccionesAdicionalesIA || ''}
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
