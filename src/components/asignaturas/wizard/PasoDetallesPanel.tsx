@@ -55,7 +55,7 @@ export function PasoDetallesPanel({
         <div className="flex flex-col gap-1">
           <Label>Descripción del enfoque académico</Label>
           <Textarea
-            placeholder="Describe el enfoque, alcance y público objetivo. Ej.: Teórica-práctica enfocada en patrones de diseño, con proyectos semanales."
+            placeholder="Describe el enfoque, alcance y público objetivo. Ej.: Teórica-práctica enfocada en patrones de diseño, con proyectos semanales..."
             maxLength={7000}
             value={wizard.iaConfig?.descripcionEnfoqueAcademico}
             onChange={(e) =>
@@ -80,7 +80,7 @@ export function PasoDetallesPanel({
             </span>
           </Label>
           <Textarea
-            placeholder="Opcional: restricciones y preferencias. Ej.: incluye bibliografía en español, evita contenido avanzado, prioriza evaluación por proyectos."
+            placeholder="Opcional: restricciones y preferencias. Ej.: incluye bibliografía en español, evita contenido avanzado, prioriza evaluación por proyectos..."
             maxLength={7000}
             value={wizard.iaConfig?.instruccionesAdicionalesIA}
             onChange={(e) =>
