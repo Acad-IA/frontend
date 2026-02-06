@@ -13,7 +13,7 @@ import {
   History,
   Calendar,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -23,13 +23,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { usePlanHistorial } from '@/data/hooks/usePlans'
+import { usePlan, usePlanHistorial } from '@/data/hooks/usePlans'
 
 export const Route = createFileRoute('/planes/$planId/_detalle/historial')({
   component: RouteComponent,
-  validateSearch: (search: { structure?: any }) => ({
-    structure: search.structure ?? null,
-  }),
 })
 
 const getEventConfig = (tipo: string, campo: string) => {
@@ -61,13 +58,22 @@ const getEventConfig = (tipo: string, campo: string) => {
 function RouteComponent() {
   const { planId } = Route.useParams()
   const { data: rawData, isLoading } = usePlanHistorial(planId)
-  const { structure } = Route.useSearch()
-  console.log(structure?.vigencia?.title)
-  console.log(structure)
+  const [structure, setStructure] = useState<any>(null)
+  const { data } = usePlan(planId)
+  console.log('analizando estructura')
+
+  console.log(data?.estructuras_plan?.definicion?.properties)
+  // console.log(structure)
 
   // ESTADOS PARA EL MODAL
   const [selectedEvent, setSelectedEvent] = useState<any>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  useEffect(() => {
+    if (data?.estructuras_plan?.definicion?.properties) {
+      setStructure(data.estructuras_plan.definicion.properties)
+    }
+  }, [data])
 
   const historyEvents = useMemo(() => {
     if (!rawData) return []

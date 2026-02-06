@@ -37,6 +37,7 @@ import {
 import {
   useCreateLinea,
   useDeleteLinea,
+  usePlan,
   usePlanAsignaturas,
   usePlanLineas,
   useUpdateAsignatura,
@@ -166,44 +167,39 @@ function AsignaturaCardItem({
 
 export const Route = createFileRoute('/planes/$planId/_detalle/mapa')({
   component: MapaCurricularPage,
-  validateSearch: (search: { ciclo?: number }) => ({
-    ciclo: search.ciclo ?? null,
-  }),
 })
 
 function MapaCurricularPage() {
   const { planId } = Route.useParams() // Idealmente usa el ID de la ruta
-  const { ciclo } = Route.useSearch()
+  const { data } = usePlan(planId)
+  const [ciclo, setCiclo] = useState(0)
   const [editingLineaId, setEditingLineaId] = useState<string | null>(null)
   const [tempNombreLinea, setTempNombreLinea] = useState('')
   const { mutate: createLinea } = useCreateLinea()
   const { mutate: updateLineaApi } = useUpdateLinea()
   const { mutate: deleteLineaApi } = useDeleteLinea()
-  // 1. Fetch de Datos
   const { data: asignaturasApi, isLoading: loadingAsig } =
     usePlanAsignaturas(planId)
   const { data: lineasApi, isLoading: loadingLineas } = usePlanLineas(planId)
-
-  // 2. Estado Local (Para interactividad)
   const [asignaturas, setAsignaturas] = useState<Array<Asignatura>>([])
   const [lineas, setLineas] = useState<Array<LineaCurricular>>([])
   const [draggedAsignatura, setDraggedAsignatura] = useState<string | null>(
     null,
   )
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [selectedAsignatura, setSelectedAsignatura] =
-    useState<Asignatura | null>(null)
-  const [hasAreaComun, setHasAreaComun] = useState(false)
   const [nombreNuevaLinea, setNombreNuevaLinea] = useState('') // Para el input de nombre personalizado
-  const { mutate: updateAsignatura, isPending } = useUpdateAsignatura()
+  const { mutate: updateAsignatura } = useUpdateAsignatura()
+  const [seriacionValue, setSeriacionValue] = useState<string>('unassigned')
+
+  useEffect(() => {
+    if (data?.numero_ciclos) {
+      setCiclo(data.numero_ciclos)
+    }
+  }, [data])
 
   const manejarAgregarLinea = (nombre: string) => {
     const nombreNormalizado = nombre.trim()
-
-    // 1. Validar vacío
     if (!nombreNormalizado) return
-
-    // 2. Validar duplicados en el estado local (Insensible a mayúsculas/acentos)
     const nombreBusqueda = nombreNormalizado
       .toLowerCase()
       .normalize('NFD')
@@ -219,12 +215,9 @@ function MapaCurricularPage() {
 
     if (yaExiste) {
       alert(`La línea "${nombreNormalizado}" ya existe en este plan.`)
-      return // DETIENE la ejecución aquí, no llega a la mutación
+      return
     }
-
-    // 3. Si pasa las validaciones, procedemos con la persistencia
     const maxOrden = lineas.reduce((max, l) => Math.max(max, l.orden || 0), 0)
-
     createLinea(
       {
         nombre: nombreNormalizado,
@@ -234,7 +227,6 @@ function MapaCurricularPage() {
       },
       {
         onSuccess: (nueva) => {
-          // Sincronización local que ya teníamos
           const mapeada = {
             id: nueva.id,
             nombre: nueva.nombre,
@@ -280,7 +272,6 @@ function MapaCurricularPage() {
     )
   }, [lineas])
 
-  // 3. Sincronizar API -> Estado Local
   useEffect(() => {
     if (asignaturasApi)
       setAsignaturas(mapAsignaturasToAsignaturas(asignaturasApi))
@@ -292,20 +283,37 @@ function MapaCurricularPage() {
 
   const ciclosTotales = Number(ciclo)
   const ciclosArray = Array.from({ length: ciclosTotales }, (_, i) => i + 1)
-
-  // Nuevo estado para controlar los datos temporales del modal de edición
   const [editingData, setEditingData] = useState<Asignatura | null>(null)
+  const handleIntegerChange = (value: string) => {
+    if (value === '') return value
 
-  // 1. FUNCION DE GUARDAR MODAL
+    // Solo números, máximo 3 cifras
+    const regex = /^\d{1,3}$/
+
+    if (!regex.test(value)) return null
+
+    return value
+  }
+  const handleDecimalChange = (value: string, max?: number): string | null => {
+    if (value === '') return ''
+
+    const val = value.replace(',', '.')
+    const regex = /^\d*\.?\d{0,2}$/
+    if (!regex.test(val)) return null
+    if (max !== undefined) {
+      const num = Number(val)
+      if (!isNaN(num) && num > max) {
+        return max.toFixed(2)
+      }
+    }
+
+    return val
+  }
   const handleSaveChanges = () => {
     if (!editingData) return
-    console.log(asignaturas)
-
     setAsignaturas((prev) =>
       prev.map((m) => (m.id === editingData.id ? { ...editingData } : m)),
     )
-    // setIsEditModalOpen(false)
-    // Preparamos el patch con la estructura de tu tabla
     const patch = {
       nombre: editingData.nombre,
       codigo: editingData.clave,
@@ -332,22 +340,11 @@ function MapaCurricularPage() {
       },
     )
   }
-
-  // 2. MODIFICACIÓN: Zona de soltado siempre visible
-  // Cambiamos la condición: Mostramos la sección si hay asignaturas sin asignar
-  // O si simplemente queremos tener el "depósito" disponible.
   const unassignedAsignaturas = asignaturas.filter(
     (m) => m.ciclo === null || m.lineaCurricularId === null,
   )
 
-  // --- Lógica de Gestión ---
-  const agregarLinea = (nombre: string) => {
-    const nueva = { id: crypto.randomUUID(), nombre, orden: lineas.length + 1 }
-    setLineas([...lineas, nueva])
-  }
-
   const borrarLinea = (id: string) => {
-    // 1. Opcional: Confirmación de seguridad
     if (
       !confirm(
         '¿Estás seguro de eliminar esta línea? Las materias asignadas volverán a la bandeja de entrada.',
@@ -356,11 +353,8 @@ function MapaCurricularPage() {
       return
     }
 
-    // 2. Llamada a la API
     deleteLineaApi(id, {
       onSuccess: () => {
-        // 3. Actualización instantánea del estado local
-
         // Primero: Las materias que estaban en esa línea pasan a ser "huérfanas"
         setAsignaturas((prev) =>
           prev.map((asig) =>
@@ -369,8 +363,6 @@ function MapaCurricularPage() {
               : asig,
           ),
         )
-
-        // Segundo: Quitamos la línea del estado
         setLineas((prev) => prev.filter((l) => l.id !== id))
       },
       onError: (error) => {
@@ -427,8 +419,6 @@ function MapaCurricularPage() {
             : m,
         ),
       )
-
-      // 2. Persistir en la API
       const patch = {
         numero_ciclo: ciclo,
         linea_plan_id: lineaId,
@@ -582,7 +572,6 @@ function MapaCurricularPage() {
                 >
                   {editingLineaId === linea.id ? (
                     <Input
-                      autoFocus
                       className="h-7 bg-white text-xs"
                       value={tempNombreLinea}
                       onChange={(e) => setTempNombreLinea(e.target.value)}
@@ -592,6 +581,7 @@ function MapaCurricularPage() {
                       }
                     />
                   ) : (
+                    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
                     <span
                       className="cursor-pointer text-xs font-bold hover:underline"
                       onClick={() => {
@@ -747,6 +737,7 @@ function MapaCurricularPage() {
                     Clave
                   </label>
                   <Input
+                    maxLength={100}
                     value={editingData.clave}
                     onChange={(e) =>
                       setEditingData({ ...editingData, clave: e.target.value })
@@ -758,6 +749,7 @@ function MapaCurricularPage() {
                     Nombre
                   </label>
                   <Input
+                    maxLength={200}
                     value={editingData.nombre}
                     onChange={(e) =>
                       setEditingData({ ...editingData, nombre: e.target.value })
@@ -774,13 +766,17 @@ function MapaCurricularPage() {
                   </label>
                   <Input
                     type="number"
+                    min={0}
                     value={editingData.creditos}
-                    onChange={(e) =>
-                      setEditingData({
-                        ...editingData,
-                        creditos: Number(e.target.value),
-                      })
-                    }
+                    onChange={(e) => {
+                      const val = handleDecimalChange(e.target.value, 10)
+                      if (val !== null) {
+                        setEditingData({
+                          ...editingData,
+                          creditos: val === '' ? 0 : Number(val),
+                        })
+                      }
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -790,12 +786,15 @@ function MapaCurricularPage() {
                   <Input
                     type="number"
                     value={editingData.hd}
-                    onChange={(e) =>
-                      setEditingData({
-                        ...editingData,
-                        hd: Number(e.target.value),
-                      })
-                    }
+                    onChange={(e) => {
+                      const val = handleIntegerChange(e.target.value)
+                      if (val !== null) {
+                        setEditingData({
+                          ...editingData,
+                          hd: Number(e.target.value),
+                        })
+                      }
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -805,12 +804,15 @@ function MapaCurricularPage() {
                   <Input
                     type="number"
                     value={editingData.hi}
-                    onChange={(e) =>
-                      setEditingData({
-                        ...editingData,
-                        hi: Number(e.target.value),
-                      })
-                    }
+                    onChange={(e) => {
+                      const val = handleIntegerChange(e.target.value)
+                      if (val !== null) {
+                        setEditingData({
+                          ...editingData,
+                          hi: Number(e.target.value),
+                        })
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -882,23 +884,29 @@ function MapaCurricularPage() {
                   Seriación (Prerrequisitos)
                 </label>
                 <Select
+                  value={seriacionValue}
                   onValueChange={(val) => {
-                    // Evitamos duplicados en la lista de prerrequisitos local
+                    if (val === 'unassigned') {
+                      setSeriacionValue('unassigned')
+                      return
+                    }
                     if (!editingData.prerrequisitos.includes(val)) {
                       setEditingData({
                         ...editingData,
                         prerrequisitos: [...editingData.prerrequisitos, val],
                       })
                     }
+                    setSeriacionValue('unassigned')
                   }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar asignatura..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* FILTRO CLAVE: 
-                      Solo mostramos materias cuyo ID sea diferente al de la materia que estamos editando 
-                  */}
+                    <SelectItem value="unassigned">
+                      -- Sin Seriación --
+                    </SelectItem>
+
                     {asignaturas
                       .filter((m) => m.id !== editingData.id)
                       .map((m) => (
