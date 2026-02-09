@@ -1,4 +1,4 @@
-/* eslint-disable jsx-a11y/click-events-have-key-events */
+/* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/label-has-associated-control */
 import { createFileRoute } from '@tanstack/react-router'
 import {
@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   GripVertical,
   Trash2,
+  Pencil,
 } from 'lucide-react'
 import { useMemo, useState, useEffect } from 'react'
 
@@ -37,6 +38,7 @@ import {
 import {
   useCreateLinea,
   useDeleteLinea,
+  usePlan,
   usePlanAsignaturas,
   usePlanLineas,
   useUpdateAsignatura,
@@ -166,44 +168,39 @@ function AsignaturaCardItem({
 
 export const Route = createFileRoute('/planes/$planId/_detalle/mapa')({
   component: MapaCurricularPage,
-  validateSearch: (search: { ciclo?: number }) => ({
-    ciclo: search.ciclo ?? null,
-  }),
 })
 
 function MapaCurricularPage() {
   const { planId } = Route.useParams() // Idealmente usa el ID de la ruta
-  const { ciclo } = Route.useSearch()
+  const { data } = usePlan(planId)
+  const [ciclo, setCiclo] = useState(0)
   const [editingLineaId, setEditingLineaId] = useState<string | null>(null)
   const [tempNombreLinea, setTempNombreLinea] = useState('')
   const { mutate: createLinea } = useCreateLinea()
   const { mutate: updateLineaApi } = useUpdateLinea()
   const { mutate: deleteLineaApi } = useDeleteLinea()
-  // 1. Fetch de Datos
   const { data: asignaturasApi, isLoading: loadingAsig } =
     usePlanAsignaturas(planId)
   const { data: lineasApi, isLoading: loadingLineas } = usePlanLineas(planId)
-
-  // 2. Estado Local (Para interactividad)
   const [asignaturas, setAsignaturas] = useState<Array<Asignatura>>([])
   const [lineas, setLineas] = useState<Array<LineaCurricular>>([])
   const [draggedAsignatura, setDraggedAsignatura] = useState<string | null>(
     null,
   )
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [selectedAsignatura, setSelectedAsignatura] =
-    useState<Asignatura | null>(null)
-  const [hasAreaComun, setHasAreaComun] = useState(false)
   const [nombreNuevaLinea, setNombreNuevaLinea] = useState('') // Para el input de nombre personalizado
-  const { mutate: updateAsignatura, isPending } = useUpdateAsignatura()
+  const { mutate: updateAsignatura } = useUpdateAsignatura()
+  const [seriacionValue, setSeriacionValue] = useState<string>('unassigned')
+
+  useEffect(() => {
+    if (data?.numero_ciclos) {
+      setCiclo(data.numero_ciclos)
+    }
+  }, [data])
 
   const manejarAgregarLinea = (nombre: string) => {
     const nombreNormalizado = nombre.trim()
-
-    // 1. Validar vacío
     if (!nombreNormalizado) return
-
-    // 2. Validar duplicados en el estado local (Insensible a mayúsculas/acentos)
     const nombreBusqueda = nombreNormalizado
       .toLowerCase()
       .normalize('NFD')
@@ -219,12 +216,9 @@ function MapaCurricularPage() {
 
     if (yaExiste) {
       alert(`La línea "${nombreNormalizado}" ya existe en este plan.`)
-      return // DETIENE la ejecución aquí, no llega a la mutación
+      return
     }
-
-    // 3. Si pasa las validaciones, procedemos con la persistencia
     const maxOrden = lineas.reduce((max, l) => Math.max(max, l.orden || 0), 0)
-
     createLinea(
       {
         nombre: nombreNormalizado,
@@ -234,7 +228,6 @@ function MapaCurricularPage() {
       },
       {
         onSuccess: (nueva) => {
-          // Sincronización local que ya teníamos
           const mapeada = {
             id: nueva.id,
             nombre: nueva.nombre,
@@ -247,8 +240,13 @@ function MapaCurricularPage() {
       },
     )
   }
-  const guardarEdicionLinea = (id: string) => {
-    if (!tempNombreLinea.trim()) {
+  const guardarEdicionLinea = (id: string, nuevoNombre?: string) => {
+    // Usamos el nombre que viene por parámetro o el del estado como fallback
+    const nombreAFijar = (
+      nuevoNombre !== undefined ? nuevoNombre : tempNombreLinea
+    ).trim()
+
+    if (!nombreAFijar) {
       setEditingLineaId(null)
       return
     }
@@ -256,11 +254,10 @@ function MapaCurricularPage() {
     updateLineaApi(
       {
         lineaId: id,
-        patch: { nombre: tempNombreLinea.trim() },
+        patch: { nombre: nombreAFijar },
       },
       {
         onSuccess: (lineaActualizada) => {
-          // ACTUALIZACIÓN MANUAL DEL ESTADO LOCAL
           setLineas((prev) =>
             prev.map((l) =>
               l.id === id ? { ...l, nombre: lineaActualizada.nombre } : l,
@@ -268,6 +265,10 @@ function MapaCurricularPage() {
           )
           setEditingLineaId(null)
           setTempNombreLinea('')
+        },
+        onError: (err) => {
+          console.error('Error al actualizar linea:', err)
+          // Opcional: revertir cambios o avisar al usuario
         },
       },
     )
@@ -280,7 +281,6 @@ function MapaCurricularPage() {
     )
   }, [lineas])
 
-  // 3. Sincronizar API -> Estado Local
   useEffect(() => {
     if (asignaturasApi)
       setAsignaturas(mapAsignaturasToAsignaturas(asignaturasApi))
@@ -292,20 +292,37 @@ function MapaCurricularPage() {
 
   const ciclosTotales = Number(ciclo)
   const ciclosArray = Array.from({ length: ciclosTotales }, (_, i) => i + 1)
-
-  // Nuevo estado para controlar los datos temporales del modal de edición
   const [editingData, setEditingData] = useState<Asignatura | null>(null)
+  const handleIntegerChange = (value: string) => {
+    if (value === '') return value
 
-  // 1. FUNCION DE GUARDAR MODAL
+    // Solo números, máximo 3 cifras
+    const regex = /^\d{1,3}$/
+
+    if (!regex.test(value)) return null
+
+    return value
+  }
+  const handleDecimalChange = (value: string, max?: number): string | null => {
+    if (value === '') return ''
+
+    const val = value.replace(',', '.')
+    const regex = /^\d*\.?\d{0,2}$/
+    if (!regex.test(val)) return null
+    if (max !== undefined) {
+      const num = Number(val)
+      if (!isNaN(num) && num > max) {
+        return max.toFixed(2)
+      }
+    }
+
+    return val
+  }
   const handleSaveChanges = () => {
     if (!editingData) return
-    console.log(asignaturas)
-
     setAsignaturas((prev) =>
       prev.map((m) => (m.id === editingData.id ? { ...editingData } : m)),
     )
-    // setIsEditModalOpen(false)
-    // Preparamos el patch con la estructura de tu tabla
     const patch = {
       nombre: editingData.nombre,
       codigo: editingData.clave,
@@ -332,22 +349,11 @@ function MapaCurricularPage() {
       },
     )
   }
-
-  // 2. MODIFICACIÓN: Zona de soltado siempre visible
-  // Cambiamos la condición: Mostramos la sección si hay asignaturas sin asignar
-  // O si simplemente queremos tener el "depósito" disponible.
   const unassignedAsignaturas = asignaturas.filter(
     (m) => m.ciclo === null || m.lineaCurricularId === null,
   )
 
-  // --- Lógica de Gestión ---
-  const agregarLinea = (nombre: string) => {
-    const nueva = { id: crypto.randomUUID(), nombre, orden: lineas.length + 1 }
-    setLineas([...lineas, nueva])
-  }
-
   const borrarLinea = (id: string) => {
-    // 1. Opcional: Confirmación de seguridad
     if (
       !confirm(
         '¿Estás seguro de eliminar esta línea? Las materias asignadas volverán a la bandeja de entrada.',
@@ -356,11 +362,8 @@ function MapaCurricularPage() {
       return
     }
 
-    // 2. Llamada a la API
     deleteLineaApi(id, {
       onSuccess: () => {
-        // 3. Actualización instantánea del estado local
-
         // Primero: Las materias que estaban en esa línea pasan a ser "huérfanas"
         setAsignaturas((prev) =>
           prev.map((asig) =>
@@ -369,8 +372,6 @@ function MapaCurricularPage() {
               : asig,
           ),
         )
-
-        // Segundo: Quitamos la línea del estado
         setLineas((prev) => prev.filter((l) => l.id !== id))
       },
       onError: (error) => {
@@ -427,8 +428,6 @@ function MapaCurricularPage() {
             : m,
         ),
       )
-
-      // 2. Persistir en la API
       const patch = {
         numero_ciclo: ciclo,
         linea_plan_id: lineaId,
@@ -463,6 +462,33 @@ function MapaCurricularPage() {
       ),
     [asignaturas],
   )
+
+  const handleKeyDownLinea = (
+    e: React.KeyboardEvent<HTMLSpanElement>,
+    id: string,
+  ) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      e.currentTarget.blur()
+    }
+  }
+
+  const handleBlurLinea = (
+    e: React.FocusEvent<HTMLSpanElement>,
+    id: string,
+  ) => {
+    const nuevoNombre = e.currentTarget.textContent?.trim() || ''
+
+    // Buscamos la línea original para comparar
+    const lineaOriginal = lineas.find((l) => l.id === id)
+
+    if (nuevoNombre !== lineaOriginal?.nombre) {
+      // IMPORTANTE: Pasamos nuevoNombre directamente
+      guardarEdicionLinea(id, nuevoNombre)
+    } else {
+      setEditingLineaId(null)
+    }
+  }
 
   if (loadingAsig || loadingLineas)
     return <div className="p-10 text-center">Cargando mapa curricular...</div>
@@ -578,36 +604,52 @@ function MapaCurricularPage() {
                 }}
               >
                 <div
-                  className={`flex items-center justify-between rounded-xl border-l-4 p-4 ${lineColors[idx % lineColors.length]}`}
+                  className={`group relative flex items-center justify-between rounded-xl border-l-4 p-4 transition-all ${
+                    lineColors[idx % lineColors.length]
+                  } ${editingLineaId === linea.id ? 'bg-white ring-2 ring-teal-500/20' : ''}`}
                 >
-                  {editingLineaId === linea.id ? (
-                    <Input
-                      autoFocus
-                      className="h-7 bg-white text-xs"
-                      value={tempNombreLinea}
-                      onChange={(e) => setTempNombreLinea(e.target.value)}
-                      onBlur={() => guardarEdicionLinea(linea.id)}
-                      onKeyDown={(e) =>
-                        e.key === 'Enter' && guardarEdicionLinea(linea.id)
-                      }
-                    />
-                  ) : (
+                  <div className="flex-1 overflow-hidden">
                     <span
-                      className="cursor-pointer text-xs font-bold hover:underline"
+                      contentEditable={editingLineaId === linea.id}
+                      suppressContentEditableWarning
+                      spellCheck={false}
+                      onKeyDown={(e) => handleKeyDownLinea(e, linea.id)}
+                      onBlur={(e) => handleBlurLinea(e, linea.id)}
                       onClick={() => {
-                        setEditingLineaId(linea.id)
-                        setTempNombreLinea(linea.nombre)
+                        if (editingLineaId !== linea.id) {
+                          setEditingLineaId(linea.id)
+                          setTempNombreLinea(linea.nombre)
+                        }
                       }}
+                      className={`block w-full text-xs font-bold break-words outline-none ${
+                        editingLineaId === linea.id
+                          ? 'cursor-text border-b border-teal-500/50 pb-1'
+                          : 'cursor-pointer'
+                      }`}
                     >
                       {linea.nombre}
                     </span>
-                  )}
+                  </div>
 
-                  <Trash2
-                    size={14}
-                    className="cursor-pointer text-slate-400 hover:text-red-500"
-                    onClick={() => borrarLinea(linea.id)} // Aquí también podrías añadir una mutación delete
-                  />
+                  <div className="flex items-center gap-2">
+                    {/* Botón de edición que aparece en hover o si está editando */}
+                    <button
+                      onClick={() => setEditingLineaId(linea.id)}
+                      className={`text-slate-400 transition-opacity hover:text-teal-600 ${
+                        editingLineaId === linea.id
+                          ? 'opacity-0'
+                          : 'opacity-0 group-hover:opacity-100'
+                      }`}
+                    >
+                      <Pencil size={12} />
+                    </button>
+
+                    <Trash2
+                      size={14}
+                      className="cursor-pointer text-slate-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-500"
+                      onClick={() => borrarLinea(linea.id)}
+                    />
+                  </div>
                 </div>
 
                 {ciclosArray.map((ciclo) => (
@@ -747,6 +789,7 @@ function MapaCurricularPage() {
                     Clave
                   </label>
                   <Input
+                    maxLength={100}
                     value={editingData.clave}
                     onChange={(e) =>
                       setEditingData({ ...editingData, clave: e.target.value })
@@ -758,6 +801,7 @@ function MapaCurricularPage() {
                     Nombre
                   </label>
                   <Input
+                    maxLength={200}
                     value={editingData.nombre}
                     onChange={(e) =>
                       setEditingData({ ...editingData, nombre: e.target.value })
@@ -774,13 +818,17 @@ function MapaCurricularPage() {
                   </label>
                   <Input
                     type="number"
+                    min={0}
                     value={editingData.creditos}
-                    onChange={(e) =>
-                      setEditingData({
-                        ...editingData,
-                        creditos: Number(e.target.value),
-                      })
-                    }
+                    onChange={(e) => {
+                      const val = handleDecimalChange(e.target.value, 10)
+                      if (val !== null) {
+                        setEditingData({
+                          ...editingData,
+                          creditos: val === '' ? 0 : Number(val),
+                        })
+                      }
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -790,12 +838,15 @@ function MapaCurricularPage() {
                   <Input
                     type="number"
                     value={editingData.hd}
-                    onChange={(e) =>
-                      setEditingData({
-                        ...editingData,
-                        hd: Number(e.target.value),
-                      })
-                    }
+                    onChange={(e) => {
+                      const val = handleIntegerChange(e.target.value)
+                      if (val !== null) {
+                        setEditingData({
+                          ...editingData,
+                          hd: Number(e.target.value),
+                        })
+                      }
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -805,12 +856,15 @@ function MapaCurricularPage() {
                   <Input
                     type="number"
                     value={editingData.hi}
-                    onChange={(e) =>
-                      setEditingData({
-                        ...editingData,
-                        hi: Number(e.target.value),
-                      })
-                    }
+                    onChange={(e) => {
+                      const val = handleIntegerChange(e.target.value)
+                      if (val !== null) {
+                        setEditingData({
+                          ...editingData,
+                          hi: Number(e.target.value),
+                        })
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -882,23 +936,29 @@ function MapaCurricularPage() {
                   Seriación (Prerrequisitos)
                 </label>
                 <Select
+                  value={seriacionValue}
                   onValueChange={(val) => {
-                    // Evitamos duplicados en la lista de prerrequisitos local
+                    if (val === 'unassigned') {
+                      setSeriacionValue('unassigned')
+                      return
+                    }
                     if (!editingData.prerrequisitos.includes(val)) {
                       setEditingData({
                         ...editingData,
                         prerrequisitos: [...editingData.prerrequisitos, val],
                       })
                     }
+                    setSeriacionValue('unassigned')
                   }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar asignatura..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* FILTRO CLAVE: 
-                      Solo mostramos materias cuyo ID sea diferente al de la materia que estamos editando 
-                  */}
+                    <SelectItem value="unassigned">
+                      -- Sin Seriación --
+                    </SelectItem>
+
                     {asignaturas
                       .filter((m) => m.id !== editingData.id)
                       .map((m) => (
