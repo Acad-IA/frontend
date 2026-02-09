@@ -3,7 +3,7 @@ import * as Icons from 'lucide-react'
 
 import { useNuevaAsignaturaWizard } from './hooks/useNuevaAsignaturaWizard'
 
-import { PasoBasicosForm } from '@/components/asignaturas/wizard/PasoBasicosForm'
+import { PasoBasicosForm } from '@/components/asignaturas/wizard/PasoBasicosForm/PasoBasicosForm'
 import { PasoDetallesPanel } from '@/components/asignaturas/wizard/PasoDetallesPanel'
 import { PasoMetodoCardGroup } from '@/components/asignaturas/wizard/PasoMetodoCardGroup'
 import { PasoResumenCard } from '@/components/asignaturas/wizard/PasoResumenCard'
@@ -55,9 +55,15 @@ export function NuevaAsignaturaModalContainer({ planId }: { planId: string }) {
     canContinueDesdeMetodo,
     canContinueDesdeBasicos,
     canContinueDesdeDetalles,
-    simularGeneracionIA,
-    crearAsignatura,
   } = useNuevaAsignaturaWizard(planId)
+
+  const titleOverrides =
+    wizard.tipoOrigen === 'IA_MULTIPLE'
+      ? {
+          basicos: 'Sugerencias',
+          detalles: 'Estructura',
+        }
+      : undefined
 
   const handleClose = () => {
     navigate({ to: `/planes/${planId}/asignaturas`, resetScroll: false })
@@ -99,7 +105,11 @@ export function NuevaAsignaturaModalContainer({ planId }: { planId: string }) {
             title="Nueva Asignatura"
             onClose={handleClose}
             headerSlot={
-              <WizardResponsiveHeader wizard={Wizard} methods={methods} />
+              <WizardResponsiveHeader
+                wizard={Wizard}
+                methods={methods}
+                titleOverrides={titleOverrides}
+              />
             }
             footerSlot={
               <Wizard.Stepper.Controls>
@@ -137,11 +147,7 @@ export function NuevaAsignaturaModalContainer({ planId }: { planId: string }) {
 
               {idx === 2 && (
                 <Wizard.Stepper.Panel>
-                  <PasoDetallesPanel
-                    wizard={wizard}
-                    onChange={setWizard}
-                    onGenerarIA={simularGeneracionIA}
-                  />
+                  <PasoDetallesPanel wizard={wizard} onChange={setWizard} />
                 </Wizard.Stepper.Panel>
               )}
 

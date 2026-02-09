@@ -29,11 +29,9 @@ import {
 export function PasoDetallesPanel({
   wizard,
   onChange,
-  onGenerarIA: _onGenerarIA,
 }: {
   wizard: NewSubjectWizardState
   onChange: React.Dispatch<React.SetStateAction<NewSubjectWizardState>>
-  onGenerarIA: () => void
 }) {
   if (wizard.tipoOrigen === 'MANUAL') {
     return (
@@ -49,7 +47,7 @@ export function PasoDetallesPanel({
     )
   }
 
-  if (wizard.tipoOrigen === 'IA') {
+  if (wizard.tipoOrigen === 'IA_SIMPLE') {
     return (
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
@@ -146,6 +144,10 @@ export function PasoDetallesPanel({
         />
       </div>
     )
+  }
+
+  if (wizard.tipoOrigen === 'IA_MULTIPLE') {
+    return <div>Hola</div>
   }
 
   if (wizard.tipoOrigen === 'CLONADO_INTERNO') {

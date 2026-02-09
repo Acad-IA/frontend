@@ -1,0 +1,237 @@
+import { RefreshCw, Sparkles } from 'lucide-react'
+
+import type { NewSubjectWizardState } from '@/features/asignaturas/nueva/types'
+import type { Dispatch, SetStateAction } from 'react'
+
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
+
+// Interfaces
+interface Suggestion {
+  id: string
+  nombre: string
+  tipo: 'Obligatoria' | 'Optativa'
+  creditos: number
+  horasAcademicas: number
+  horasIndependientes: number
+  descripcion: string
+}
+
+// Datos Mock basados en tu imagen
+const MOCK_SUGGESTIONS: Array<Suggestion> = [
+  {
+    id: '1',
+    nombre: 'Propiedad Intelectual en Entornos Digitales',
+    tipo: 'Optativa',
+    creditos: 4,
+    horasAcademicas: 32,
+    horasIndependientes: 16,
+    descripcion:
+      'Derechos de autor, patentes de software y marcas en el ecosistema digital.',
+  },
+  {
+    id: '2',
+    nombre: 'Derecho Constitucional Digital',
+    tipo: 'Obligatoria',
+    creditos: 8,
+    horasAcademicas: 64,
+    horasIndependientes: 32,
+    descripcion:
+      'Marco constitucional aplicado al entorno digital y derechos fundamentales en línea.',
+  },
+  {
+    id: '3',
+    nombre: 'Gobernanza de Internet',
+    tipo: 'Optativa',
+    creditos: 4,
+    horasAcademicas: 32,
+    horasIndependientes: 16,
+    descripcion:
+      'Políticas públicas, regulación internacional y gobernanza del ecosistema digital.',
+  },
+  {
+    id: '4',
+    nombre: 'Protección de Datos Personales',
+    tipo: 'Obligatoria',
+    creditos: 6,
+    horasAcademicas: 48,
+    horasIndependientes: 24,
+    descripcion:
+      'Regulación y cumplimiento de leyes de protección de datos (GDPR, LFPDPPP).',
+  },
+  {
+    id: '5',
+    nombre: 'Inteligencia Artificial y Ética Jurídica',
+    tipo: 'Optativa',
+    creditos: 4,
+    horasAcademicas: 32,
+    horasIndependientes: 16,
+    descripcion:
+      'Implicaciones legales y éticas del uso de IA en la práctica jurídica.',
+  },
+  {
+    id: '6',
+    nombre: 'Ciberseguridad y Derecho Penal',
+    tipo: 'Obligatoria',
+    creditos: 6,
+    horasAcademicas: 48,
+    horasIndependientes: 24,
+    descripcion:
+      'Delitos informáticos, evidencia digital y marco penal en el ciberespacio.',
+  },
+]
+export default function PasoSugerenciasForm({
+  wizard,
+  onChange,
+}: {
+  wizard: NewSubjectWizardState
+  onChange: Dispatch<SetStateAction<NewSubjectWizardState>>
+}) {
+  const selectedIds = wizard.iaMultiple?.selectedIds ?? []
+  const ciclo = wizard.iaMultiple?.ciclo ?? ''
+  const enfoque = wizard.iaMultiple?.enfoque ?? ''
+
+  const setIaMultiple = (
+    patch: Partial<NonNullable<NewSubjectWizardState['iaMultiple']>>,
+  ) =>
+    onChange((w) => ({
+      ...w,
+      iaMultiple: {
+        ciclo: w.iaMultiple?.ciclo ?? '',
+        enfoque: w.iaMultiple?.enfoque ?? '',
+        selectedIds: w.iaMultiple?.selectedIds ?? [],
+        ...patch,
+      },
+    }))
+
+  const toggleAsignatura = (id: string, checked: boolean) => {
+    const prev = selectedIds
+    const next = checked ? [...prev, id] : prev.filter((x) => x !== id)
+    setIaMultiple({ selectedIds: next })
+  }
+
+  return (
+    <div className="p-6">
+      {/* --- BLOQUE SUPERIOR: PARÁMETROS --- */}
+      <div className="border-border/60 bg-muted/30 mb-4 rounded-xl border p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <Sparkles className="text-primary h-4 w-4" />
+          <span className="text-sm font-semibold">
+            Parámetros de sugerencia
+          </span>
+        </div>
+
+        <div className="flex flex-col items-end gap-3 md:flex-row">
+          {/* Input Ciclo */}
+          <div className="w-full md:w-36">
+            <Label className="text-muted-foreground mb-1 block text-xs">
+              Número de ciclo
+            </Label>
+            <Input
+              placeholder="Ej. 3"
+              value={ciclo}
+              onChange={(e) => setIaMultiple({ ciclo: e.target.value })}
+            />
+          </div>
+
+          {/* Input Enfoque */}
+          <div className="w-full flex-1">
+            <Label className="text-muted-foreground mb-1 block text-xs">
+              Enfoque (opcional)
+            </Label>
+            <Input
+              placeholder="Ej. Enfocado en normativa mexicana y tecnología"
+              value={enfoque}
+              onChange={(e) => setIaMultiple({ enfoque: e.target.value })}
+            />
+          </div>
+
+          {/* Botón Refrescar */}
+          <Button type="button" variant="outline" className="h-9 gap-1.5">
+            <RefreshCw className="h-3.5 w-3.5" />
+            Nuevas sugerencias
+          </Button>
+        </div>
+      </div>
+
+      {/* --- HEADER LISTA --- */}
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h3 className="text-foreground text-base font-semibold">
+            Asignaturas sugeridas
+          </h3>
+          <p className="text-muted-foreground text-xs">
+            Basadas en el plan "Licenciatura en Derecho Digital"
+          </p>
+        </div>
+        <div className="bg-muted text-foreground inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-semibold">
+          {selectedIds.length} seleccionadas
+        </div>
+      </div>
+
+      {/* --- LISTA DE ASIGNATURAS (CON EL ESTILO PEDIDO) --- */}
+      <div className="max-h-80 space-y-1 overflow-y-auto pr-1">
+        {MOCK_SUGGESTIONS.map((asignatura) => {
+          const isSelected = selectedIds.includes(asignatura.id)
+
+          return (
+            <Label
+              key={asignatura.id}
+              // Para que funcione el selector css `has-aria-checked` que tenías en tu snippet
+              aria-checked={isSelected}
+              className={cn(
+                // Igual al patrón de ReferenciasParaIA
+                'border-border hover:border-primary/30 hover:bg-accent/50 m-0.5 flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-aria-checked:border-blue-600 has-aria-checked:bg-blue-50 dark:has-aria-checked:border-blue-900 dark:has-aria-checked:bg-blue-950',
+              )}
+            >
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={(checked) =>
+                  toggleAsignatura(asignatura.id, !!checked)
+                }
+                className={cn(
+                  // Igual al patrón de ReferenciasParaIA: invisible si no está seleccionado
+                  'peer border-primary ring-offset-background data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground focus-visible:ring-ring mt-0.5 h-5 w-5 shrink-0 rounded-sm border focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+                  isSelected ? '' : 'invisible',
+                )}
+              />
+
+              {/* Contenido de la tarjeta */}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-foreground text-sm font-medium">
+                    {asignatura.nombre}
+                  </span>
+
+                  {/* Badges de Tipo */}
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors',
+                      asignatura.tipo === 'Obligatoria'
+                        ? 'border-blue-200 bg-transparent text-blue-700 dark:border-blue-800 dark:text-blue-300'
+                        : 'border-yellow-200 bg-transparent text-yellow-700 dark:border-yellow-800 dark:text-yellow-300',
+                    )}
+                  >
+                    {asignatura.tipo}
+                  </span>
+
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {asignatura.creditos} cred. · {asignatura.horasAcademicas}h
+                    acad. · {asignatura.horasIndependientes}h indep.
+                  </span>
+                </div>
+
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {asignatura.descripcion}
+                </p>
+              </div>
+            </Label>
+          )
+        })}
+      </div>
+    </div>
+  )
+}

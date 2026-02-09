@@ -77,12 +77,93 @@ export function PasoMetodoCardGroup({
           </CardTitle>
           <CardDescription>Generar contenido automático.</CardDescription>
         </CardHeader>
+        {(wizard.tipoOrigen === 'IA' ||
+          wizard.tipoOrigen === 'IA_SIMPLE' ||
+          wizard.tipoOrigen === 'IA_MULTIPLE') && (
+          <CardContent className="flex flex-col gap-3">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation()
+                onChange(
+                  (w): NewSubjectWizardState => ({
+                    ...w,
+                    tipoOrigen: 'IA_SIMPLE',
+                  }),
+                )
+              }}
+              onKeyDown={(e: React.KeyboardEvent) =>
+                handleKeyActivate(e, () =>
+                  onChange(
+                    (w): NewSubjectWizardState => ({
+                      ...w,
+                      tipoOrigen: 'IA_SIMPLE',
+                    }),
+                  ),
+                )
+              }
+              className={`hover:border-primary/50 hover:bg-accent flex cursor-pointer items-center gap-4 rounded-lg border p-4 text-left transition-all ${
+                isSelected('IA_SIMPLE')
+                  ? 'bg-primary/5 text-primary ring-primary border-primary ring-1'
+                  : 'border-border text-muted-foreground'
+              }`}
+            >
+              <Icons.Edit3 className="h-6 w-6 flex-none" />
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">Una asignatura</span>
+                <span className="text-xs opacity-70">
+                  Crear una asignatura con control detallado de metadatos.
+                </span>
+              </div>
+            </div>
+
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation()
+                onChange(
+                  (w): NewSubjectWizardState => ({
+                    ...w,
+                    tipoOrigen: 'IA_MULTIPLE',
+                  }),
+                )
+              }}
+              onKeyDown={(e: React.KeyboardEvent) =>
+                handleKeyActivate(e, () =>
+                  onChange(
+                    (w): NewSubjectWizardState => ({
+                      ...w,
+                      tipoOrigen: 'IA_MULTIPLE',
+                    }),
+                  ),
+                )
+              }
+              className={`hover:border-primary/50 hover:bg-accent flex cursor-pointer items-center gap-4 rounded-lg border p-4 text-left transition-all ${
+                isSelected('IA_MULTIPLE')
+                  ? 'bg-primary/5 text-primary ring-primary border-primary ring-1'
+                  : 'border-border text-muted-foreground'
+              }`}
+            >
+              <Icons.List className="h-6 w-6 flex-none" />
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">Varias asignaturas</span>
+                <span className="text-xs opacity-70">
+                  Generar varias asignaturas a partir de sugerencias de la IA.
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       <Card
-        className={isSelected('OTRO') ? 'ring-ring ring-2' : ''}
+        className={isSelected('CLONADO') ? 'ring-ring ring-2' : ''}
         onClick={() =>
-          onChange((w): NewSubjectWizardState => ({ ...w, tipoOrigen: 'OTRO' }))
+          onChange(
+            (w): NewSubjectWizardState => ({ ...w, tipoOrigen: 'CLONADO' }),
+          )
         }
         role="button"
         tabIndex={0}
@@ -93,7 +174,7 @@ export function PasoMetodoCardGroup({
           </CardTitle>
           <CardDescription>De otra asignatura o archivo Word.</CardDescription>
         </CardHeader>
-        {(wizard.tipoOrigen === 'OTRO' ||
+        {(wizard.tipoOrigen === 'CLONADO' ||
           wizard.tipoOrigen === 'CLONADO_INTERNO' ||
           wizard.tipoOrigen === 'CLONADO_TRADICIONAL') && (
           <CardContent className="flex flex-col gap-3">

@@ -15,7 +15,12 @@ export type AsignaturaPreview = {
 export type NewSubjectWizardState = {
   step: 1 | 2 | 3 | 4
   plan_estudio_id: Asignatura['plan_estudio_id']
-  tipoOrigen: Asignatura['tipo_origen'] | null
+  tipoOrigen:
+    | Asignatura['tipo_origen']
+    | 'CLONADO'
+    | 'IA_SIMPLE'
+    | 'IA_MULTIPLE'
+    | null
   datosBasicos: {
     nombre: Asignatura['nombre']
     codigo?: Asignatura['codigo']
@@ -41,6 +46,11 @@ export type NewSubjectWizardState = {
     archivosReferencia: Array<string>
     repositoriosReferencia?: Array<string>
     archivosAdjuntos?: Array<UploadedFile>
+  }
+  iaMultiple?: {
+    ciclo: string
+    enfoque: string
+    selectedIds: Array<string>
   }
   resumen: {
     previewAsignatura?: AsignaturaPreview

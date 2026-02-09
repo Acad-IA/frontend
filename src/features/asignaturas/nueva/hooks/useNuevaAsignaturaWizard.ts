@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import type { AsignaturaPreview, NewSubjectWizardState } from '../types'
+import type { NewSubjectWizardState } from '../types'
 
 export function useNuevaAsignaturaWizard(planId: string) {
   const [wizard, setWizard] = useState<NewSubjectWizardState>({
@@ -28,6 +28,11 @@ export function useNuevaAsignaturaWizard(planId: string) {
       repositoriosReferencia: [],
       archivosAdjuntos: [],
     },
+    iaMultiple: {
+      ciclo: '',
+      enfoque: '',
+      selectedIds: ['1', '3', '6'],
+    },
     resumen: {},
     isLoading: false,
     errorMessage: null,
@@ -35,16 +40,18 @@ export function useNuevaAsignaturaWizard(planId: string) {
 
   const canContinueDesdeMetodo =
     wizard.tipoOrigen === 'MANUAL' ||
-    wizard.tipoOrigen === 'IA' ||
+    wizard.tipoOrigen === 'IA_SIMPLE' ||
+    wizard.tipoOrigen === 'IA_MULTIPLE' ||
     wizard.tipoOrigen === 'CLONADO_INTERNO' ||
     wizard.tipoOrigen === 'CLONADO_TRADICIONAL'
 
   const canContinueDesdeBasicos =
-    !!wizard.datosBasicos.nombre &&
-    wizard.datosBasicos.tipo !== null &&
-    wizard.datosBasicos.creditos !== null &&
-    wizard.datosBasicos.creditos > 0 &&
-    !!wizard.datosBasicos.estructuraId
+    (!!wizard.datosBasicos.nombre &&
+      wizard.datosBasicos.tipo !== null &&
+      wizard.datosBasicos.creditos !== null &&
+      wizard.datosBasicos.creditos > 0 &&
+      !!wizard.datosBasicos.estructuraId) ||
+    true
 
   const canContinueDesdeDetalles = (() => {
     if (wizard.tipoOrigen === 'MANUAL') return true
@@ -60,35 +67,11 @@ export function useNuevaAsignaturaWizard(planId: string) {
     return false
   })()
 
-  const simularGeneracionIA = async () => {
-    setWizard((w) => ({ ...w, isLoading: true }))
-    await new Promise((r) => setTimeout(r, 1500))
-    setWizard((w) => ({
-      ...w,
-      isLoading: false,
-      resumen: {
-        previewAsignatura: {
-          nombre: w.datosBasicos.nombre,
-          objetivo:
-            'Aplicar los fundamentos teóricos para la resolución de problemas...',
-          unidades: 5,
-          bibliografiaCount: 3,
-        } as AsignaturaPreview,
-      },
-    }))
-  }
-
-  const crearAsignatura = async () => {
-    await new Promise((r) => setTimeout(r, 1000))
-  }
-
   return {
     wizard,
     setWizard,
     canContinueDesdeMetodo,
     canContinueDesdeBasicos,
     canContinueDesdeDetalles,
-    simularGeneracionIA,
-    crearAsignatura,
   }
 }
