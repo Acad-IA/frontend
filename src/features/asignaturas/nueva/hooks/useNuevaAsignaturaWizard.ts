@@ -32,7 +32,6 @@ export function useNuevaAsignaturaWizard(planId: string) {
     iaMultiple: {
       ciclo: null,
       enfoque: '',
-      selectedIds: [],
     },
     resumen: {},
     isLoading: false,

@@ -12,6 +12,10 @@ import type {
   UUID,
 } from '../types/domain'
 import type { UploadedFile } from '@/components/planes/wizard/PasoDetallesPanel/FileDropZone'
+import type {
+  AsignaturaSugerida,
+  DataAsignaturaSugerida,
+} from '@/features/asignaturas/nueva/types'
 import type { Database } from '@/types/supabase'
 
 const EDGE = {
@@ -37,7 +41,7 @@ export async function subjects_get(subjectId: UUID): Promise<Asignatura> {
     .from('asignaturas')
     .select(
       `
-      id,plan_estudio_id,estructura_id,codigo,nombre,tipo,creditos,numero_ciclo,linea_plan_id,orden_celda,datos,contenido_tematico,tipo_origen,meta_origen,creado_por,actualizado_por,creado_en,actualizado_en,
+      id,plan_estudio_id,estructura_id,codigo,nombre,tipo,creditos,numero_ciclo,linea_plan_id,orden_celda,datos,contenido_tematico,horas_academicas,horas_independientes,asignatura_hash,conversation_id,tipo_origen,meta_origen,creado_por,actualizado_por,creado_en,actualizado_en,
       planes_estudio(
         id,carrera_id,estructura_id,nombre,nivel,tipo_ciclo,numero_ciclos,datos,estado_actual_id,activo,tipo_origen,meta_origen,creado_por,actualizado_por,creado_en,actualizado_en,
         carreras(id,facultad_id,nombre,nombre_corto,clave_sep,activa, facultades(id,nombre,nombre_corto,color,icono))
@@ -135,12 +139,30 @@ export type AIGenerateSubjectInput = {
 }
 
 export async function generate_subject_suggestions(): Promise<
-  Array<{ [key: string]: any }>
+  Array<AsignaturaSugerida>
 > {
-  return invokeEdge<Array<{ [key: string]: any }>>(
+  const raw = await invokeEdge<Array<DataAsignaturaSugerida>>(
     EDGE.generate_subject_suggestions,
     {},
   )
+
+  const arr = raw.map(
+    (s): AsignaturaSugerida => ({
+      id: crypto.randomUUID(),
+      selected: false,
+      source: 'IA',
+      nombre: s.nombre,
+      codigo: s.codigo,
+      tipo: s.tipo ?? null,
+      creditos: s.creditos ?? null,
+      horasAcademicas: s.horasAcademicas ?? null,
+      horasIndependientes: s.horasIndependientes ?? null,
+      estructuraId: null,
+      descripcion: s.descripcion,
+    }),
+  )
+
+  return arr
 }
 
 export async function ai_generate_subject(
@@ -156,7 +178,7 @@ export async function ai_generate_subject(
       archivosAdjuntos: undefined, // los manejamos aparte
     }),
   )
-  input.iaConfig?.archivosAdjuntos?.forEach((file, index) => {
+  input.iaConfig?.archivosAdjuntos?.forEach((file) => {
     edgeFunctionBody.append(`archivosAdjuntos`, file.file)
   })
   return invokeEdge<any>(

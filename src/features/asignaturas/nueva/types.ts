@@ -18,7 +18,6 @@ export type DataAsignaturaSugerida = {
   creditos: Asignatura['creditos'] | null
   horasAcademicas?: number | null
   horasIndependientes?: number | null
-  estructuraId: Asignatura['estructura_id'] | null
   descripcion?: string
 }
 
@@ -26,8 +25,8 @@ export type AsignaturaSugerida = {
   id: string
   selected: boolean
   source: 'IA' | 'MANUAL' | 'CLON'
-  data: DataAsignaturaSugerida
-}
+  estructuraId: Asignatura['estructura_id'] | null
+} & DataAsignaturaSugerida
 
 export type NewSubjectWizardState = {
   step: 1 | 2 | 3 | 4
@@ -68,7 +67,6 @@ export type NewSubjectWizardState = {
   iaMultiple?: {
     ciclo: number | null
     enfoque: string
-    selectedIds?: Array<string>
   }
   resumen: {
     previewAsignatura?: AsignaturaPreview

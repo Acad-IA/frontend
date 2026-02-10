@@ -1,17 +1,13 @@
 import { RefreshCw, Sparkles } from 'lucide-react'
-import { useState } from 'react'
 
-import type {
-  AsignaturaSugerida,
-  NewSubjectWizardState,
-} from '@/features/asignaturas/nueva/types'
+import type { NewSubjectWizardState } from '@/features/asignaturas/nueva/types'
 import type { Dispatch, SetStateAction } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { usePlan } from '@/data'
+import { generate_subject_suggestions, usePlan } from '@/data'
 import { cn } from '@/lib/utils'
 
 export default function PasoSugerenciasForm({
@@ -26,7 +22,6 @@ export default function PasoSugerenciasForm({
     .map((s) => s.id)
   const ciclo = wizard.iaMultiple?.ciclo ?? ''
   const enfoque = wizard.iaMultiple?.enfoque ?? ''
-  const [suggestions, setSuggestions] = useState<Array<AsignaturaSugerida>>([])
 
   const setIaMultiple = (
     patch: Partial<NonNullable<NewSubjectWizardState['iaMultiple']>>,
@@ -45,9 +40,53 @@ export default function PasoSugerenciasForm({
   const { data: plan } = usePlan(wizard.plan_estudio_id)
 
   const toggleAsignatura = (id: string, checked: boolean) => {
-    const prev = selectedIds
-    const next = checked ? [...prev, id] : prev.filter((x) => x !== id)
-    setIaMultiple({ selectedIds: next })
+    onChange((w) => ({
+      ...w,
+      sugerencias: w.sugerencias.map((s) =>
+        s.id === id ? { ...s, selected: checked } : s,
+      ),
+    }))
+  }
+
+  const onMasSugerencias = async () => {
+    const sugerenciasConservadas = wizard.sugerencias.filter((s) => s.selected)
+
+    onChange((w) => ({
+      ...w,
+      isLoading: true,
+      errorMessage: null,
+      sugerencias: sugerenciasConservadas,
+    }))
+
+    try {
+      const nuevasSugerencias = await generate_subject_suggestions()
+      const merged = [...nuevasSugerencias, ...sugerenciasConservadas]
+
+      const seen = new Set<string>()
+      const deduped = merged.filter((s) => {
+        if (seen.has(s.id)) return false
+        seen.add(s.id)
+        return true
+      })
+
+      onChange(
+        (w): NewSubjectWizardState => ({
+          ...w,
+          isLoading: false,
+          sugerencias: deduped,
+        }),
+      )
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Error generando sugerencias.'
+      onChange(
+        (w): NewSubjectWizardState => ({
+          ...w,
+          isLoading: false,
+          errorMessage: message,
+        }),
+      )
+    }
   }
 
   return (
@@ -71,7 +110,20 @@ export default function PasoSugerenciasForm({
               placeholder="Ej. 3"
               value={ciclo}
               type="number"
-              onChange={(e) => setIaMultiple({ ciclo: Number(e.target.value) })}
+              min={1}
+              max={999}
+              onChange={(e) => {
+                const raw = e.target.value
+                if (raw === '') {
+                  setIaMultiple({ ciclo: null })
+                  return
+                }
+                const asNumber = Number(raw)
+                if (!Number.isFinite(asNumber)) return
+                const n = Math.floor(Math.abs(asNumber))
+                const capped = Math.min(n >= 1 ? n : 1, 999)
+                setIaMultiple({ ciclo: capped })
+              }}
             />
           </div>
 
@@ -88,11 +140,22 @@ export default function PasoSugerenciasForm({
           </div>
 
           {/* Botón Refrescar */}
-          <Button type="button" variant="outline" className="h-9 gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-9 gap-1.5"
+            onClick={onMasSugerencias}
+            disabled={wizard.isLoading}
+          >
             <RefreshCw className="h-3.5 w-3.5" />
             Más sugerencias
           </Button>
         </div>
+
+        <p className="text-muted-foreground mt-2 text-xs">
+          Al generar más sugerencias, solo se conservarán las asignaturas que
+          hayas seleccionado.
+        </p>
       </div>
 
       {/* --- HEADER LISTA --- */}
@@ -111,18 +174,16 @@ export default function PasoSugerenciasForm({
         </div>
       </div>
 
-      {/* --- LISTA DE ASIGNATURAS (CON EL ESTILO PEDIDO) --- */}
+      {/* --- LISTA DE ASIGNATURAS --- */}
       <div className="max-h-80 space-y-1 overflow-y-auto pr-1">
-        {suggestions.map((asignatura) => {
-          const isSelected = selectedIds.includes(asignatura.id)
+        {wizard.sugerencias.map((asignatura) => {
+          const isSelected = asignatura.selected
 
           return (
             <Label
               key={asignatura.id}
-              // Para que funcione el selector css `has-aria-checked` que tenías en tu snippet
               aria-checked={isSelected}
               className={cn(
-                // Igual al patrón de ReferenciasParaIA
                 'border-border hover:border-primary/30 hover:bg-accent/50 m-0.5 flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-aria-checked:border-blue-600 has-aria-checked:bg-blue-50 dark:has-aria-checked:border-blue-900 dark:has-aria-checked:bg-blue-950',
               )}
             >
@@ -132,9 +193,8 @@ export default function PasoSugerenciasForm({
                   toggleAsignatura(asignatura.id, !!checked)
                 }
                 className={cn(
-                  // Igual al patrón de ReferenciasParaIA: invisible si no está seleccionado
-                  'peer border-primary ring-offset-background data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground focus-visible:ring-ring mt-0.5 h-5 w-5 shrink-0 rounded-sm border focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
-                  isSelected ? '' : 'invisible',
+                  'peer border-primary ring-offset-background data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground focus-visible:ring-ring mt-0.5 h-5 w-5 shrink-0 border focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+                  // isSelected ? '' : 'invisible',
                 )}
               />
 
@@ -142,30 +202,29 @@ export default function PasoSugerenciasForm({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-foreground text-sm font-medium">
-                    {asignatura.data.nombre}
+                    {asignatura.nombre}
                   </span>
 
                   {/* Badges de Tipo */}
                   <span
                     className={cn(
                       'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors',
-                      asignatura.data.tipo === 'OBLIGATORIA'
+                      asignatura.tipo === 'OBLIGATORIA'
                         ? 'border-blue-200 bg-transparent text-blue-700 dark:border-blue-800 dark:text-blue-300'
                         : 'border-yellow-200 bg-transparent text-yellow-700 dark:border-yellow-800 dark:text-yellow-300',
                     )}
                   >
-                    {asignatura.data.tipo}
+                    {asignatura.tipo}
                   </span>
 
                   <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {asignatura.data.creditos} cred. ·{' '}
-                    {asignatura.data.horasAcademicas}h acad. ·{' '}
-                    {asignatura.data.horasIndependientes}h indep.
+                    {asignatura.creditos} cred. · {asignatura.horasAcademicas}h
+                    acad. · {asignatura.horasIndependientes}h indep.
                   </span>
                 </div>
 
                 <p className="text-muted-foreground mt-1 text-xs">
-                  {asignatura.data.descripcion}
+                  {asignatura.descripcion}
                 </p>
               </div>
             </Label>
