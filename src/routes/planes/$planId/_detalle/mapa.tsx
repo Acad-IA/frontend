@@ -504,6 +504,9 @@ function MapaCurricularPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button className="bg-teal-700 text-white hover:bg-teal-800">
+            <Plus size={16} className="mr-2" /> Exportar{' '}
+          </Button>
           {asignaturas.filter((m) => !m.ciclo || !m.lineaCurricularId).length >
             0 && (
             <Badge className="border-amber-100 bg-amber-50 text-amber-600 hover:bg-amber-50">
