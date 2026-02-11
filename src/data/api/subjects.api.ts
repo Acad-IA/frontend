@@ -140,7 +140,6 @@ export type AIGenerateSubjectInput = {
 
 export type GenerateSubjectSuggestionsInput = {
   plan_estudio_id: UUID
-  numero_de_ciclo: number
   enfoque?: string
   cantidad_de_sugerencias: number
   sugerencias_conservadas: Array<{ nombre: string; descripcion: string }>

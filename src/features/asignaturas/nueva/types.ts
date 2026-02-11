@@ -65,9 +65,9 @@ export type NewSubjectWizardState = {
     archivosAdjuntos?: Array<UploadedFile>
   }
   iaMultiple?: {
-    ciclo: number | null
     enfoque: string
     cantidadDeSugerencias: number
+    isLoading: boolean
   }
   resumen: {
     previewAsignatura?: AsignaturaPreview

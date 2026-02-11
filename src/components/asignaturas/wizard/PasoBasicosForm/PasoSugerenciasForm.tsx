@@ -1,4 +1,5 @@
-import { RefreshCw, Sparkles } from 'lucide-react'
+import { RefreshCw, Sparkles, X } from 'lucide-react'
+import { useState } from 'react'
 
 import type { NewSubjectWizardState } from '@/features/asignaturas/nueva/types'
 import type { Dispatch, SetStateAction } from 'react'
@@ -7,7 +8,14 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { generate_subject_suggestions, usePlan } from '@/data'
+import { AIProgressLoader } from '@/features/asignaturas/nueva/AIProgressLoader'
 import { cn } from '@/lib/utils'
 
 export default function PasoSugerenciasForm({
@@ -17,9 +25,11 @@ export default function PasoSugerenciasForm({
   wizard: NewSubjectWizardState
   onChange: Dispatch<SetStateAction<NewSubjectWizardState>>
 }) {
-  const ciclo = wizard.iaMultiple?.ciclo ?? ''
   const enfoque = wizard.iaMultiple?.enfoque ?? ''
   const cantidadDeSugerencias = wizard.iaMultiple?.cantidadDeSugerencias ?? 10
+  const isLoading = wizard.iaMultiple?.isLoading ?? false
+
+  const [showConservacionTooltip, setShowConservacionTooltip] = useState(false)
 
   const setIaMultiple = (
     patch: Partial<NonNullable<NewSubjectWizardState['iaMultiple']>>,
@@ -28,9 +38,9 @@ export default function PasoSugerenciasForm({
       (w): NewSubjectWizardState => ({
         ...w,
         iaMultiple: {
-          ciclo: w.iaMultiple?.ciclo ?? null,
           enfoque: w.iaMultiple?.enfoque ?? '',
           cantidadDeSugerencias: w.iaMultiple?.cantidadDeSugerencias ?? 10,
+          isLoading: w.iaMultiple?.isLoading ?? false,
           ...patch,
         },
       }),
@@ -48,32 +58,31 @@ export default function PasoSugerenciasForm({
   }
 
   const onGenerarSugerencias = async () => {
+    const hadNoSugerenciasBefore = wizard.sugerencias.length === 0
     const sugerenciasConservadas = wizard.sugerencias.filter((s) => s.selected)
 
     onChange((w) => ({
       ...w,
-      isLoading: true,
       errorMessage: null,
       sugerencias: sugerenciasConservadas,
+      iaMultiple: {
+        enfoque: w.iaMultiple?.enfoque ?? '',
+        cantidadDeSugerencias: w.iaMultiple?.cantidadDeSugerencias ?? 10,
+        isLoading: true,
+      },
     }))
 
     try {
-      const numeroCiclo = wizard.iaMultiple?.ciclo
-      if (!numeroCiclo || !Number.isFinite(numeroCiclo) || numeroCiclo <= 0) {
-        onChange((w) => ({
-          ...w,
-          isLoading: false,
-          errorMessage: 'Ingresa un número de ciclo válido.',
-        }))
-        return
-      }
-
       const cantidad = wizard.iaMultiple?.cantidadDeSugerencias ?? 10
-      if (!Number.isFinite(cantidad) || cantidad <= 0 || cantidad > 50) {
+      if (!Number.isFinite(cantidad) || cantidad <= 0 || cantidad > 15) {
         onChange((w) => ({
           ...w,
-          isLoading: false,
-          errorMessage: 'La cantidad de sugerencias debe ser entre 1 y 50.',
+          errorMessage: 'La cantidad de sugerencias debe ser entre 1 y 15.',
+          iaMultiple: {
+            enfoque: w.iaMultiple?.enfoque ?? '',
+            cantidadDeSugerencias: w.iaMultiple?.cantidadDeSugerencias ?? 10,
+            isLoading: false,
+          },
         }))
         return
       }
@@ -82,7 +91,6 @@ export default function PasoSugerenciasForm({
 
       const nuevasSugerencias = await generate_subject_suggestions({
         plan_estudio_id: wizard.plan_estudio_id,
-        numero_de_ciclo: numeroCiclo,
         enfoque: enfoqueTrim ? enfoqueTrim : undefined,
         cantidad_de_sugerencias: cantidad,
         sugerencias_conservadas: sugerenciasConservadas.map((s) => ({
@@ -91,11 +99,19 @@ export default function PasoSugerenciasForm({
         })),
       })
 
+      if (hadNoSugerenciasBefore && nuevasSugerencias.length > 0) {
+        setShowConservacionTooltip(true)
+      }
+
       onChange(
         (w): NewSubjectWizardState => ({
           ...w,
-          isLoading: false,
           sugerencias: [...nuevasSugerencias, ...sugerenciasConservadas],
+          iaMultiple: {
+            enfoque: w.iaMultiple?.enfoque ?? '',
+            cantidadDeSugerencias: w.iaMultiple?.cantidadDeSugerencias ?? 10,
+            isLoading: false,
+          },
         }),
       )
     } catch (err) {
@@ -104,8 +120,12 @@ export default function PasoSugerenciasForm({
       onChange(
         (w): NewSubjectWizardState => ({
           ...w,
-          isLoading: false,
           errorMessage: message,
+          iaMultiple: {
+            enfoque: w.iaMultiple?.enfoque ?? '',
+            cantidadDeSugerencias: w.iaMultiple?.cantidadDeSugerencias ?? 10,
+            isLoading: false,
+          },
         }),
       )
     }
@@ -122,48 +142,23 @@ export default function PasoSugerenciasForm({
           </span>
         </div>
 
-        <div className="flex flex-col items-end gap-3 md:flex-row">
-          {/* Input Ciclo */}
-          <div className="w-full md:w-36">
-            <Label className="text-muted-foreground mb-1 block text-xs">
-              Número de ciclo
-            </Label>
-            <Input
-              placeholder="Ej. 3"
-              value={ciclo}
-              type="number"
-              min={1}
-              max={999}
-              onChange={(e) => {
-                const raw = e.target.value
-                if (raw === '') {
-                  setIaMultiple({ ciclo: null })
-                  return
-                }
-                const asNumber = Number(raw)
-                if (!Number.isFinite(asNumber)) return
-                const n = Math.floor(Math.abs(asNumber))
-                const capped = Math.min(n >= 1 ? n : 1, 999)
-                setIaMultiple({ ciclo: capped })
-              }}
-            />
-          </div>
-
-          {/* Input Enfoque */}
-          <div className="w-full flex-1">
+        <div className="flex flex-col gap-3">
+          <div className="w-full">
             <Label className="text-muted-foreground mb-1 block text-xs">
               Enfoque (opcional)
             </Label>
-            <Input
+            <Textarea
               placeholder="Ej. Enfocado en normativa mexicana y tecnología"
               value={enfoque}
+              maxLength={7000}
+              rows={4}
               onChange={(e) => setIaMultiple({ enfoque: e.target.value })}
             />
           </div>
         </div>
 
-        <div className="mt-3 flex w-full flex-col items-end gap-3 md:flex-row">
-          <div className="w-full md:w-44">
+        <div className="mt-3 flex w-full flex-col items-end justify-between gap-3 sm:flex-row">
+          <div className="w-full sm:w-44">
             <Label className="text-muted-foreground mb-1 block text-xs">
               Cantidad de sugerencias
             </Label>
@@ -172,7 +167,7 @@ export default function PasoSugerenciasForm({
               value={cantidadDeSugerencias}
               type="number"
               min={1}
-              max={50}
+              max={15}
               step={1}
               inputMode="numeric"
               onKeyDown={(e) => {
@@ -186,7 +181,7 @@ export default function PasoSugerenciasForm({
                 const asNumber = Number(raw)
                 if (!Number.isFinite(asNumber)) return
                 const n = Math.floor(Math.abs(asNumber))
-                const capped = Math.min(n >= 1 ? n : 1, 50)
+                const capped = Math.min(n >= 1 ? n : 1, 15)
                 setIaMultiple({ cantidadDeSugerencias: capped })
               }}
             />
@@ -197,18 +192,20 @@ export default function PasoSugerenciasForm({
             variant="outline"
             className="h-9 gap-1.5"
             onClick={onGenerarSugerencias}
-            disabled={wizard.isLoading}
+            disabled={isLoading}
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            Generar sugerencias
+            {wizard.sugerencias.length > 0
+              ? 'Generar más sugerencias'
+              : 'Generar sugerencias'}
           </Button>
         </div>
-
-        <p className="text-muted-foreground mt-2 text-xs">
-          Al generar más sugerencias, solo se conservarán las asignaturas que
-          hayas seleccionado.
-        </p>
       </div>
+
+      <AIProgressLoader
+        isLoading={isLoading}
+        cantidadDeSugerencias={cantidadDeSugerencias}
+      />
 
       {/* --- HEADER LISTA --- */}
       <div className="mb-3 flex items-center justify-between">
@@ -221,9 +218,32 @@ export default function PasoSugerenciasForm({
             {plan ? `${plan.nivel} en ${plan.nombre}` : '...'}
           </p>
         </div>
-        <div className="bg-muted text-foreground inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-semibold">
-          {wizard.sugerencias.filter((s) => s.selected).length} seleccionadas
-        </div>
+        <Tooltip open={showConservacionTooltip}>
+          <TooltipTrigger asChild>
+            <div className="bg-muted text-foreground inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-sm font-semibold">
+              <span aria-hidden>📌</span>
+              {wizard.sugerencias.filter((s) => s.selected).length}{' '}
+              seleccionadas
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={8} className="max-w-xs">
+            <div className="flex items-start gap-2">
+              <span className="flex-1 text-sm">
+                Al generar más sugerencias, se conservarán las asignaturas
+                seleccionadas.
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5"
+                onClick={() => setShowConservacionTooltip(false)}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {/* --- LISTA DE ASIGNATURAS --- */}

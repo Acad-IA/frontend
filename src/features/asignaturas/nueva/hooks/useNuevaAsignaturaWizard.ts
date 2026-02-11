@@ -30,9 +30,9 @@ export function useNuevaAsignaturaWizard(planId: string) {
       archivosAdjuntos: [],
     },
     iaMultiple: {
-      ciclo: null,
       enfoque: '',
       cantidadDeSugerencias: 10,
+      isLoading: false,
     },
     resumen: {},
     isLoading: false,
