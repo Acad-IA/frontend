@@ -1,11 +1,12 @@
 import { useState } from 'react'
 
-import type { AsignaturaPreview, NewSubjectWizardState } from '../types'
+import type { NewSubjectWizardState } from '../types'
 
 export function useNuevaAsignaturaWizard(planId: string) {
   const [wizard, setWizard] = useState<NewSubjectWizardState>({
     step: 1,
     plan_estudio_id: planId,
+    estructuraId: null,
     tipoOrigen: null,
     datosBasicos: {
       nombre: '',
@@ -16,6 +17,7 @@ export function useNuevaAsignaturaWizard(planId: string) {
       horasIndependientes: null,
       estructuraId: '',
     },
+    sugerencias: [],
     clonInterno: {},
     clonTradicional: {
       archivoWordAsignaturaId: null,
@@ -28,6 +30,11 @@ export function useNuevaAsignaturaWizard(planId: string) {
       repositoriosReferencia: [],
       archivosAdjuntos: [],
     },
+    iaMultiple: {
+      enfoque: '',
+      cantidadDeSugerencias: 10,
+      isLoading: false,
+    },
     resumen: {},
     isLoading: false,
     errorMessage: null,
@@ -35,20 +42,23 @@ export function useNuevaAsignaturaWizard(planId: string) {
 
   const canContinueDesdeMetodo =
     wizard.tipoOrigen === 'MANUAL' ||
-    wizard.tipoOrigen === 'IA' ||
+    wizard.tipoOrigen === 'IA_SIMPLE' ||
+    wizard.tipoOrigen === 'IA_MULTIPLE' ||
     wizard.tipoOrigen === 'CLONADO_INTERNO' ||
     wizard.tipoOrigen === 'CLONADO_TRADICIONAL'
 
   const canContinueDesdeBasicos =
-    !!wizard.datosBasicos.nombre &&
-    wizard.datosBasicos.tipo !== null &&
-    wizard.datosBasicos.creditos !== null &&
-    wizard.datosBasicos.creditos > 0 &&
-    !!wizard.datosBasicos.estructuraId
+    (!!wizard.datosBasicos.nombre &&
+      wizard.datosBasicos.tipo !== null &&
+      wizard.datosBasicos.creditos !== null &&
+      wizard.datosBasicos.creditos > 0 &&
+      !!wizard.datosBasicos.estructuraId) ||
+    (wizard.tipoOrigen === 'IA_MULTIPLE' &&
+      wizard.sugerencias.filter((s) => s.selected).length > 0)
 
   const canContinueDesdeDetalles = (() => {
     if (wizard.tipoOrigen === 'MANUAL') return true
-    if (wizard.tipoOrigen === 'IA') {
+    if (wizard.tipoOrigen === 'IA_SIMPLE') {
       return !!wizard.iaConfig?.descripcionEnfoqueAcademico
     }
     if (wizard.tipoOrigen === 'CLONADO_INTERNO') {
@@ -57,30 +67,11 @@ export function useNuevaAsignaturaWizard(planId: string) {
     if (wizard.tipoOrigen === 'CLONADO_TRADICIONAL') {
       return !!wizard.clonTradicional?.archivoWordAsignaturaId
     }
+    if (wizard.tipoOrigen === 'IA_MULTIPLE') {
+      return wizard.estructuraId !== null
+    }
     return false
   })()
-
-  const simularGeneracionIA = async () => {
-    setWizard((w) => ({ ...w, isLoading: true }))
-    await new Promise((r) => setTimeout(r, 1500))
-    setWizard((w) => ({
-      ...w,
-      isLoading: false,
-      resumen: {
-        previewAsignatura: {
-          nombre: w.datosBasicos.nombre,
-          objetivo:
-            'Aplicar los fundamentos teóricos para la resolución de problemas...',
-          unidades: 5,
-          bibliografiaCount: 3,
-        } as AsignaturaPreview,
-      },
-    }))
-  }
-
-  const crearAsignatura = async () => {
-    await new Promise((r) => setTimeout(r, 1000))
-  }
 
   return {
     wizard,
@@ -88,7 +79,5 @@ export function useNuevaAsignaturaWizard(planId: string) {
     canContinueDesdeMetodo,
     canContinueDesdeBasicos,
     canContinueDesdeDetalles,
-    simularGeneracionIA,
-    crearAsignatura,
   }
 }

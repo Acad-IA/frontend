@@ -7,11 +7,6 @@ export type Json =
   | Array<Json>
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: '12.2.3 (519615d)'
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -93,11 +88,11 @@ export type Database = {
           asignatura_hash: string | null
           codigo: string | null
           contenido_tematico: Json
-          conversation_id: string | null
           creado_en: string
           creado_por: string | null
           creditos: number
           datos: Json
+          estado: Database['public']['Enums']['estado_asignatura']
           estructura_id: string | null
           horas_academicas: number | null
           horas_independientes: number | null
@@ -117,11 +112,11 @@ export type Database = {
           asignatura_hash?: string | null
           codigo?: string | null
           contenido_tematico?: Json
-          conversation_id?: string | null
           creado_en?: string
           creado_por?: string | null
           creditos: number
           datos?: Json
+          estado?: Database['public']['Enums']['estado_asignatura']
           estructura_id?: string | null
           horas_academicas?: number | null
           horas_independientes?: number | null
@@ -141,11 +136,11 @@ export type Database = {
           asignatura_hash?: string | null
           codigo?: string | null
           contenido_tematico?: Json
-          conversation_id?: string | null
           creado_en?: string
           creado_por?: string | null
           creditos?: number
           datos?: Json
+          estado?: Database['public']['Enums']['estado_asignatura']
           estructura_id?: string | null
           horas_academicas?: number | null
           horas_independientes?: number | null
@@ -391,6 +386,135 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'facultades'
             referencedColumns: ['id']
+          },
+        ]
+      }
+      conversaciones_asignatura: {
+        Row: {
+          archivado_en: string | null
+          archivado_por: string | null
+          asignatura_id: string
+          conversacion_json: Json
+          creado_en: string
+          creado_por: string | null
+          estado: Database['public']['Enums']['estado_conversacion']
+          id: string
+          intento_archivado: number
+          openai_conversation_id: string
+        }
+        Insert: {
+          archivado_en?: string | null
+          archivado_por?: string | null
+          asignatura_id: string
+          conversacion_json?: Json
+          creado_en?: string
+          creado_por?: string | null
+          estado?: Database['public']['Enums']['estado_conversacion']
+          id?: string
+          intento_archivado?: number
+          openai_conversation_id: string
+        }
+        Update: {
+          archivado_en?: string | null
+          archivado_por?: string | null
+          asignatura_id?: string
+          conversacion_json?: Json
+          creado_en?: string
+          creado_por?: string | null
+          estado?: Database['public']['Enums']['estado_conversacion']
+          id?: string
+          intento_archivado?: number
+          openai_conversation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'conversaciones_asignatura_archivado_por_fkey'
+            columns: ['archivado_por']
+            isOneToOne: false
+            referencedRelation: 'usuarios_app'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'conversaciones_asignatura_asignatura_id_fkey'
+            columns: ['asignatura_id']
+            isOneToOne: false
+            referencedRelation: 'asignaturas'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'conversaciones_asignatura_creado_por_fkey'
+            columns: ['creado_por']
+            isOneToOne: false
+            referencedRelation: 'usuarios_app'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      conversaciones_plan: {
+        Row: {
+          archivado_en: string | null
+          archivado_por: string | null
+          conversacion_json: Json
+          creado_en: string
+          creado_por: string | null
+          estado: Database['public']['Enums']['estado_conversacion']
+          id: string
+          intento_archivado: number
+          openai_conversation_id: string
+          plan_estudio_id: string
+        }
+        Insert: {
+          archivado_en?: string | null
+          archivado_por?: string | null
+          conversacion_json?: Json
+          creado_en?: string
+          creado_por?: string | null
+          estado?: Database['public']['Enums']['estado_conversacion']
+          id?: string
+          intento_archivado?: number
+          openai_conversation_id: string
+          plan_estudio_id: string
+        }
+        Update: {
+          archivado_en?: string | null
+          archivado_por?: string | null
+          conversacion_json?: Json
+          creado_en?: string
+          creado_por?: string | null
+          estado?: Database['public']['Enums']['estado_conversacion']
+          id?: string
+          intento_archivado?: number
+          openai_conversation_id?: string
+          plan_estudio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'conversaciones_plan_archivado_por_fkey'
+            columns: ['archivado_por']
+            isOneToOne: false
+            referencedRelation: 'usuarios_app'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'conversaciones_plan_creado_por_fkey'
+            columns: ['creado_por']
+            isOneToOne: false
+            referencedRelation: 'usuarios_app'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'conversaciones_plan_plan_estudio_id_fkey'
+            columns: ['plan_estudio_id']
+            isOneToOne: false
+            referencedRelation: 'planes_estudio'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'conversaciones_plan_plan_estudio_id_fkey'
+            columns: ['plan_estudio_id']
+            isOneToOne: false
+            referencedRelation: 'plantilla_plan'
+            referencedColumns: ['plan_estudio_id']
           },
         ]
       }
@@ -677,7 +801,6 @@ export type Database = {
           actualizado_en: string
           actualizado_por: string | null
           carrera_id: string
-          conversation_id: string | null
           creado_en: string
           creado_por: string | null
           datos: Json
@@ -698,7 +821,6 @@ export type Database = {
           actualizado_en?: string
           actualizado_por?: string | null
           carrera_id: string
-          conversation_id?: string | null
           creado_en?: string
           creado_por?: string | null
           datos?: Json
@@ -719,7 +841,6 @@ export type Database = {
           actualizado_en?: string
           actualizado_por?: string | null
           carrera_id?: string
-          conversation_id?: string | null
           creado_en?: string
           creado_por?: string | null
           datos?: Json
@@ -1089,6 +1210,8 @@ export type Database = {
       unaccent_immutable: { Args: { '': string }; Returns: string }
     }
     Enums: {
+      estado_asignatura: 'borrador' | 'revisada' | 'aprobada' | 'generando'
+      estado_conversacion: 'ACTIVA' | 'ARCHIVANDO' | 'ARCHIVADA' | 'ERROR'
       estado_tarea_revision: 'PENDIENTE' | 'COMPLETADA' | 'OMITIDA'
       fuente_cambio: 'HUMANO' | 'IA'
       nivel_plan_estudio:
@@ -1261,6 +1384,8 @@ export const Constants = {
   },
   public: {
     Enums: {
+      estado_asignatura: ['borrador', 'revisada', 'aprobada', 'generando'],
+      estado_conversacion: ['ACTIVA', 'ARCHIVANDO', 'ARCHIVADA', 'ERROR'],
       estado_tarea_revision: ['PENDIENTE', 'COMPLETADA', 'OMITIDA'],
       fuente_cambio: ['HUMANO', 'IA'],
       nivel_plan_estudio: [
