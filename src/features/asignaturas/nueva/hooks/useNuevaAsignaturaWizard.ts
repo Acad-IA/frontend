@@ -48,15 +48,17 @@ export function useNuevaAsignaturaWizard(planId: string) {
     wizard.tipoOrigen === 'CLONADO_TRADICIONAL'
 
   const canContinueDesdeBasicos =
-    !!wizard.datosBasicos.nombre &&
-    wizard.datosBasicos.tipo !== null &&
-    wizard.datosBasicos.creditos !== null &&
-    wizard.datosBasicos.creditos > 0 &&
-    !!wizard.datosBasicos.estructuraId
+    (!!wizard.datosBasicos.nombre &&
+      wizard.datosBasicos.tipo !== null &&
+      wizard.datosBasicos.creditos !== null &&
+      wizard.datosBasicos.creditos > 0 &&
+      !!wizard.datosBasicos.estructuraId) ||
+    (wizard.tipoOrigen === 'IA_MULTIPLE' &&
+      wizard.sugerencias.filter((s) => s.selected).length > 0)
 
   const canContinueDesdeDetalles = (() => {
     if (wizard.tipoOrigen === 'MANUAL') return true
-    if (wizard.tipoOrigen === 'IA') {
+    if (wizard.tipoOrigen === 'IA_SIMPLE') {
       return !!wizard.iaConfig?.descripcionEnfoqueAcademico
     }
     if (wizard.tipoOrigen === 'CLONADO_INTERNO') {

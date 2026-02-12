@@ -7,11 +7,6 @@ export type Json =
   | Array<Json>
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: '12.2.3 (519615d)'
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -98,6 +93,7 @@ export type Database = {
           creado_por: string | null
           creditos: number
           datos: Json
+          estado: Database['public']['Enums']['estado_asignatura']
           estructura_id: string | null
           horas_academicas: number | null
           horas_independientes: number | null
@@ -122,6 +118,7 @@ export type Database = {
           creado_por?: string | null
           creditos: number
           datos?: Json
+          estado?: Database['public']['Enums']['estado_asignatura']
           estructura_id?: string | null
           horas_academicas?: number | null
           horas_independientes?: number | null
@@ -146,6 +143,7 @@ export type Database = {
           creado_por?: string | null
           creditos?: number
           datos?: Json
+          estado?: Database['public']['Enums']['estado_asignatura']
           estructura_id?: string | null
           horas_academicas?: number | null
           horas_independientes?: number | null
@@ -1089,6 +1087,7 @@ export type Database = {
       unaccent_immutable: { Args: { '': string }; Returns: string }
     }
     Enums: {
+      estado_asignatura: 'borrador' | 'revisada' | 'aprobada' | 'generando'
       estado_tarea_revision: 'PENDIENTE' | 'COMPLETADA' | 'OMITIDA'
       fuente_cambio: 'HUMANO' | 'IA'
       nivel_plan_estudio:
@@ -1261,6 +1260,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      estado_asignatura: ['borrador', 'revisada', 'aprobada', 'generando'],
       estado_tarea_revision: ['PENDIENTE', 'COMPLETADA', 'OMITIDA'],
       fuente_cambio: ['HUMANO', 'IA'],
       nivel_plan_estudio: [
