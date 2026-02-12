@@ -165,7 +165,7 @@ export async function plan_asignaturas_list(
   const { data, error } = await supabase
     .from('asignaturas')
     .select(
-      'id,plan_estudio_id,horas_academicas, horas_independientes,estructura_id,codigo,nombre,tipo,creditos,numero_ciclo,linea_plan_id,orden_celda,datos,contenido_tematico,tipo_origen,meta_origen,creado_por,actualizado_por,creado_en,actualizado_en',
+      'id,plan_estudio_id,horas_academicas,horas_independientes,estructura_id,codigo,nombre,tipo,creditos,numero_ciclo,linea_plan_id,orden_celda,estado,datos,contenido_tematico,asignatura_hash,conversation_id,tipo_origen,meta_origen,creado_por,actualizado_por,creado_en,actualizado_en',
     )
     .eq('plan_estudio_id', planId)
     .order('numero_ciclo', { ascending: true, nullsFirst: false })
@@ -189,7 +189,7 @@ export async function plans_history(
   const { data, error, count } = await supabase
     .from('cambios_plan')
     .select(
-      'id,plan_estudio_id,cambiado_por,cambiado_en,tipo,campo,valor_anterior,valor_nuevo',
+      'id,plan_estudio_id,cambiado_por,cambiado_en,tipo,campo,valor_anterior,valor_nuevo,response_id',
       { count: 'exact' }, // <--- Pedimos el conteo exacto
     )
     .eq('plan_estudio_id', planId)
@@ -304,7 +304,7 @@ export async function ai_generate_plan(
       archivosAdjuntos: undefined, // los manejamos aparte
     }),
   )
-  input.iaConfig.archivosAdjuntos.forEach((file, index) => {
+  input.iaConfig.archivosAdjuntos.forEach((file) => {
     edgeFunctionBody.append(`archivosAdjuntos`, file.file)
   })
 

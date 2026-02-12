@@ -1,10 +1,12 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 
-import type { AIGenerateSubjectInput } from '@/data'
+import type { AIGenerateSubjectInput, AIGenerateSubjectJsonInput } from '@/data'
 import type { NewSubjectWizardState } from '@/features/asignaturas/nueva/types'
+import type { TablesInsert } from '@/types/supabase'
 
 import { Button } from '@/components/ui/button'
-import { useGenerateSubjectAI } from '@/data'
+import { supabaseBrowser, useGenerateSubjectAI, qk } from '@/data'
 
 export function WizardControls({
   wizard,
@@ -28,6 +30,7 @@ export function WizardControls({
   isLastStep: boolean
 }) {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const generateSubjectAI = useGenerateSubjectAI()
   const handleCreate = async () => {
     setWizard((w) => ({
@@ -37,7 +40,7 @@ export function WizardControls({
     }))
 
     try {
-      if (wizard.tipoOrigen === 'IA') {
+      if (wizard.tipoOrigen === 'IA' || wizard.tipoOrigen === 'IA_SIMPLE') {
         const aiInput: AIGenerateSubjectInput = {
           plan_estudio_id: wizard.plan_estudio_id,
           datosBasicos: {
@@ -75,6 +78,82 @@ export function WizardControls({
           to: `/planes/${wizard.plan_estudio_id}/asignaturas/${asignatura.id}`,
           state: { showConfetti: true },
         })
+        return
+      }
+
+      if (wizard.tipoOrigen === 'IA_MULTIPLE') {
+        const selected = wizard.sugerencias.filter((s) => s.selected)
+
+        if (selected.length === 0) {
+          throw new Error('Selecciona al menos una sugerencia.')
+        }
+        if (!wizard.plan_estudio_id) {
+          throw new Error('Plan de estudio inválido.')
+        }
+        if (!wizard.estructuraId) {
+          throw new Error('Selecciona una estructura para continuar.')
+        }
+
+        const supabase = supabaseBrowser()
+
+        const placeholders: Array<TablesInsert<'asignaturas'>> = selected.map(
+          (s): TablesInsert<'asignaturas'> => ({
+            plan_estudio_id: wizard.plan_estudio_id,
+            estructura_id: wizard.estructuraId,
+            estado: 'generando',
+            nombre: s.nombre,
+            codigo: s.codigo ?? null,
+            tipo: s.tipo ?? undefined,
+            creditos: s.creditos ?? 0,
+            horas_academicas: s.horasAcademicas ?? null,
+            horas_independientes: s.horasIndependientes ?? null,
+            linea_plan_id: s.linea_plan_id ?? null,
+            numero_ciclo: s.numero_ciclo ?? null,
+          }),
+        )
+
+        const { data: inserted, error: insertError } = await supabase
+          .from('asignaturas')
+          .insert(placeholders)
+          .select('id')
+
+        if (insertError) {
+          throw new Error(insertError.message)
+        }
+
+        const insertedIds = inserted.map((r) => r.id)
+        if (insertedIds.length !== selected.length) {
+          throw new Error('No se pudieron crear todas las asignaturas.')
+        }
+
+        // Disparar generación en paralelo (no bloquear navegación)
+        insertedIds.forEach((id, idx) => {
+          const s = selected[idx]
+          const payload: AIGenerateSubjectJsonInput = {
+            id,
+            descripcionEnfoqueAcademico: s.descripcion,
+            // (opcionales) parches directos si el edge los usa
+            estructura_id: wizard.estructuraId,
+            linea_plan_id: s.linea_plan_id,
+            numero_ciclo: s.numero_ciclo,
+          }
+
+          void generateSubjectAI.mutateAsync(payload).catch((e) => {
+            console.error('Error generando asignatura IA (multiple):', e)
+          })
+        })
+
+        // Invalidar la query del listado del plan (una vez) para que la lista
+        // muestre el estado actualizado y recargue cuando lleguen updates.
+        qc.invalidateQueries({
+          queryKey: qk.planAsignaturas(wizard.plan_estudio_id),
+        })
+
+        navigate({
+          to: `/planes/${wizard.plan_estudio_id}/asignaturas`,
+          resetScroll: false,
+        })
+
         return
       }
     } catch (err: any) {

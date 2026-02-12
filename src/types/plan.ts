@@ -1,3 +1,5 @@
+import type { Tables } from './supabase'
+
 export type PlanStatus =
   | 'borrador'
   | 'revision'
@@ -12,9 +14,9 @@ export type TipoPlan =
   | 'Doctorado'
   | 'Especialidad'
 
-export type TipoAsignatura = 'obligatoria' | 'optativa' | 'troncal'
+export type TipoAsignatura = Tables<'asignaturas'>['tipo']
 
-export type AsignaturaStatus = 'borrador' | 'revisada' | 'aprobada'
+export type AsignaturaStatus = Tables<'asignaturas'>['estado']
 
 export interface Facultad {
   id: string

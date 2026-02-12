@@ -41,7 +41,7 @@ export async function subjects_get(subjectId: UUID): Promise<Asignatura> {
     .from('asignaturas')
     .select(
       `
-      id,plan_estudio_id,estructura_id,codigo,nombre,tipo,creditos,numero_ciclo,linea_plan_id,orden_celda,datos,contenido_tematico,horas_academicas,horas_independientes,asignatura_hash,conversation_id,tipo_origen,meta_origen,creado_por,actualizado_por,creado_en,actualizado_en,
+      id,plan_estudio_id,estructura_id,codigo,nombre,tipo,creditos,numero_ciclo,linea_plan_id,orden_celda,estado,datos,contenido_tematico,horas_academicas,horas_independientes,asignatura_hash,conversation_id,tipo_origen,meta_origen,creado_por,actualizado_por,creado_en,actualizado_en,
       planes_estudio(
         id,carrera_id,estructura_id,nombre,nivel,tipo_ciclo,numero_ciclos,datos,estado_actual_id,activo,tipo_origen,meta_origen,creado_por,actualizado_por,creado_en,actualizado_en,
         carreras(id,facultad_id,nombre,nombre_corto,clave_sep,activa, facultades(id,nombre,nombre_corto,color,icono))
@@ -138,6 +138,26 @@ export type AIGenerateSubjectInput = {
   }
 }
 
+/**
+ * Edge (JSON): actualizar/llenar una asignatura existente por id.
+ * Nota: este flujo NO acepta `instruccionesAdicionalesIA` (solo FormData lo usa).
+ */
+export type AIGenerateSubjectJsonInput = Partial<{
+  plan_estudio_id: Asignatura['plan_estudio_id']
+  nombre: Asignatura['nombre']
+  codigo: Asignatura['codigo']
+  tipo: Asignatura['tipo'] | null
+  creditos: Asignatura['creditos']
+  horas_academicas: Asignatura['horas_academicas'] | null
+  horas_independientes: Asignatura['horas_independientes'] | null
+  estructura_id: Asignatura['estructura_id'] | null
+  linea_plan_id: Asignatura['linea_plan_id'] | null
+  numero_ciclo: Asignatura['numero_ciclo'] | null
+  descripcionEnfoqueAcademico: string
+}> & {
+  id: Asignatura['id']
+}
+
 export type GenerateSubjectSuggestionsInput = {
   plan_estudio_id: UUID
   enfoque?: string
@@ -173,27 +193,33 @@ export async function generate_subject_suggestions(
 }
 
 export async function ai_generate_subject(
-  input: AIGenerateSubjectInput,
+  input: AIGenerateSubjectInput | AIGenerateSubjectJsonInput,
 ): Promise<any> {
-  const edgeFunctionBody = new FormData()
-  edgeFunctionBody.append('plan_estudio_id', input.plan_estudio_id)
-  edgeFunctionBody.append('datosBasicos', JSON.stringify(input.datosBasicos))
-  edgeFunctionBody.append(
-    'iaConfig',
-    JSON.stringify({
-      ...input.iaConfig,
-      archivosAdjuntos: undefined, // los manejamos aparte
-    }),
-  )
-  input.iaConfig?.archivosAdjuntos?.forEach((file) => {
-    edgeFunctionBody.append(`archivosAdjuntos`, file.file)
+  if ('datosBasicos' in input) {
+    const edgeFunctionBody = new FormData()
+    edgeFunctionBody.append('plan_estudio_id', input.plan_estudio_id)
+    edgeFunctionBody.append('datosBasicos', JSON.stringify(input.datosBasicos))
+    edgeFunctionBody.append(
+      'iaConfig',
+      JSON.stringify({
+        ...input.iaConfig,
+        archivosAdjuntos: undefined, // los manejamos aparte
+      }),
+    )
+    input.iaConfig?.archivosAdjuntos?.forEach((file) => {
+      edgeFunctionBody.append(`archivosAdjuntos`, file.file)
+    })
+    return invokeEdge<any>(
+      EDGE.ai_generate_subject,
+      edgeFunctionBody,
+      undefined,
+      supabaseBrowser(),
+    )
+  }
+
+  return invokeEdge<any>(EDGE.ai_generate_subject, input, {
+    headers: { 'Content-Type': 'application/json' },
   })
-  return invokeEdge<any>(
-    EDGE.ai_generate_subject,
-    edgeFunctionBody,
-    undefined,
-    supabaseBrowser(),
-  )
 }
 
 export async function subjects_persist_from_ai(payload: {

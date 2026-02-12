@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Outlet, useNavigate } from '@tanstack/react-router'
 import {
   Plus,
@@ -8,9 +9,10 @@ import {
   BookOpen,
   Loader2,
 } from 'lucide-react'
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import type { Asignatura, AsignaturaStatus, TipoAsignatura } from '@/types/plan'
+import type { Tables } from '@/types/supabase'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -30,13 +32,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { usePlanAsignaturas, usePlanLineas } from '@/data'
+import { qk, supabaseBrowser, usePlanAsignaturas, usePlanLineas } from '@/data'
 
 // --- Configuración de Estilos ---
 const statusConfig: Record<
   AsignaturaStatus,
   { label: string; className: string }
 > = {
+  generando: { label: 'Generando', className: 'bg-slate-100 text-slate-600' },
   borrador: { label: 'Borrador', className: 'bg-slate-100 text-slate-600' },
   revisada: { label: 'Revisada', className: 'bg-amber-100 text-amber-700' },
   aprobada: { label: 'Aprobada', className: 'bg-emerald-100 text-emerald-700' },
@@ -44,31 +47,31 @@ const statusConfig: Record<
 
 const tipoConfig: Record<TipoAsignatura, { label: string; className: string }> =
   {
-    obligatoria: {
+    OBLIGATORIA: {
       label: 'Obligatoria',
       className: 'bg-blue-100 text-blue-700',
     },
-    optativa: { label: 'Optativa', className: 'bg-purple-100 text-purple-700' },
-    troncal: { label: 'Troncal', className: 'bg-slate-100 text-slate-700' },
+    OPTATIVA: { label: 'Optativa', className: 'bg-purple-100 text-purple-700' },
+    TRONCAL: { label: 'Troncal', className: 'bg-slate-100 text-slate-700' },
+    OTRA: { label: 'Otra', className: 'bg-slate-100 text-slate-700' },
   }
 
 // --- Mapeadores de API ---
-const mapAsignaturas = (asigApi: Array<any> = []): Array<Asignatura> => {
+const mapAsignaturas = (
+  asigApi: Array<Tables<'asignaturas'>> = [],
+): Array<Asignatura> => {
   return asigApi.map((asig) => ({
     id: asig.id,
-    clave: asig.codigo,
+    clave: asig.codigo ?? '',
     nombre: asig.nombre,
-    creditos: asig.creditos ?? 0,
+    creditos: asig.creditos,
     ciclo: asig.numero_ciclo ?? null,
     lineaCurricularId: asig.linea_plan_id ?? null,
-    tipo:
-      asig.tipo?.toLowerCase() === 'obligatoria' ? 'obligatoria' : 'optativa',
-    estado: 'borrador', // O el campo que venga de tu API
-    hd: Math.floor((asig.horas_semana ?? 0) / 2),
-    hi: Math.ceil((asig.horas_semana ?? 0) / 2),
-    prerrequisitos: Array.isArray(asig.prerrequisitos)
-      ? asig.prerrequisitos
-      : [],
+    tipo: asig.tipo,
+    estado: asig.estado,
+    hd: asig.horas_academicas ?? 0,
+    hi: asig.horas_independientes ?? 0,
+    prerrequisitos: [],
   }))
 }
 
@@ -79,11 +82,37 @@ export const Route = createFileRoute('/planes/$planId/_detalle/asignaturas')({
 function AsignaturasPage() {
   const { planId } = Route.useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   // 1. Fetch de datos reales
   const { data: asignaturasApi, isLoading: loadingAsig } =
     usePlanAsignaturas(planId)
   const { data: lineasApi, isLoading: loadingLineas } = usePlanLineas(planId)
+
+  useEffect(() => {
+    const supabase = supabaseBrowser()
+    const channel = supabase
+      .channel(`plan:${planId}:asignaturas:updates`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'asignaturas',
+          filter: `plan_estudio_id=eq.${planId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({
+            queryKey: qk.planAsignaturas(planId),
+          })
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [planId, queryClient])
 
   // 2. Estados de filtrado
   const [searchTerm, setSearchTerm] = useState('')
