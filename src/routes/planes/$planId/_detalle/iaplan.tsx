@@ -78,6 +78,13 @@ function RouteComponent() {
   >([])
   const [uploadedFiles, setUploadedFiles] = useState<Array<UploadedFile>>([])
 
+  useEffect(() => {
+    console.log('analizando referencias')
+
+    console.log(selectedArchivoIds)
+    console.log(selectedRepositorioIds)
+    console.log(uploadedFiles)
+  }, [selectedArchivoIds, selectedRepositorioIds, uploadedFiles])
   // ESTADOS PRINCIPALES
   const [messages, setMessages] = useState<Array<any>>([
     {
@@ -274,6 +281,16 @@ function RouteComponent() {
       setIsLoading(false)
     }, 1200)
   }
+
+  // ... debajo de tus otros hooks
+  const totalReferencias = useMemo(() => {
+    return (
+      selectedArchivoIds.length +
+      selectedRepositorioIds.length +
+      uploadedFiles.length
+    )
+  }, [selectedArchivoIds, selectedRepositorioIds, uploadedFiles])
+
   return (
     <div className="flex h-[calc(100vh-160px)] max-h-[calc(100vh-160px)] w-full gap-6 overflow-hidden p-4">
       {/* --- PANEL IZQUIERDO: HISTORIAL --- */}
@@ -376,9 +393,15 @@ function RouteComponent() {
             </span>
             <button
               onClick={() => setOpenIA(true)}
-              className="rounded-md bg-slate-100 px-2 py-1 text-xs transition hover:bg-slate-200"
+              className="flex items-center gap-2 rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium transition hover:bg-slate-200"
             >
+              <Archive size={14} className="text-slate-500" />
               Referencias
+              {totalReferencias > 0 && (
+                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-teal-600 px-1 text-[10px] text-white">
+                  {totalReferencias}
+                </span>
+              )}
             </button>
           </div>
         </div>
