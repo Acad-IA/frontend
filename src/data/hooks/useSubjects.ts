@@ -97,7 +97,6 @@ export function useCreateSubjectManual() {
 }
 
 export function useGenerateSubjectAI() {
-  const qc = useQueryClient()
   return useMutation({
     mutationFn: ai_generate_subject,
   })
@@ -162,7 +161,9 @@ export function useUpdateSubjectFields() {
     mutationFn: (vars: { subjectId: UUID; patch: SubjectsUpdateFieldsPatch }) =>
       subjects_update_fields(vars.subjectId, vars.patch),
     onSuccess: (updated) => {
-      qc.setQueryData(qk.asignatura(updated.id), updated)
+      qc.setQueryData(qk.asignatura(updated.id), (prev) =>
+        prev ? { ...(prev as any), ...(updated as any) } : updated,
+      )
       qc.invalidateQueries({
         queryKey: qk.planAsignaturas(updated.plan_estudio_id),
       })
@@ -178,7 +179,9 @@ export function useUpdateSubjectContenido() {
     mutationFn: (vars: { subjectId: UUID; unidades: Array<any> }) =>
       subjects_update_contenido(vars.subjectId, vars.unidades),
     onSuccess: (updated) => {
-      qc.setQueryData(qk.asignatura(updated.id), updated)
+      qc.setQueryData(qk.asignatura(updated.id), (prev) =>
+        prev ? { ...(prev as any), ...(updated as any) } : updated,
+      )
       qc.invalidateQueries({ queryKey: qk.asignaturaHistorial(updated.id) })
     },
   })
@@ -221,17 +224,22 @@ export function useUpdateAsignatura() {
     }) => asignaturas_update(vars.asignaturaId, vars.patch),
 
     onSuccess: (updated) => {
-      // 1. Actualizamos la materia específica en la caché si tienes un query de "detalle"
-      qc.setQueryData(['asignatura', updated.id], updated)
+      // ✅ Mantener consistencia con las query keys centralizadas (qk)
+      // 1) Actualiza el detalle (esto evita volver a entrar con caché vieja)
+      qc.setQueryData(qk.asignatura(updated.id), (prev) =>
+        prev ? { ...(prev as any), ...(updated as any) } : updated,
+      )
 
-      // 2. IMPORTANTÍSIMO: Invalidamos la lista de materias del plan
-      // para que el mapa curricular vea los cambios (créditos, horas, nombre, etc.)
+      // 2) Refresca vistas derivadas del plan
       qc.invalidateQueries({
-        queryKey: ['plan_asignaturas', updated.plan_estudio_id],
+        queryKey: qk.planAsignaturas(updated.plan_estudio_id),
+      })
+      qc.invalidateQueries({
+        queryKey: qk.planHistorial(updated.plan_estudio_id),
       })
 
-      // 3. Si tienes una lista general de asignaturas, también la invalidamos
-      qc.invalidateQueries({ queryKey: ['asignaturas', 'list'] })
+      // 3) Refresca historial de la asignatura si existe
+      qc.invalidateQueries({ queryKey: qk.asignaturaHistorial(updated.id) })
     },
   })
 }

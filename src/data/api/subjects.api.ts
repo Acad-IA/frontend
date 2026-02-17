@@ -7,7 +7,11 @@ import type { DocumentoResult } from './plans.api'
 import type {
   Asignatura,
   BibliografiaAsignatura,
+  CarreraRow,
   CambioAsignatura,
+  EstructuraAsignatura,
+  FacultadRow,
+  PlanEstudioRow,
   TipoAsignatura,
   UUID,
 } from '../types/domain'
@@ -34,7 +38,55 @@ const EDGE = {
   subjects_get_document: 'subjects_get_document',
 } as const
 
-export async function subjects_get(subjectId: UUID): Promise<Asignatura> {
+export type FacultadInSubject = Pick<
+  FacultadRow,
+  'id' | 'nombre' | 'nombre_corto' | 'color' | 'icono'
+>
+
+export type CarreraInSubject = Pick<
+  CarreraRow,
+  'id' | 'facultad_id' | 'nombre' | 'nombre_corto' | 'clave_sep' | 'activa'
+> & {
+  facultades: FacultadInSubject | null
+}
+
+export type PlanEstudioInSubject = Pick<
+  PlanEstudioRow,
+  | 'id'
+  | 'carrera_id'
+  | 'estructura_id'
+  | 'nombre'
+  | 'nivel'
+  | 'tipo_ciclo'
+  | 'numero_ciclos'
+  | 'datos'
+  | 'estado_actual_id'
+  | 'activo'
+  | 'tipo_origen'
+  | 'meta_origen'
+  | 'creado_por'
+  | 'actualizado_por'
+  | 'creado_en'
+  | 'actualizado_en'
+> & {
+  carreras: CarreraInSubject | null
+}
+
+export type EstructuraAsignaturaInSubject = Pick<
+  EstructuraAsignatura,
+  'id' | 'nombre' | 'version' | 'definicion'
+>
+
+/**
+ * Tipo real que devuelve `subjects_get` (asignatura + relaciones seleccionadas).
+ * Nota: `asignaturas_update` (update directo) NO devuelve estas relaciones.
+ */
+export type AsignaturaDetail = Asignatura & {
+  planes_estudio: PlanEstudioInSubject | null
+  estructuras_asignatura: EstructuraAsignaturaInSubject | null
+}
+
+export async function subjects_get(subjectId: UUID): Promise<AsignaturaDetail> {
   const supabase = supabaseBrowser()
 
   const { data, error } = await supabase
