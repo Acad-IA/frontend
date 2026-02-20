@@ -96,7 +96,8 @@ function RouteComponent() {
               }`,
         date: parseISO(item.cambiado_en),
         icon: config.icon,
-        campo: item.campo,
+        campo:
+          data?.estructuras_plan?.definicion?.properties?.[item.campo]?.title,
         details: {
           from: item.valor_anterior,
           to: item.valor_nuevo,
@@ -298,17 +299,20 @@ function RouteComponent() {
           <div className="flex-1 overflow-y-auto p-6">
             <div className="grid h-full grid-cols-2 gap-6">
               {/* Lado Antes */}
-              <div className="flex flex-col space-y-2">
-                <div className="sticky top-0 z-10 flex items-center gap-2 bg-white py-1">
-                  <div className="h-2 w-2 rounded-full bg-red-400" />
-                  <span className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
-                    Versión Anterior
-                  </span>
+              {/* Lado Antes: Solo se renderiza si existe valor_anterior */}
+              {selectedEvent?.details.from && (
+                <div className="flex flex-col space-y-2">
+                  <div className="sticky top-0 z-10 flex items-center gap-2 bg-white py-1">
+                    <div className="h-2 w-2 rounded-full bg-red-400" />
+                    <span className="text-muted-foreground text-[10px] font-bold tracking-widest uppercase">
+                      Versión Anterior
+                    </span>
+                  </div>
+                  <div className="max-h-[500px] min-h-[250px] flex-1 overflow-y-auto rounded-lg border border-red-100 bg-red-50/30 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-slate-700">
+                    {renderValue(selectedEvent.details.from)}
+                  </div>
                 </div>
-                <div className="max-h-[500px] min-h-[250px] flex-1 overflow-y-auto rounded-lg border border-red-100 bg-red-50/30 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-slate-700">
-                  {renderValue(selectedEvent?.details.from)}
-                </div>
-              </div>
+              )}
 
               {/* Lado Después */}
               <div className="flex flex-col space-y-2">
@@ -328,6 +332,11 @@ function RouteComponent() {
           <div className="flex justify-center border-t bg-slate-50 p-4">
             <Badge variant="outline" className="font-mono text-[10px]">
               Campo: {selectedEvent?.campo}
+              {console.log(
+                data?.estructuras_plan?.definicion?.properties?.[
+                  selectedEvent?.campo
+                ]?.title,
+              )}
             </Badge>
           </div>
         </DialogContent>
