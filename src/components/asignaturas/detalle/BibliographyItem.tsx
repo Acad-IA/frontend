@@ -73,9 +73,6 @@ export function BibliographyItem({
   useEffect(() => {
     if (bibliografia2 && Array.isArray(bibliografia2)) {
       setEntries(bibliografia2)
-    } else {
-      // Fallback a la prop inicial si la API no devuelve nada
-      setEntries(bibliografia)
     }
   }, [bibliografia2, bibliografia])
 
