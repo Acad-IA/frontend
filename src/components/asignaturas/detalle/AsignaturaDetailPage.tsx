@@ -658,6 +658,8 @@ function InfoCard({
   const handleIARequest = (campoClave: string) => {
     console.log(placeholder)
 
+    // Añadimos un timestamp a la state para forzar que la navegación
+    // genere una nueva ubicación incluso si la ruta y los params son iguales.
     navigate({
       to: '/planes/$planId/asignaturas/$asignaturaId',
       params: { planId, asignaturaId: asignaturaId! },
@@ -665,6 +667,7 @@ function InfoCard({
         activeTab: 'ia',
         prefillCampo: campoClave,
         prefillContenido: data,
+        _ts: Date.now(),
       } as any,
     })
   }
@@ -722,10 +725,15 @@ function InfoCard({
                         // Si esta InfoCard proviene de una columna externa (ej: contenido_tematico),
                         // redirigimos a la pestaña de Contenido en vez de editar inline.
                         if (xColumn === 'contenido_tematico') {
+                          // Agregamos un timestamp para forzar la actualización
+                          // de la location.state aunque la ruta sea la misma.
                           navigate({
                             to: '/planes/$planId/asignaturas/$asignaturaId',
                             params: { planId, asignaturaId: asignaturaId! },
-                            state: { activeTab: 'contenido' } as any,
+                            state: {
+                              activeTab: 'contenido',
+                              _ts: Date.now(),
+                            } as any,
                           })
                           return
                         }
