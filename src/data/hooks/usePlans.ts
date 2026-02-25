@@ -12,6 +12,7 @@ import {
   plan_lineas_list,
   plans_clone_from_existing,
   plans_create_manual,
+  plans_delete,
   plans_generate_document,
   plans_get,
   plans_get_document,
@@ -259,6 +260,23 @@ export function useTransitionPlanEstado() {
       qc.invalidateQueries({ queryKey: qk.plan(vars.planId) })
       qc.invalidateQueries({ queryKey: qk.planHistorial(vars.planId) })
       qc.invalidateQueries({ queryKey: ['planes', 'list'] })
+    },
+  })
+}
+
+export function useDeletePlanEstudio() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: (planId: UUID) => plans_delete(planId),
+    onSuccess: (_ok, planId) => {
+      qc.invalidateQueries({ queryKey: ['planes', 'list'] })
+      qc.removeQueries({ queryKey: qk.plan(planId) })
+      qc.removeQueries({ queryKey: qk.planMaybe(planId) })
+      qc.removeQueries({ queryKey: qk.planAsignaturas(planId) })
+      qc.removeQueries({ queryKey: qk.planLineas(planId) })
+      qc.removeQueries({ queryKey: qk.planHistorial(planId) })
+      qc.removeQueries({ queryKey: qk.planDocumento(planId) })
     },
   })
 }

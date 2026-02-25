@@ -1,6 +1,7 @@
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import type { AIGeneratePlanInput } from '@/data'
 import type { NivelPlanEstudio, TipoCiclo } from '@/data/types/domain'
@@ -8,8 +9,13 @@ import type { NewPlanWizardState } from '@/features/planes/nuevo/types'
 // import type { Database } from '@/types/supabase'
 
 import { Button } from '@/components/ui/button'
-// import { supabaseBrowser } from '@/data'
-import { useCreatePlanManual, useGeneratePlanAI } from '@/data/hooks/usePlans'
+import { plans_get_maybe } from '@/data/api/plans.api'
+import {
+  useCreatePlanManual,
+  useDeletePlanEstudio,
+  useGeneratePlanAI,
+} from '@/data/hooks/usePlans'
+import { qk } from '@/data/query/keys'
 
 export function WizardControls({
   errorMessage,
@@ -35,9 +41,87 @@ export function WizardControls({
   const navigate = useNavigate()
   const generatePlanAI = useGeneratePlanAI()
   const createPlanManual = useCreatePlanManual()
+  const deletePlan = useDeletePlanEstudio()
   const [isSpinningIA, setIsSpinningIA] = useState(false)
+  const [pollPlanId, setPollPlanId] = useState<string | null>(null)
+  const cancelledRef = useRef(false)
   // const supabaseClient = supabaseBrowser()
   // const persistPlanFromAI = usePersistPlanFromAI()
+
+  useEffect(() => {
+    cancelledRef.current = false
+    return () => {
+      cancelledRef.current = true
+    }
+  }, [])
+
+  const planQuery = useQuery({
+    queryKey: pollPlanId
+      ? qk.planMaybe(pollPlanId)
+      : ['planes', 'detail-maybe', null],
+    queryFn: () => plans_get_maybe(pollPlanId as string),
+    enabled: Boolean(pollPlanId),
+    refetchInterval: pollPlanId ? 3000 : false,
+    refetchIntervalInBackground: true,
+    staleTime: 0,
+  })
+
+  useEffect(() => {
+    if (!pollPlanId) return
+    if (cancelledRef.current) return
+
+    // Si aún no existe en BDD, seguimos esperando.
+    const plan = planQuery.data
+    if (!plan) return
+
+    const clave = String(plan.estados_plan?.clave ?? '').toUpperCase()
+
+    if (clave.startsWith('GENERANDO')) return
+
+    if (clave.startsWith('BORRADOR')) {
+      setPollPlanId(null)
+      setIsSpinningIA(false)
+      setWizard((w) => ({ ...w, isLoading: false }))
+      navigate({
+        to: `/planes/${plan.id}`,
+        state: { showConfetti: true },
+      })
+      return
+    }
+
+    if (clave.startsWith('FALLID')) {
+      // Detenemos el polling primero para evitar loops.
+      setPollPlanId(null)
+      setIsSpinningIA(false)
+
+      deletePlan
+        .mutateAsync(plan.id)
+        .catch(() => {
+          // Si falla el borrado, igual mostramos el error.
+        })
+        .finally(() => {
+          setWizard((w) => ({
+            ...w,
+            isLoading: false,
+            errorMessage: 'La generación del plan falló',
+          }))
+        })
+    }
+  }, [pollPlanId, planQuery.data, navigate, setWizard, deletePlan])
+
+  useEffect(() => {
+    if (!pollPlanId) return
+    if (!planQuery.isError) return
+    setPollPlanId(null)
+    setIsSpinningIA(false)
+    setWizard((w) => ({
+      ...w,
+      isLoading: false,
+      errorMessage:
+        (planQuery.error as any)?.message ??
+        'Error consultando el estado del plan',
+    }))
+  }, [pollPlanId, planQuery.isError, planQuery.error, setWizard])
 
   const handleCreate = async () => {
     // Start loading
@@ -82,14 +166,16 @@ export function WizardControls({
         console.log(`${new Date().toISOString()} - Enviando a generar plan IA`)
 
         setIsSpinningIA(true)
-        const plan = await generatePlanAI.mutateAsync(aiInput as any)
-        setIsSpinningIA(false)
-        console.log(`${new Date().toISOString()} - Plan IA generado`, plan)
+        const resp: any = await generatePlanAI.mutateAsync(aiInput as any)
+        const planId = resp?.plan?.id ?? resp?.id
+        console.log(`${new Date().toISOString()} - Plan IA generado`, resp)
 
-        navigate({
-          to: `/planes/${plan.id}`,
-          state: { showConfetti: true },
-        })
+        if (!planId) {
+          throw new Error('No se pudo obtener el id del plan generado por IA')
+        }
+
+        // Inicia polling con React Query; el efecto navega o marca error.
+        setPollPlanId(String(planId))
         return
       }
 
@@ -114,14 +200,18 @@ export function WizardControls({
       }
     } catch (err: any) {
       setIsSpinningIA(false)
+      setPollPlanId(null)
       setWizard((w) => ({
         ...w,
         isLoading: false,
         errorMessage: err?.message ?? 'Error generando el plan',
       }))
     } finally {
-      setIsSpinningIA(false)
-      setWizard((w) => ({ ...w, isLoading: false }))
+      // Si entramos en polling, el loading se corta desde el efecto terminal.
+      if (!pollPlanId) {
+        setIsSpinningIA(false)
+        setWizard((w) => ({ ...w, isLoading: false }))
+      }
     }
   }
 
