@@ -4,6 +4,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
+import { useEffect } from 'react'
 
 import {
   ai_generate_plan,
@@ -26,6 +27,7 @@ import {
 } from '../api/plans.api'
 import { lineas_delete } from '../api/subjects.api'
 import { qk } from '../query/keys'
+import { supabaseBrowser } from '../supabase/client'
 
 import type {
   PlanListFilters,
@@ -72,34 +74,79 @@ export function usePlanLineas(planId: UUID | null | undefined) {
 }
 
 export function usePlanAsignaturas(planId: UUID | null | undefined) {
-  return useQuery({
+  const qc = useQueryClient()
+
+  const query = useQuery({
     queryKey: planId
       ? qk.planAsignaturas(planId)
       : ['planes', 'asignaturas', null],
     queryFn: () => plan_asignaturas_list(planId as UUID),
     enabled: Boolean(planId),
-
-    refetchInterval: (query) => {
-      const data = query.state.data
-      if (!Array.isArray(data)) return false
-      const hayGenerando = data.some(
-        (a: any) => (a as { estado?: unknown }).estado === 'generando',
-      )
-
-      const qAny = query as any
-      if (!hayGenerando) {
-        qAny.__generandoSince = null
-        return false
-      }
-
-      const startedAt = qAny.__generandoSince ?? Date.now()
-      if (!qAny.__generandoSince) qAny.__generandoSince = startedAt
-
-      const elapsedMs = Date.now() - startedAt
-      return elapsedMs >= 6 * 60 * 1000 ? false : 3000
-    },
-    refetchIntervalInBackground: true,
   })
+
+  useEffect(() => {
+    if (!planId) return
+
+    const supabase = supabaseBrowser()
+    const channel = supabase.channel(`plan-asignaturas-${planId}`)
+
+    channel.on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'asignaturas',
+        filter: `plan_estudio_id=eq.${planId}`,
+      },
+      (payload: {
+        eventType?: 'INSERT' | 'UPDATE' | 'DELETE'
+        new?: any
+        old?: any
+      }) => {
+        const eventType = payload.eventType
+
+        if (eventType === 'DELETE') {
+          const oldRow: any = payload.old
+          const deletedId = oldRow?.id
+          if (!deletedId) return
+
+          qc.setQueryData(qk.planAsignaturas(planId), (prev) => {
+            if (!Array.isArray(prev)) return prev
+            return prev.filter((a: any) => String(a?.id) !== String(deletedId))
+          })
+          return
+        }
+
+        const newRow: any = payload.new
+        if (!newRow?.id) return
+
+        qc.setQueryData(qk.planAsignaturas(planId), (prev) => {
+          if (!Array.isArray(prev)) return prev
+
+          const idx = prev.findIndex(
+            (a: any) => String(a?.id) === String(newRow.id),
+          )
+          if (idx === -1) return [...prev, newRow]
+
+          const next = [...prev]
+          next[idx] = { ...prev[idx], ...newRow }
+          return next
+        })
+      },
+    )
+
+    channel.subscribe()
+
+    return () => {
+      try {
+        supabase.removeChannel(channel)
+      } catch {
+        // noop
+      }
+    }
+  }, [planId, qc])
+
+  return query
 }
 
 export function usePlanHistorial(

@@ -1,11 +1,12 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { AISubjectUnifiedInput } from '@/data'
 import type { NewSubjectWizardState } from '@/features/asignaturas/nueva/types'
 import type { TablesInsert } from '@/types/supabase'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -42,9 +43,10 @@ export function WizardControls({
   const generateSubjectAI = useGenerateSubjectAI()
   const createSubjectManual = useCreateSubjectManual()
   const [isSpinningIA, setIsSpinningIA] = useState(false)
-  const [pollSubjectId, setPollSubjectId] = useState<string | null>(null)
   const cancelledRef = useRef(false)
-  const pollStartedAtRef = useRef<number | null>(null)
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null)
+  const watchSubjectIdRef = useRef<string | null>(null)
+  const watchTimeoutRef = useRef<number | null>(null)
 
   useEffect(() => {
     cancelledRef.current = false
@@ -53,61 +55,113 @@ export function WizardControls({
     }
   }, [])
 
-  const subjectQuery = useQuery({
-    queryKey: pollSubjectId
-      ? qk.asignaturaMaybe(pollSubjectId)
-      : ['asignaturas', 'detail-maybe', null],
-    queryFn: () => subjects_get_maybe(pollSubjectId as string),
-    enabled: Boolean(pollSubjectId),
-    refetchInterval: () => {
-      if (!pollSubjectId) return false
+  const stopSubjectWatch = useCallback(() => {
+    if (watchTimeoutRef.current) {
+      window.clearTimeout(watchTimeoutRef.current)
+      watchTimeoutRef.current = null
+    }
 
-      const startedAt = pollStartedAtRef.current ?? Date.now()
-      if (!pollStartedAtRef.current) pollStartedAtRef.current = startedAt
+    watchSubjectIdRef.current = null
 
-      const elapsedMs = Date.now() - startedAt
-      return elapsedMs >= 6 * 60 * 1000 ? false : 3000
-    },
-    refetchIntervalInBackground: true,
-    staleTime: 0,
-  })
+    const ch = realtimeChannelRef.current
+    if (ch) {
+      realtimeChannelRef.current = null
+      try {
+        supabaseBrowser().removeChannel(ch)
+      } catch {
+        // noop
+      }
+    }
+  }, [])
 
   useEffect(() => {
-    if (!pollSubjectId) return
+    return () => {
+      stopSubjectWatch()
+    }
+  }, [stopSubjectWatch])
+
+  const handleSubjectReady = (args: {
+    id: string
+    plan_estudio_id: string
+    estado?: unknown
+  }) => {
     if (cancelledRef.current) return
 
-    const asig = subjectQuery.data
-    if (!asig) return
-
-    const estado = String(asig.estado).toLowerCase()
+    const estado = String(args.estado ?? '').toLowerCase()
     if (estado === 'generando') return
 
-    setPollSubjectId(null)
-    pollStartedAtRef.current = null
+    stopSubjectWatch()
     setIsSpinningIA(false)
     setWizard((w) => ({ ...w, isLoading: false }))
 
     navigate({
-      to: `/planes/${asig.plan_estudio_id}/asignaturas/${asig.id}`,
+      to: `/planes/${args.plan_estudio_id}/asignaturas/${args.id}`,
       state: { showConfetti: true },
     })
-  }, [pollSubjectId, subjectQuery.data, navigate, setWizard])
+  }
 
-  useEffect(() => {
-    if (!pollSubjectId) return
-    if (!subjectQuery.isError) return
+  const beginSubjectWatch = (args: { subjectId: string; planId: string }) => {
+    stopSubjectWatch()
 
-    setPollSubjectId(null)
-    pollStartedAtRef.current = null
-    setIsSpinningIA(false)
-    setWizard((w) => ({
-      ...w,
-      isLoading: false,
-      errorMessage:
-        (subjectQuery.error as any)?.message ??
-        'Error consultando el estado de la asignatura',
-    }))
-  }, [pollSubjectId, subjectQuery.isError, subjectQuery.error, setWizard])
+    watchSubjectIdRef.current = args.subjectId
+
+    // Timeout de seguridad (mismo límite que teníamos con polling)
+    watchTimeoutRef.current = window.setTimeout(
+      () => {
+        if (cancelledRef.current) return
+        if (watchSubjectIdRef.current !== args.subjectId) return
+
+        stopSubjectWatch()
+        setIsSpinningIA(false)
+        setWizard((w) => ({
+          ...w,
+          isLoading: false,
+          errorMessage:
+            'La generación está tardando demasiado. Intenta de nuevo en unos minutos.',
+        }))
+      },
+      6 * 60 * 1000,
+    )
+
+    const supabase = supabaseBrowser()
+    const channel = supabase.channel(`asignaturas-status-${args.subjectId}`)
+    realtimeChannelRef.current = channel
+
+    channel.on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'asignaturas',
+        filter: `id=eq.${args.subjectId}`,
+      },
+      (payload) => {
+        if (cancelledRef.current) return
+
+        const next: any = (payload as any)?.new
+        if (!next?.id || !next?.plan_estudio_id) return
+        handleSubjectReady({
+          id: String(next.id),
+          plan_estudio_id: String(next.plan_estudio_id),
+          estado: next.estado,
+        })
+      },
+    )
+
+    channel.subscribe((status) => {
+      if (cancelledRef.current) return
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        stopSubjectWatch()
+        setIsSpinningIA(false)
+        setWizard((w) => ({
+          ...w,
+          isLoading: false,
+          errorMessage:
+            'No se pudo suscribir al estado de la asignatura. Intenta de nuevo.',
+        }))
+      }
+    })
+  }
 
   const uploadAiAttachments = async (args: {
     planId: string
@@ -144,7 +198,7 @@ export function WizardControls({
       errorMessage: null,
     }))
 
-    let startedPolling = false
+    let startedWaiting = false
 
     try {
       if (wizard.tipoOrigen === 'IA_SIMPLE') {
@@ -188,6 +242,10 @@ export function WizardControls({
 
         setIsSpinningIA(true)
 
+        // Inicia watch realtime antes de disparar la Edge para no perder updates.
+        startedWaiting = true
+        beginSubjectWatch({ subjectId, planId: wizard.plan_estudio_id })
+
         const archivosAdjuntos = await uploadAiAttachments({
           planId: wizard.plan_estudio_id,
           files: (wizard.iaConfig?.archivosAdjuntos ?? []).map((x) => ({
@@ -223,10 +281,16 @@ export function WizardControls({
 
         await generateSubjectAI.mutateAsync(payload as any)
 
-        // Inicia polling; el efecto navega cuando deje de estar "generando".
-        startedPolling = true
-        pollStartedAtRef.current = Date.now()
-        setPollSubjectId(subjectId)
+        // Fallback: una lectura puntual por si el UPDATE llegó antes de suscribir.
+        const latest = await subjects_get_maybe(subjectId)
+        if (latest) {
+          handleSubjectReady({
+            id: latest.id as any,
+            plan_estudio_id: latest.plan_estudio_id as any,
+            estado: (latest as any).estado,
+          })
+        }
+
         return
       }
 
@@ -360,14 +424,14 @@ export function WizardControls({
       }
     } catch (err: any) {
       setIsSpinningIA(false)
-      setPollSubjectId(null)
+      stopSubjectWatch()
       setWizard((w) => ({
         ...w,
         isLoading: false,
         errorMessage: err?.message ?? 'Error creando la asignatura',
       }))
     } finally {
-      if (!startedPolling) {
+      if (!startedWaiting) {
         setIsSpinningIA(false)
         setWizard((w) => ({ ...w, isLoading: false }))
       }
