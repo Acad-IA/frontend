@@ -128,16 +128,15 @@ function RouteComponent() {
   )
 
   const availableFields = useMemo(() => {
-    // 1. Hacemos un cast de la definición a nuestra interfaz
     const definicion = data?.estructuras_plan
       ?.definicion as EstructuraDefinicion
 
+    // Encadenamiento opcional para evitar errores si data es null
     if (!definicion.properties) return []
 
     return Object.entries(definicion.properties).map(([key, value]) => ({
       key,
       label: value.title,
-      // 2. Aquí value ya no es unknown, es parte de nuestra interfaz
       value: String(value.description || ''),
     }))
   }, [data])
@@ -146,18 +145,32 @@ function RouteComponent() {
   }, [lastConversation, activeChatId])
 
   const chatMessages = useMemo(() => {
-    // Forzamos el cast a Array de nuestra interfaz
-    const json = (activeChatData?.conversacion_json ||
+    // 1. Si no hay ID o no hay data del chat, retornamos vacío
+    if (!activeChatId || !activeChatData) return []
+
+    const json = (activeChatData.conversacion_json ||
       []) as unknown as Array<ChatMessageJSON>
 
-    // Ahora .map() funcionará sin errores
+    // 2. Verificamos que 'json' sea realmente un array antes de mapear
+    if (!Array.isArray(json)) return []
+
     return json.map((msg, index: number) => {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      if (!msg?.user) {
+        return {
+          id: `err-${index}`,
+          role: 'assistant',
+          content: '',
+          suggestions: [],
+        }
+      }
+
       const isAssistant = msg.user === 'assistant'
 
       return {
         id: `${activeChatId}-${index}`,
         role: isAssistant ? 'assistant' : 'user',
-        content: isAssistant ? msg.message : msg.prompt,
+        content: isAssistant ? msg.message || '' : msg.prompt || '', // Agregamos fallback a string vacío
         isRefusal: isAssistant && msg.refusal === true,
         suggestions:
           isAssistant && msg.recommendations
@@ -178,6 +191,7 @@ function RouteComponent() {
       }
     })
   }, [activeChatData, activeChatId, availableFields])
+
   const scrollToBottom = () => {
     if (scrollRef.current) {
       // Buscamos el viewport interno del ScrollArea de Radix
@@ -192,25 +206,45 @@ function RouteComponent() {
       }
     }
   }
+  const { activeChats, archivedChats } = useMemo(() => {
+    const allChats = lastConversation || []
+    return {
+      activeChats: allChats.filter((chat: any) => chat.estado === 'ACTIVA'),
+      archivedChats: allChats.filter(
+        (chat: any) => chat.estado === 'ARCHIVADA',
+      ),
+    }
+  }, [lastConversation])
 
-  // Auto-scroll cuando cambian los mensajes o cuando la IA está cargando
   useEffect(() => {
     scrollToBottom()
   }, [chatMessages, isLoading])
 
   useEffect(() => {
-    // Si no hay un chat seleccionado manualmente y la API nos devuelve chats existentes
-    const isCreationMode = messages.length === 1 && messages[0].id === 'welcome'
-    if (
-      !activeChatId &&
-      lastConversation &&
-      lastConversation.length > 0 &&
-      !isCreationMode
-    ) {
-      setActiveChatId(lastConversation[0].id)
-    }
-  }, [lastConversation, activeChatId])
+    if (isLoadingConv || !lastConversation) return
 
+    const isChatStillActive = activeChats.some(
+      (chat) => chat.id === activeChatId,
+    )
+    const isCreationMode = messages.length === 1 && messages[0].id === 'welcome'
+
+    // Caso A: El chat actual ya no es válido (fue archivado o borrado)
+    if (activeChatId && !isChatStillActive && !isCreationMode) {
+      setActiveChatId(undefined)
+      setMessages([])
+      return // Salimos para evitar ejecuciones extra en este render
+    }
+
+    // Caso B: No hay chat seleccionado y hay chats disponibles (Auto-selección al cargar)
+    if (!activeChatId && activeChats.length > 0 && !isCreationMode) {
+      setActiveChatId(activeChats[0].id)
+    }
+
+    // Caso C: Si la lista de chats está vacía y no estamos creando uno, limpiar por si acaso
+    if (activeChats.length === 0 && activeChatId && !isCreationMode) {
+      setActiveChatId(undefined)
+    }
+  }, [activeChats, activeChatId, isLoadingConv, messages.length])
   useEffect(() => {
     const state = routerState.location.state as any
     if (!state?.campo_edit || availableFields.length === 0) return
@@ -252,6 +286,9 @@ function RouteComponent() {
           if (activeChatId === id) {
             setActiveChatId(undefined)
             setMessages([])
+            setOptimisticMessage(null)
+            setInput('')
+            setSelectedFields([])
           }
         },
       },
@@ -331,6 +368,9 @@ function RouteComponent() {
     setIsSending(true)
     setOptimisticMessage(rawText)
     setInput('')
+    setSelectedArchivoIds([])
+    setSelectedRepositorioIds([])
+    setUploadedFiles([])
     try {
       const payload: any = {
         planId: planId,
@@ -369,16 +409,6 @@ function RouteComponent() {
       uploadedFiles.length
     )
   }, [selectedArchivoIds, selectedRepositorioIds, uploadedFiles])
-
-  const { activeChats, archivedChats } = useMemo(() => {
-    const allChats = lastConversation || []
-    return {
-      activeChats: allChats.filter((chat: any) => chat.estado === 'ACTIVA'),
-      archivedChats: allChats.filter(
-        (chat: any) => chat.estado === 'ARCHIVADA',
-      ),
-    }
-  }, [lastConversation])
 
   const removeSelectedField = (fieldKey: string) => {
     setSelectedFields((prev) => prev.filter((f) => f.key !== fieldKey))
@@ -555,72 +585,98 @@ function RouteComponent() {
         <div className="relative min-h-0 flex-1">
           <ScrollArea ref={scrollRef} className="h-full w-full">
             <div className="mx-auto max-w-3xl space-y-6 p-6">
-              {chatMessages.map((msg: any) => (
-                <div
-                  key={msg.id}
-                  className={`flex max-w-[85%] flex-col ${
-                    msg.role === 'user' ? 'ml-auto items-end' : 'items-start'
-                  }`}
-                >
-                  <div
-                    className={`relative rounded-2xl p-3 text-sm whitespace-pre-wrap shadow-sm transition-all duration-300 ${
-                      msg.role === 'user'
-                        ? 'rounded-tr-none bg-teal-600 text-white'
-                        : `rounded-tl-none border bg-white text-slate-700 ${
-                            // --- LÓGICA DE REFUSAL ---
-                            msg.isRefusal
-                              ? 'border-red-200 bg-red-50/50 ring-1 ring-red-100'
-                              : 'border-slate-100'
-                          }`
-                    }`}
-                  >
-                    {/* Icono opcional de advertencia si es refusal */}
-                    {msg.isRefusal && (
-                      <div className="mb-1 flex items-center gap-1 text-[10px] font-bold text-red-500 uppercase">
-                        <span>Aviso del Asistente</span>
-                      </div>
-                    )}
-
-                    {msg.content}
-
-                    {!msg.isRefusal &&
-                      msg.suggestions &&
-                      msg.suggestions.length > 0 && (
-                        <div className="mt-4">
-                          <ImprovementCard
-                            suggestions={msg.suggestions}
-                            planId={planId}
-                            currentDatos={data?.datos}
-                            activeChatId={activeChatId}
-                            onApplySuccess={(key) => removeSelectedField(key)}
-                          />
-                        </div>
-                      )}
-                  </div>
+              {!activeChatId &&
+              chatMessages.length === 0 &&
+              !optimisticMessage ? (
+                <div className="flex h-[400px] flex-col items-center justify-center text-center opacity-40">
+                  <MessageSquarePlus
+                    size={48}
+                    className="mb-4 text-slate-300"
+                  />
+                  <h3 className="text-lg font-medium text-slate-900">
+                    No hay un chat seleccionado
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    Selecciona un chat del historial o crea uno nuevo para
+                    empezar.
+                  </p>
                 </div>
-              ))}
-              {optimisticMessage && (
-                <div className="animate-in fade-in slide-in-from-right-2 ml-auto flex max-w-[85%] flex-col items-end">
-                  <div className="rounded-2xl rounded-tr-none bg-teal-600/70 p-3 text-sm whitespace-pre-wrap text-white shadow-sm">
-                    {optimisticMessage}
-                  </div>
-                </div>
-              )}
-              {isSending && (
-                <div className="animate-in fade-in slide-in-from-left-2 flex flex-col items-start duration-300">
-                  <div className="rounded-2xl rounded-tl-none border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-1">
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-500 [animation-delay:-0.3s]" />
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-500 [animation-delay:-0.15s]" />
-                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-500" />
+              ) : (
+                <>
+                  {chatMessages.map((msg: any) => (
+                    <div
+                      key={msg.id}
+                      className={`flex max-w-[85%] flex-col ${
+                        msg.role === 'user'
+                          ? 'ml-auto items-end'
+                          : 'items-start'
+                      }`}
+                    >
+                      <div
+                        className={`relative rounded-2xl p-3 text-sm whitespace-pre-wrap shadow-sm transition-all duration-300 ${
+                          msg.role === 'user'
+                            ? 'rounded-tr-none bg-teal-600 text-white'
+                            : `rounded-tl-none border bg-white text-slate-700 ${
+                                // --- LÓGICA DE REFUSAL ---
+                                msg.isRefusal
+                                  ? 'border-red-200 bg-red-50/50 ring-1 ring-red-100'
+                                  : 'border-slate-100'
+                              }`
+                        }`}
+                      >
+                        {/* Icono opcional de advertencia si es refusal */}
+                        {msg.isRefusal && (
+                          <div className="mb-1 flex items-center gap-1 text-[10px] font-bold text-red-500 uppercase">
+                            <span>Aviso del Asistente</span>
+                          </div>
+                        )}
+
+                        {msg.content}
+
+                        {!msg.isRefusal &&
+                          msg.suggestions &&
+                          msg.suggestions.length > 0 && (
+                            <div className="mt-4">
+                              <ImprovementCard
+                                suggestions={msg.suggestions}
+                                planId={planId}
+                                currentDatos={data?.datos}
+                                activeChatId={activeChatId}
+                                onApplySuccess={(key) =>
+                                  removeSelectedField(key)
+                                }
+                              />
+                            </div>
+                          )}
                       </div>
-                      <span className="text-[10px] font-medium tracking-tight text-slate-400 uppercase">
-                        Esperando respuesta...
-                      </span>
                     </div>
-                  </div>
-                </div>
+                  ))}
+
+                  {optimisticMessage && (
+                    <div className="animate-in fade-in slide-in-from-right-2 ml-auto flex max-w-[85%] flex-col items-end">
+                      <div className="rounded-2xl rounded-tr-none bg-teal-600/70 p-3 text-sm whitespace-pre-wrap text-white shadow-sm">
+                        {optimisticMessage}
+                      </div>
+                    </div>
+                  )}
+
+                  {isSending && (
+                    <div className="animate-in fade-in slide-in-from-left-2 flex flex-col items-start duration-300">
+                      <div className="rounded-2xl rounded-tl-none border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1">
+                            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-500 [animation-delay:-0.3s]" />
+                            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-500 [animation-delay:-0.15s]" />
+                            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-500" />
+                          </div>
+                          <span className="text-[10px] font-medium tracking-tight text-slate-400 uppercase">
+                            Esperando respuesta...
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </ScrollArea>
@@ -651,25 +707,42 @@ function RouteComponent() {
           <div className="relative mx-auto max-w-4xl">
             {/* MENÚ DE SUGERENCIAS FLOTANTE */}
             {showSuggestions && (
-              <div className="animate-in slide-in-from-bottom-2 absolute bottom-full z-50 mb-2 w-72 overflow-hidden rounded-xl border bg-white shadow-2xl">
-                <div className="border-b bg-slate-50 px-3 py-2 text-[10px] font-bold tracking-wider text-slate-500 uppercase">
-                  Seleccionar campo para IA
-                </div>
+              <div className="...">
+                <div className="...">Seleccionar campo para IA</div>
                 <div className="max-h-64 overflow-y-auto p-1">
-                  {availableFields.map((field) => (
-                    <button
-                      key={field.key}
-                      onClick={() => toggleField(field)}
-                      className="group flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-teal-50"
-                    >
-                      <span className="text-slate-700 group-hover:text-teal-700">
-                        {field.label}
-                      </span>
-                      {selectedFields.find((f) => f.key === field.key) && (
-                        <Check size={14} className="text-teal-600" />
-                      )}
-                    </button>
-                  ))}
+                  {availableFields.map((field) => {
+                    // 1. Verificamos si el campo ya está en la lista de seleccionados
+                    const isAlreadySelected = selectedFields.some(
+                      (f) => f.key === field.key,
+                    )
+
+                    return (
+                      <button
+                        key={field.key}
+                        onClick={() => !isAlreadySelected && toggleField(field)}
+                        // 2. Aplicamos el atributo disabled
+                        disabled={isAlreadySelected}
+                        className={`group flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                          isAlreadySelected
+                            ? 'cursor-not-allowed bg-slate-50 opacity-50' // Estilo visual de deshabilitado
+                            : 'hover:bg-teal-50'
+                        }`}
+                      >
+                        <span
+                          className={`text-slate-700 ${!isAlreadySelected && 'group-hover:text-teal-700'}`}
+                        >
+                          {field.label}
+                        </span>
+
+                        {isAlreadySelected && (
+                          <div className="flex items-center gap-1 text-[10px] font-medium text-teal-600">
+                            <Check size={12} />
+                            <span>Seleccionado</span>
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
