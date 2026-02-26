@@ -1,9 +1,9 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-import type { AIGenerateSubjectInput, AIGenerateSubjectJsonInput } from '@/data'
+import type { AISubjectUnifiedInput } from '@/data'
 import type { NewSubjectWizardState } from '@/features/asignaturas/nueva/types'
 import type { TablesInsert } from '@/types/supabase'
 
@@ -13,6 +13,7 @@ import {
   useGenerateSubjectAI,
   qk,
   useCreateSubjectManual,
+  subjects_get_maybe,
 } from '@/data'
 
 export function WizardControls({
@@ -41,6 +42,101 @@ export function WizardControls({
   const generateSubjectAI = useGenerateSubjectAI()
   const createSubjectManual = useCreateSubjectManual()
   const [isSpinningIA, setIsSpinningIA] = useState(false)
+  const [pollSubjectId, setPollSubjectId] = useState<string | null>(null)
+  const cancelledRef = useRef(false)
+  const pollStartedAtRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    cancelledRef.current = false
+    return () => {
+      cancelledRef.current = true
+    }
+  }, [])
+
+  const subjectQuery = useQuery({
+    queryKey: pollSubjectId
+      ? qk.asignaturaMaybe(pollSubjectId)
+      : ['asignaturas', 'detail-maybe', null],
+    queryFn: () => subjects_get_maybe(pollSubjectId as string),
+    enabled: Boolean(pollSubjectId),
+    refetchInterval: () => {
+      if (!pollSubjectId) return false
+
+      const startedAt = pollStartedAtRef.current ?? Date.now()
+      if (!pollStartedAtRef.current) pollStartedAtRef.current = startedAt
+
+      const elapsedMs = Date.now() - startedAt
+      return elapsedMs >= 6 * 60 * 1000 ? false : 3000
+    },
+    refetchIntervalInBackground: true,
+    staleTime: 0,
+  })
+
+  useEffect(() => {
+    if (!pollSubjectId) return
+    if (cancelledRef.current) return
+
+    const asig = subjectQuery.data
+    if (!asig) return
+
+    const estado = String(asig.estado).toLowerCase()
+    if (estado === 'generando') return
+
+    setPollSubjectId(null)
+    pollStartedAtRef.current = null
+    setIsSpinningIA(false)
+    setWizard((w) => ({ ...w, isLoading: false }))
+
+    navigate({
+      to: `/planes/${asig.plan_estudio_id}/asignaturas/${asig.id}`,
+      state: { showConfetti: true },
+    })
+  }, [pollSubjectId, subjectQuery.data, navigate, setWizard])
+
+  useEffect(() => {
+    if (!pollSubjectId) return
+    if (!subjectQuery.isError) return
+
+    setPollSubjectId(null)
+    pollStartedAtRef.current = null
+    setIsSpinningIA(false)
+    setWizard((w) => ({
+      ...w,
+      isLoading: false,
+      errorMessage:
+        (subjectQuery.error as any)?.message ??
+        'Error consultando el estado de la asignatura',
+    }))
+  }, [pollSubjectId, subjectQuery.isError, subjectQuery.error, setWizard])
+
+  const uploadAiAttachments = async (args: {
+    planId: string
+    files: Array<{ file: File }>
+  }): Promise<Array<string>> => {
+    const supabase = supabaseBrowser()
+    if (!args.files.length) return []
+
+    const runId = crypto.randomUUID()
+    const basePath = `planes/${args.planId}/asignaturas/ai/${runId}`
+
+    const keys: Array<string> = []
+    for (const f of args.files) {
+      const safeName = (f.file.name || 'archivo').replace(/[\\/]+/g, '_')
+      const key = `${basePath}/${crypto.randomUUID()}-${safeName}`
+
+      const { error } = await supabase.storage
+        .from('ai-storage')
+        .upload(key, f.file, {
+          contentType: f.file.type || undefined,
+        })
+
+      if (error) throw new Error(error.message)
+      keys.push(key)
+    }
+
+    return keys
+  }
+
   const handleCreate = async () => {
     setWizard((w) => ({
       ...w,
@@ -48,48 +144,89 @@ export function WizardControls({
       errorMessage: null,
     }))
 
+    let startedPolling = false
+
     try {
       if (wizard.tipoOrigen === 'IA_SIMPLE') {
-        const aiInput: AIGenerateSubjectInput = {
+        if (!wizard.plan_estudio_id) {
+          throw new Error('Plan de estudio inválido.')
+        }
+        if (!wizard.datosBasicos.estructuraId) {
+          throw new Error('Estructura inválida.')
+        }
+        if (!wizard.datosBasicos.nombre.trim()) {
+          throw new Error('Nombre inválido.')
+        }
+        if (wizard.datosBasicos.creditos == null) {
+          throw new Error('Créditos inválidos.')
+        }
+
+        console.log(`${new Date().toISOString()} - Insertando asignatura IA`)
+
+        const supabase = supabaseBrowser()
+        const placeholder: TablesInsert<'asignaturas'> = {
           plan_estudio_id: wizard.plan_estudio_id,
-          datosBasicos: {
+          estructura_id: wizard.datosBasicos.estructuraId,
+          nombre: wizard.datosBasicos.nombre,
+          codigo: wizard.datosBasicos.codigo ?? null,
+          tipo: wizard.datosBasicos.tipo ?? undefined,
+          creditos: wizard.datosBasicos.creditos,
+          horas_academicas: wizard.datosBasicos.horasAcademicas ?? null,
+          horas_independientes: wizard.datosBasicos.horasIndependientes ?? null,
+          estado: 'generando',
+          tipo_origen: 'IA',
+        }
+
+        const { data: inserted, error: insertError } = await supabase
+          .from('asignaturas')
+          .insert(placeholder)
+          .select('id,plan_estudio_id')
+          .single()
+
+        if (insertError) throw new Error(insertError.message)
+        const subjectId = inserted.id
+
+        setIsSpinningIA(true)
+
+        const archivosAdjuntos = await uploadAiAttachments({
+          planId: wizard.plan_estudio_id,
+          files: (wizard.iaConfig?.archivosAdjuntos ?? []).map((x) => ({
+            file: x.file,
+          })),
+        })
+
+        const payload: AISubjectUnifiedInput = {
+          datosUpdate: {
+            id: subjectId,
+            plan_estudio_id: wizard.plan_estudio_id,
+            estructura_id: wizard.datosBasicos.estructuraId,
             nombre: wizard.datosBasicos.nombre,
-            codigo: wizard.datosBasicos.codigo,
-            tipo: wizard.datosBasicos.tipo!,
-            creditos: wizard.datosBasicos.creditos!,
-            horasIndependientes: wizard.datosBasicos.horasIndependientes,
-            horasAcademicas: wizard.datosBasicos.horasAcademicas,
-            estructuraId: wizard.datosBasicos.estructuraId!,
+            codigo: wizard.datosBasicos.codigo ?? null,
+            tipo: wizard.datosBasicos.tipo ?? null,
+            creditos: wizard.datosBasicos.creditos,
+            horas_academicas: wizard.datosBasicos.horasAcademicas ?? null,
+            horas_independientes:
+              wizard.datosBasicos.horasIndependientes ?? null,
           },
           iaConfig: {
             descripcionEnfoqueAcademico:
-              wizard.iaConfig!.descripcionEnfoqueAcademico,
+              wizard.iaConfig?.descripcionEnfoqueAcademico ?? undefined,
             instruccionesAdicionalesIA:
-              wizard.iaConfig!.instruccionesAdicionalesIA,
-            archivosReferencia: wizard.iaConfig!.archivosReferencia,
-            repositoriosReferencia:
-              wizard.iaConfig!.repositoriosReferencia || [],
-            archivosAdjuntos: wizard.iaConfig!.archivosAdjuntos || [],
+              wizard.iaConfig?.instruccionesAdicionalesIA ?? undefined,
+            archivosAdjuntos,
           },
         }
 
         console.log(
-          `${new Date().toISOString()} - Enviando a generar asignatura con IA`,
+          `${new Date().toISOString()} - Disparando Edge IA asignatura (unified)`,
         )
 
-        setIsSpinningIA(true)
-        const asignatura = await generateSubjectAI.mutateAsync(aiInput)
-        // await new Promise((resolve) => setTimeout(resolve, 20000)) // debug
-        setIsSpinningIA(false)
-        // console.log(
-        //   `${new Date().toISOString()} - Asignatura IA generada`,
-        //   asignatura,
-        // )
+        await generateSubjectAI.mutateAsync(payload as any)
 
-        navigate({
-          to: `/planes/${wizard.plan_estudio_id}/asignaturas/${asignatura.id}`,
-          state: { showConfetti: true },
-        })
+        // Inicia polling; el efecto navega cuando deje de estar "generando".
+        startedPolling = true
+        pollStartedAtRef.current = Date.now()
+        setPollSubjectId(subjectId)
         return
       }
 
@@ -107,6 +244,15 @@ export function WizardControls({
         }
 
         const supabase = supabaseBrowser()
+
+        setIsSpinningIA(true)
+
+        const archivosAdjuntos = await uploadAiAttachments({
+          planId: wizard.plan_estudio_id,
+          files: (wizard.iaConfig?.archivosAdjuntos ?? []).map((x) => ({
+            file: x.file,
+          })),
+        })
 
         const placeholders: Array<TablesInsert<'asignaturas'>> = selected.map(
           (s): TablesInsert<'asignaturas'> => ({
@@ -141,16 +287,33 @@ export function WizardControls({
         // Disparar generación en paralelo (no bloquear navegación)
         insertedIds.forEach((id, idx) => {
           const s = selected[idx]
-          const payload: AIGenerateSubjectJsonInput = {
-            id,
-            descripcionEnfoqueAcademico: s.descripcion,
-            // (opcionales) parches directos si el edge los usa
-            estructura_id: wizard.estructuraId,
-            linea_plan_id: s.linea_plan_id,
-            numero_ciclo: s.numero_ciclo,
+          const creditosForEdge =
+            typeof s.creditos === 'number' && s.creditos > 0
+              ? s.creditos
+              : undefined
+          const payload: AISubjectUnifiedInput = {
+            datosUpdate: {
+              id,
+              plan_estudio_id: wizard.plan_estudio_id,
+              estructura_id: wizard.estructuraId ?? undefined,
+              nombre: s.nombre,
+              codigo: s.codigo ?? null,
+              tipo: s.tipo ?? null,
+              creditos: creditosForEdge,
+              horas_academicas: s.horasAcademicas ?? null,
+              horas_independientes: s.horasIndependientes ?? null,
+              numero_ciclo: s.numero_ciclo ?? null,
+              linea_plan_id: s.linea_plan_id ?? null,
+            },
+            iaConfig: {
+              descripcionEnfoqueAcademico: s.descripcion,
+              instruccionesAdicionalesIA:
+                wizard.iaConfig?.instruccionesAdicionalesIA ?? undefined,
+              archivosAdjuntos,
+            },
           }
 
-          void generateSubjectAI.mutateAsync(payload).catch((e) => {
+          void generateSubjectAI.mutateAsync(payload as any).catch((e) => {
             console.error('Error generando asignatura IA (multiple):', e)
           })
         })
@@ -165,6 +328,8 @@ export function WizardControls({
           to: `/planes/${wizard.plan_estudio_id}/asignaturas`,
           resetScroll: false,
         })
+
+        setIsSpinningIA(false)
 
         return
       }
@@ -195,14 +360,17 @@ export function WizardControls({
       }
     } catch (err: any) {
       setIsSpinningIA(false)
+      setPollSubjectId(null)
       setWizard((w) => ({
         ...w,
         isLoading: false,
         errorMessage: err?.message ?? 'Error creando la asignatura',
       }))
     } finally {
-      setIsSpinningIA(false)
-      setWizard((w) => ({ ...w, isLoading: false }))
+      if (!startedPolling) {
+        setIsSpinningIA(false)
+        setWizard((w) => ({ ...w, isLoading: false }))
+      }
     }
   }
 

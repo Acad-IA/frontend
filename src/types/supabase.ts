@@ -1213,12 +1213,7 @@ export type Database = {
       unaccent_immutable: { Args: { '': string }; Returns: string }
     }
     Enums: {
-      estado_asignatura:
-        | 'borrador'
-        | 'revisada'
-        | 'aprobada'
-        | 'generando'
-        | 'fallida'
+      estado_asignatura: 'borrador' | 'revisada' | 'aprobada' | 'generando'
       estado_conversacion: 'ACTIVA' | 'ARCHIVANDO' | 'ARCHIVADA' | 'ERROR'
       estado_tarea_revision: 'PENDIENTE' | 'COMPLETADA' | 'OMITIDA'
       fuente_cambio: 'HUMANO' | 'IA'
@@ -1392,13 +1387,7 @@ export const Constants = {
   },
   public: {
     Enums: {
-      estado_asignatura: [
-        'borrador',
-        'revisada',
-        'aprobada',
-        'generando',
-        'fallida',
-      ],
+      estado_asignatura: ['borrador', 'revisada', 'aprobada', 'generando'],
       estado_conversacion: ['ACTIVA', 'ARCHIVANDO', 'ARCHIVADA', 'ERROR'],
       estado_tarea_revision: ['PENDIENTE', 'COMPLETADA', 'OMITIDA'],
       fuente_cambio: ['HUMANO', 'IA'],

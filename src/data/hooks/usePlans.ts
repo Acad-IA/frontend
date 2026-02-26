@@ -85,7 +85,18 @@ export function usePlanAsignaturas(planId: UUID | null | undefined) {
       const hayGenerando = data.some(
         (a: any) => (a as { estado?: unknown }).estado === 'generando',
       )
-      return hayGenerando ? 500 : false
+
+      const qAny = query as any
+      if (!hayGenerando) {
+        qAny.__generandoSince = null
+        return false
+      }
+
+      const startedAt = qAny.__generandoSince ?? Date.now()
+      if (!qAny.__generandoSince) qAny.__generandoSince = startedAt
+
+      const elapsedMs = Date.now() - startedAt
+      return elapsedMs >= 6 * 60 * 1000 ? false : 3000
     },
     refetchIntervalInBackground: true,
   })

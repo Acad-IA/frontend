@@ -45,6 +45,7 @@ export function WizardControls({
   const [isSpinningIA, setIsSpinningIA] = useState(false)
   const [pollPlanId, setPollPlanId] = useState<string | null>(null)
   const cancelledRef = useRef(false)
+  const pollStartedAtRef = useRef<number | null>(null)
   // const supabaseClient = supabaseBrowser()
   // const persistPlanFromAI = usePersistPlanFromAI()
 
@@ -61,7 +62,15 @@ export function WizardControls({
       : ['planes', 'detail-maybe', null],
     queryFn: () => plans_get_maybe(pollPlanId as string),
     enabled: Boolean(pollPlanId),
-    refetchInterval: pollPlanId ? 3000 : false,
+    refetchInterval: () => {
+      if (!pollPlanId) return false
+
+      const startedAt = pollStartedAtRef.current ?? Date.now()
+      if (!pollStartedAtRef.current) pollStartedAtRef.current = startedAt
+
+      const elapsedMs = Date.now() - startedAt
+      return elapsedMs >= 6 * 60 * 1000 ? false : 3000
+    },
     refetchIntervalInBackground: true,
     staleTime: 0,
   })
@@ -80,6 +89,7 @@ export function WizardControls({
 
     if (clave.startsWith('BORRADOR')) {
       setPollPlanId(null)
+      pollStartedAtRef.current = null
       setIsSpinningIA(false)
       setWizard((w) => ({ ...w, isLoading: false }))
       navigate({
@@ -92,6 +102,7 @@ export function WizardControls({
     if (clave.startsWith('FALLID')) {
       // Detenemos el polling primero para evitar loops.
       setPollPlanId(null)
+      pollStartedAtRef.current = null
       setIsSpinningIA(false)
 
       deletePlan
@@ -113,6 +124,7 @@ export function WizardControls({
     if (!pollPlanId) return
     if (!planQuery.isError) return
     setPollPlanId(null)
+    pollStartedAtRef.current = null
     setIsSpinningIA(false)
     setWizard((w) => ({
       ...w,
@@ -175,6 +187,7 @@ export function WizardControls({
         }
 
         // Inicia polling con React Query; el efecto navega o marca error.
+        pollStartedAtRef.current = Date.now()
         setPollPlanId(String(planId))
         return
       }
