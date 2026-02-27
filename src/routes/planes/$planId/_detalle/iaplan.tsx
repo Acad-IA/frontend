@@ -126,7 +126,7 @@ function RouteComponent() {
   const [optimisticMessage, setOptimisticMessage] = useState<string | null>(
     null,
   )
-
+  const [filterQuery, setFilterQuery] = useState('')
   const availableFields = useMemo(() => {
     const definicion = data?.estructuras_plan
       ?.definicion as EstructuraDefinicion
@@ -140,6 +140,15 @@ function RouteComponent() {
       value: String(value.description || ''),
     }))
   }, [data])
+
+  const filteredFields = useMemo(() => {
+    return availableFields.filter(
+      (field) =>
+        field.label.toLowerCase().includes(filterQuery.toLowerCase()) &&
+        !selectedFields.some((s) => s.key === field.key), // No mostrar ya seleccionados
+    )
+  }, [availableFields, filterQuery, selectedFields])
+
   const activeChatData = useMemo(() => {
     return lastConversation?.find((chat: any) => chat.id === activeChatId)
   }, [lastConversation, activeChatId])
@@ -219,6 +228,18 @@ function RouteComponent() {
   useEffect(() => {
     scrollToBottom()
   }, [chatMessages, isLoading])
+
+  useEffect(() => {
+    // Verificamos cuáles campos de la lista "selectedFields" ya no están presentes en el texto del input
+    const camposActualizados = selectedFields.filter((field) =>
+      input.includes(field.label),
+    )
+
+    // Solo actualizamos el estado si hubo un cambio real (para evitar bucles infinitos)
+    if (camposActualizados.length !== selectedFields.length) {
+      setSelectedFields(camposActualizados)
+    }
+  }, [input, selectedFields])
 
   useEffect(() => {
     if (isLoadingConv || !lastConversation) return
@@ -311,8 +332,20 @@ function RouteComponent() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value
+    const cursorPosition = e.target.selectionStart // Dónde está escribiendo el usuario
     setInput(val)
-    setShowSuggestions(val.endsWith(':'))
+
+    // Busca un ":" seguido de letras justo antes del cursor
+    const textBeforeCursor = val.slice(0, cursorPosition)
+    const match = textBeforeCursor.match(/:(\w*)$/)
+
+    if (match) {
+      setShowSuggestions(true)
+      setFilterQuery(match[1]) // Esto es lo que se usa para el filtrado
+    } else {
+      setShowSuggestions(false)
+      setFilterQuery('')
+    }
   }
 
   const injectFieldsIntoInput = (
@@ -329,28 +362,22 @@ function RouteComponent() {
   }
 
   const toggleField = (field: SelectedField) => {
-    let isAdding = false
-
+    // 1. Lo agregamos a la lista de "SelectedFields" (para que la IA sepa qué procesar)
     setSelectedFields((prev) => {
       const isSelected = prev.find((f) => f.key === field.key)
-      if (isSelected) {
-        return prev.filter((f) => f.key !== field.key)
-      } else {
-        isAdding = true
-        return [...prev, field]
-      }
+      return isSelected ? prev : [...prev, field]
     })
 
+    // 2. Insertamos el nombre del campo en el texto exactamente donde estaba el ":"
     setInput((prev) => {
-      const cleanPrev = prev.replace(/:/g, '').trim()
-
-      if (cleanPrev === '') {
-        return `${field.label} `
-      }
-      return `${cleanPrev} ${field.label} `
+      // Reemplaza el último ":" y cualquier texto de filtro por el label del campo
+      const nuevoTexto = prev.replace(/:(\w*)$/, field.label)
+      return nuevoTexto + ' ' // Añadimos un espacio para que el usuario siga escribiendo
     })
 
+    // 3. Limpiamos estados de búsqueda
     setShowSuggestions(false)
+    setFilterQuery('')
   }
 
   const buildPrompt = (userInput: string, fields: Array<SelectedField>) => {
@@ -707,42 +734,35 @@ function RouteComponent() {
           <div className="relative mx-auto max-w-4xl">
             {/* MENÚ DE SUGERENCIAS FLOTANTE */}
             {showSuggestions && (
-              <div className="...">
-                <div className="...">Seleccionar campo para IA</div>
+              <div className="animate-in slide-in-from-bottom-2 absolute bottom-full mb-2 w-full rounded-xl border bg-white shadow-2xl">
+                <div className="border-b bg-slate-50 px-3 py-2 text-[10px] font-bold text-slate-500 uppercase">
+                  Resultados para "{filterQuery}"
+                </div>
                 <div className="max-h-64 overflow-y-auto p-1">
-                  {availableFields.map((field) => {
-                    // 1. Verificamos si el campo ya está en la lista de seleccionados
-                    const isAlreadySelected = selectedFields.some(
-                      (f) => f.key === field.key,
-                    )
-
-                    return (
+                  {filteredFields.length > 0 ? (
+                    filteredFields.map((field, index) => (
                       <button
                         key={field.key}
-                        onClick={() => !isAlreadySelected && toggleField(field)}
-                        // 2. Aplicamos el atributo disabled
-                        disabled={isAlreadySelected}
-                        className={`group flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                          isAlreadySelected
-                            ? 'cursor-not-allowed bg-slate-50 opacity-50' // Estilo visual de deshabilitado
-                            : 'hover:bg-teal-50'
+                        onClick={() => toggleField(field)}
+                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                          index === 0
+                            ? 'bg-teal-50 text-teal-700 ring-1 ring-teal-200 ring-inset'
+                            : 'hover:bg-slate-50'
                         }`}
                       >
-                        <span
-                          className={`text-slate-700 ${!isAlreadySelected && 'group-hover:text-teal-700'}`}
-                        >
-                          {field.label}
-                        </span>
-
-                        {isAlreadySelected && (
-                          <div className="flex items-center gap-1 text-[10px] font-medium text-teal-600">
-                            <Check size={12} />
-                            <span>Seleccionado</span>
-                          </div>
+                        <span>{field.label}</span>
+                        {index === 0 && (
+                          <span className="font-mono text-[10px] opacity-50">
+                            TAB
+                          </span>
                         )}
                       </button>
-                    )
-                  })}
+                    ))
+                  ) : (
+                    <div className="p-3 text-center text-xs text-slate-400">
+                      No hay coincidencias
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -775,8 +795,30 @@ function RouteComponent() {
                   value={input}
                   onChange={handleInputChange}
                   onKeyDown={(e) => {
-                    // Enter envía, Shift+Enter hace salto de línea
-                    if (e.key === 'Enter' && !e.shiftKey) {
+                    if (showSuggestions) {
+                      if (e.key === 'Tab' || e.key === 'Enter') {
+                        if (filteredFields.length > 0) {
+                          e.preventDefault()
+                          toggleField(filteredFields[0])
+                        }
+                      }
+                      if (e.key === 'Escape') {
+                        e.preventDefault()
+                        setShowSuggestions(false)
+                        setFilterQuery('')
+                      }
+                    } else {
+                      // Si el usuario borra y el input está vacío, eliminar el último campo
+                      if (
+                        e.key === 'Backspace' &&
+                        input === '' &&
+                        selectedFields.length > 0
+                      ) {
+                        setSelectedFields((prev) => prev.slice(0, -1))
+                      }
+                    }
+
+                    if (e.key === 'Enter' && !e.shiftKey && !showSuggestions) {
                       e.preventDefault()
                       if (!isSending) handleSend()
                     }
