@@ -1,12 +1,12 @@
-import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { AIGeneratePlanInput } from '@/data'
 import type { NivelPlanEstudio, TipoCiclo } from '@/data/types/domain'
 import type { NewPlanWizardState } from '@/features/planes/nuevo/types'
 // import type { Database } from '@/types/supabase'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 
 import { Button } from '@/components/ui/button'
 import { plans_get_maybe } from '@/data/api/plans.api'
@@ -15,7 +15,7 @@ import {
   useDeletePlanEstudio,
   useGeneratePlanAI,
 } from '@/data/hooks/usePlans'
-import { qk } from '@/data/query/keys'
+import { supabaseBrowser } from '@/data/supabase/client'
 
 export function WizardControls({
   errorMessage,
@@ -43,11 +43,10 @@ export function WizardControls({
   const createPlanManual = useCreatePlanManual()
   const deletePlan = useDeletePlanEstudio()
   const [isSpinningIA, setIsSpinningIA] = useState(false)
-  const [pollPlanId, setPollPlanId] = useState<string | null>(null)
   const cancelledRef = useRef(false)
-  const pollStartedAtRef = useRef<number | null>(null)
-  // const supabaseClient = supabaseBrowser()
-  // const persistPlanFromAI = usePersistPlanFromAI()
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null)
+  const watchPlanIdRef = useRef<string | null>(null)
+  const watchTimeoutRef = useRef<number | null>(null)
 
   useEffect(() => {
     cancelledRef.current = false
@@ -56,84 +55,138 @@ export function WizardControls({
     }
   }, [])
 
-  const planQuery = useQuery({
-    queryKey: pollPlanId
-      ? qk.planMaybe(pollPlanId)
-      : ['planes', 'detail-maybe', null],
-    queryFn: () => plans_get_maybe(pollPlanId as string),
-    enabled: Boolean(pollPlanId),
-    refetchInterval: () => {
-      if (!pollPlanId) return false
-
-      const startedAt = pollStartedAtRef.current ?? Date.now()
-      if (!pollStartedAtRef.current) pollStartedAtRef.current = startedAt
-
-      const elapsedMs = Date.now() - startedAt
-      return elapsedMs >= 6 * 60 * 1000 ? false : 3000
-    },
-    refetchIntervalInBackground: true,
-    staleTime: 0,
-  })
-
-  useEffect(() => {
-    if (!pollPlanId) return
-    if (cancelledRef.current) return
-
-    // Si aún no existe en BDD, seguimos esperando.
-    const plan = planQuery.data
-    if (!plan) return
-
-    const clave = String(plan.estados_plan?.clave ?? '').toUpperCase()
-
-    if (clave.startsWith('GENERANDO')) return
-
-    if (clave.startsWith('BORRADOR')) {
-      setPollPlanId(null)
-      pollStartedAtRef.current = null
-      setIsSpinningIA(false)
-      setWizard((w) => ({ ...w, isLoading: false }))
-      navigate({
-        to: `/planes/${plan.id}`,
-        state: { showConfetti: true },
-      })
-      return
+  const stopPlanWatch = useCallback(() => {
+    if (watchTimeoutRef.current) {
+      window.clearTimeout(watchTimeoutRef.current)
+      watchTimeoutRef.current = null
     }
 
-    if (clave.startsWith('FALLID')) {
-      // Detenemos el polling primero para evitar loops.
-      setPollPlanId(null)
-      pollStartedAtRef.current = null
-      setIsSpinningIA(false)
+    watchPlanIdRef.current = null
 
-      deletePlan
-        .mutateAsync(plan.id)
-        .catch(() => {
-          // Si falla el borrado, igual mostramos el error.
+    const ch = realtimeChannelRef.current
+    if (ch) {
+      realtimeChannelRef.current = null
+      try {
+        supabaseBrowser().removeChannel(ch)
+      } catch {
+        // noop
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      stopPlanWatch()
+    }
+  }, [stopPlanWatch])
+
+  const checkPlanStateAndAct = useCallback(
+    async (planId: string) => {
+      if (cancelledRef.current) return
+      if (watchPlanIdRef.current !== planId) return
+
+      const plan = await plans_get_maybe(planId as any)
+      if (!plan) return
+
+      const clave = String(plan.estados_plan?.clave ?? '').toUpperCase()
+
+      if (clave.startsWith('GENERANDO')) return
+
+      if (clave.startsWith('BORRADOR')) {
+        stopPlanWatch()
+        setIsSpinningIA(false)
+        setWizard((w) => ({ ...w, isLoading: false }))
+        navigate({
+          to: `/planes/${plan.id}`,
+          state: { showConfetti: true },
         })
-        .finally(() => {
+        return
+      }
+
+      if (clave.startsWith('FALLID')) {
+        stopPlanWatch()
+        setIsSpinningIA(false)
+
+        deletePlan
+          .mutateAsync(plan.id)
+          .catch(() => {
+            // Si falla el borrado, igual mostramos el error.
+          })
+          .finally(() => {
+            setWizard((w) => ({
+              ...w,
+              isLoading: false,
+              errorMessage: 'La generación del plan falló',
+            }))
+          })
+      }
+    },
+    [deletePlan, navigate, setWizard, stopPlanWatch],
+  )
+
+  const beginPlanWatch = useCallback(
+    (planId: string) => {
+      stopPlanWatch()
+      watchPlanIdRef.current = planId
+
+      watchTimeoutRef.current = window.setTimeout(
+        () => {
+          if (cancelledRef.current) return
+          if (watchPlanIdRef.current !== planId) return
+
+          stopPlanWatch()
+          setIsSpinningIA(false)
           setWizard((w) => ({
             ...w,
             isLoading: false,
-            errorMessage: 'La generación del plan falló',
+            errorMessage:
+              'La generación está tardando demasiado. Intenta de nuevo en unos minutos.',
           }))
-        })
-    }
-  }, [pollPlanId, planQuery.data, navigate, setWizard, deletePlan])
+        },
+        6 * 60 * 1000,
+      )
 
-  useEffect(() => {
-    if (!pollPlanId) return
-    if (!planQuery.isError) return
-    setPollPlanId(null)
-    pollStartedAtRef.current = null
-    setIsSpinningIA(false)
-    setWizard((w) => ({
-      ...w,
-      isLoading: false,
-      errorMessage:
-        (planQuery.error as any)?.message ??
-        'Error consultando el estado del plan',
-    }))
-  }, [pollPlanId, planQuery.isError, planQuery.error, setWizard])
+      const supabase = supabaseBrowser()
+      const channel = supabase.channel(`planes-status-${planId}`)
+      realtimeChannelRef.current = channel
+
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'planes_estudio',
+          filter: `id=eq.${planId}`,
+        },
+        () => {
+          void checkPlanStateAndAct(planId)
+        },
+      )
+
+      channel.subscribe((status) => {
+        const st = status as
+          | 'SUBSCRIBED'
+          | 'TIMED_OUT'
+          | 'CLOSED'
+          | 'CHANNEL_ERROR'
+        if (cancelledRef.current) return
+        if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') {
+          stopPlanWatch()
+          setIsSpinningIA(false)
+          setWizard((w) => ({
+            ...w,
+            isLoading: false,
+            errorMessage:
+              'No se pudo suscribir al estado del plan. Intenta de nuevo.',
+          }))
+        }
+      })
+
+      // Fallback inmediato por si el plan ya cambió antes de suscribir.
+      void checkPlanStateAndAct(planId)
+    },
+    [checkPlanStateAndAct, setWizard, stopPlanWatch],
+  )
 
   const handleCreate = async () => {
     // Start loading
@@ -186,9 +239,8 @@ export function WizardControls({
           throw new Error('No se pudo obtener el id del plan generado por IA')
         }
 
-        // Inicia polling con React Query; el efecto navega o marca error.
-        pollStartedAtRef.current = Date.now()
-        setPollPlanId(String(planId))
+        // Inicia realtime; los efectos navegan o marcan error.
+        beginPlanWatch(String(planId))
         return
       }
 
@@ -213,18 +265,14 @@ export function WizardControls({
       }
     } catch (err: any) {
       setIsSpinningIA(false)
-      setPollPlanId(null)
+      stopPlanWatch()
       setWizard((w) => ({
         ...w,
         isLoading: false,
         errorMessage: err?.message ?? 'Error generando el plan',
       }))
     } finally {
-      // Si entramos en polling, el loading se corta desde el efecto terminal.
-      if (!pollPlanId) {
-        setIsSpinningIA(false)
-        setWizard((w) => ({ ...w, isLoading: false }))
-      }
+      // Si entramos en watch realtime, el loading se corta desde checkPlanStateAndAct.
     }
   }
 
