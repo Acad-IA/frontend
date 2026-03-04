@@ -232,7 +232,7 @@ function AsignaturaLayout() {
               { label: 'Datos', to: '' },
               { label: 'Contenido', to: 'contenido' },
               { label: 'Bibliografía', to: 'bibliografia' },
-              { label: 'IA', to: 'asignaturaIa' },
+              { label: 'IA', to: 'iaasignatura' },
               { label: 'Documento SEP', to: 'documento' },
               { label: 'Historial', to: 'historial' },
             ].map((tab) => {

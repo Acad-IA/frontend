@@ -2,7 +2,7 @@ import { createFileRoute, useParams } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 
 import { DocumentoSEPTab } from '@/components/asignaturas/detalle/DocumentoSEPTab'
-import { fetchPlanPdf } from '@/data/api/document.api'
+import { fetchAsignaturaPdf } from '@/data/api/document.api'
 
 export const Route = createFileRoute(
   '/planes/$planId/asignaturas/$asignaturaId/documento',
@@ -11,7 +11,7 @@ export const Route = createFileRoute(
 })
 
 function RouteComponent() {
-  const { planId } = useParams({
+  const { asignaturaId } = useParams({
     from: '/planes/$planId/asignaturas/$asignaturaId/documento',
   })
 
@@ -23,8 +23,8 @@ function RouteComponent() {
     try {
       setIsLoading(true)
 
-      const pdfBlob = await fetchPlanPdf({
-        plan_estudio_id: planId,
+      const pdfBlob = await fetchAsignaturaPdf({
+        asignatura_id: asignaturaId,
       })
 
       const url = window.URL.createObjectURL(pdfBlob)
@@ -38,7 +38,7 @@ function RouteComponent() {
     } finally {
       setIsLoading(false)
     }
-  }, [planId])
+  }, [asignaturaId])
 
   useEffect(() => {
     loadPdfPreview()
@@ -49,8 +49,8 @@ function RouteComponent() {
   }, [loadPdfPreview])
 
   const handleDownload = async () => {
-    const pdfBlob = await fetchPlanPdf({
-      plan_estudio_id: planId,
+    const pdfBlob = await fetchAsignaturaPdf({
+      asignatura_id: asignaturaId,
     })
 
     const url = window.URL.createObjectURL(pdfBlob)
