@@ -39,14 +39,14 @@ export interface AsignaturaResponse {
 }
 
 type CriterioEvaluacionRow = {
-  label: string
-  value: number
+  criterio: string
+  porcentaje: number
 }
 
 type CriterioEvaluacionRowDraft = {
   id: string
-  label: string
-  value: string // allow empty while editing
+  criterio: string
+  porcentaje: string // allow empty while editing
 }
 
 export const Route = createFileRoute(
@@ -134,20 +134,20 @@ function DatosGenerales({
     const rows: Array<CriterioEvaluacionRow> = []
     for (const item of raw) {
       if (!isRecord(item)) continue
-      const label = typeof item.label === 'string' ? item.label : ''
-      const valueNum =
-        typeof item.value === 'number'
-          ? item.value
-          : typeof item.value === 'string'
-            ? Number(item.value)
+      const criterio = typeof item.criterio === 'string' ? item.criterio : ''
+      const porcentajeNum =
+        typeof item.porcentaje === 'number'
+          ? item.porcentaje
+          : typeof item.porcentaje === 'string'
+            ? Number(item.porcentaje)
             : NaN
 
-      if (!label.trim()) continue
-      if (!Number.isFinite(valueNum)) continue
-      const value = Math.trunc(valueNum)
-      if (value < 1 || value > 100) continue
+      if (!criterio.trim()) continue
+      if (!Number.isFinite(porcentajeNum)) continue
+      const porcentaje = Math.trunc(porcentajeNum)
+      if (porcentaje < 1 || porcentaje > 100) continue
 
-      rows.push({ label: label.trim(), value })
+      rows.push({ criterio: criterio.trim(), porcentaje: porcentaje })
     }
 
     return rows
@@ -354,22 +354,22 @@ function InfoCard({
       const raw = Array.isArray(initialContent) ? initialContent : []
       const rows: Array<CriterioEvaluacionRowDraft> = raw
         .map((r: any): CriterioEvaluacionRowDraft | null => {
-          const label = typeof r?.label === 'string' ? r.label : ''
-          const valueNum =
-            typeof r?.value === 'number'
-              ? r.value
-              : typeof r?.value === 'string'
-                ? Number(r.value)
+          const criterio = typeof r?.criterio === 'string' ? r.criterio : ''
+          const porcentajeNum =
+            typeof r?.porcentaje === 'number'
+              ? r.porcentaje
+              : typeof r?.porcentaje === 'string'
+                ? Number(r.porcentaje)
                 : NaN
 
-          const value = Number.isFinite(valueNum)
-            ? String(Math.trunc(valueNum))
+          const porcentaje = Number.isFinite(porcentajeNum)
+            ? String(Math.trunc(porcentajeNum))
             : ''
 
           return {
             id: crypto.randomUUID(),
-            label,
-            value,
+            criterio,
+            porcentaje,
           }
         })
         .filter(Boolean) as Array<CriterioEvaluacionRowDraft>
@@ -396,25 +396,25 @@ function InfoCard({
     if (type === 'evaluation') {
       const cleaned: Array<CriterioEvaluacionRow> = []
       for (const r of evalRows) {
-        const label = String(r.label).trim()
-        const valueStr = String(r.value).trim()
-        if (!label) continue
-        if (!valueStr) continue
+        const criterio = String(r.criterio).trim()
+        const porcentajeStr = String(r.porcentaje).trim()
+        if (!criterio) continue
+        if (!porcentajeStr) continue
 
-        const n = Number(valueStr)
+        const n = Number(porcentajeStr)
         if (!Number.isFinite(n)) continue
-        const value = Math.trunc(n)
-        if (value < 1 || value > 100) continue
+        const porcentaje = Math.trunc(n)
+        if (porcentaje < 1 || porcentaje > 100) continue
 
-        cleaned.push({ label, value })
+        cleaned.push({ criterio, porcentaje })
       }
 
       setData(cleaned)
       setEvalRows(
         cleaned.map((x) => ({
           id: crypto.randomUUID(),
-          label: x.label,
-          value: String(x.value),
+          criterio: x.criterio,
+          porcentaje: String(x.porcentaje),
         })),
       )
       setIsEditing(false)
@@ -451,13 +451,13 @@ function InfoCard({
   const evaluationTotal = useMemo(() => {
     if (type !== 'evaluation') return 0
     return evalRows.reduce((acc, r) => {
-      const v = String(r.value).trim()
+      const v = String(r.porcentaje).trim()
       if (!v) return acc
       const n = Number(v)
       if (!Number.isFinite(n)) return acc
-      const value = Math.trunc(n)
-      if (value < 1 || value > 100) return acc
-      return acc + value
+      const porcentaje = Math.trunc(n)
+      if (porcentaje < 1 || porcentaje > 100) return acc
+      return acc + porcentaje
     }, 0)
   }, [type, evalRows])
 
@@ -550,14 +550,14 @@ function InfoCard({
                         className="grid grid-cols-[2fr_1fr_1ch_32px] items-center gap-2"
                       >
                         <Input
-                          value={row.label}
-                          placeholder="Criterio (label)"
+                          value={row.criterio}
+                          placeholder="Criterio"
                           onChange={(e) => {
-                            const nextLabel = e.target.value
+                            const nextCriterio = e.target.value
                             setEvalRows((prev) =>
                               prev.map((r) =>
                                 r.id === row.id
-                                  ? { ...r, label: nextLabel }
+                                  ? { ...r, criterio: nextCriterio }
                                   : r,
                               ),
                             )
@@ -565,7 +565,7 @@ function InfoCard({
                         />
 
                         <Input
-                          value={row.value}
+                          value={row.porcentaje}
                           placeholder="%"
                           type="number"
                           min={1}
@@ -580,7 +580,13 @@ function InfoCard({
                             if (raw === '') {
                               setEvalRows((prev) =>
                                 prev.map((r) =>
-                                  r.id === row.id ? { ...r, value: '' } : r,
+                                  r.id === row.id
+                                    ? {
+                                        id: r.id,
+                                        criterio: r.criterio,
+                                        porcentaje: '',
+                                      }
+                                    : r,
                                 ),
                               )
                               return
@@ -588,17 +594,23 @@ function InfoCard({
 
                             const n = Number(raw)
                             if (!Number.isFinite(n)) return
-                            const value = Math.trunc(n)
-                            if (value < 1 || value > 100) return
+                            const porcentaje = Math.trunc(n)
+                            if (porcentaje < 1 || porcentaje > 100) return
 
                             // No permitir suma > 100
                             setEvalRows((prev) => {
                               const next = prev.map((r) =>
-                                r.id === row.id ? { ...r, value: raw } : r,
+                                r.id === row.id
+                                  ? {
+                                      id: r.id,
+                                      criterio: r.criterio,
+                                      porcentaje: raw,
+                                    }
+                                  : r,
                               )
 
                               const total = next.reduce((acc, r) => {
-                                const v = String(r.value).trim()
+                                const v = String(r.porcentaje).trim()
                                 if (!v) return acc
                                 const nn = Number(v)
                                 if (!Number.isFinite(nn)) return acc
@@ -638,7 +650,14 @@ function InfoCard({
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-xs">
+                    <span
+                      className={
+                        'text-sm ' +
+                        (evaluationTotal === 100
+                          ? 'text-muted-foreground'
+                          : 'text-destructive font-semibold')
+                      }
+                    >
                       Total: {evaluationTotal}/100
                     </span>
 
@@ -652,8 +671,8 @@ function InfoCard({
                           ...prev,
                           {
                             id: crypto.randomUUID(),
-                            label: '',
-                            value: '',
+                            criterio: '',
+                            porcentaje: '',
                           },
                         ])
                       }}
@@ -679,14 +698,15 @@ function InfoCard({
                     if (type === 'evaluation') {
                       const raw = Array.isArray(data) ? data : []
                       setEvalRows(
-                        raw.map((r: any) => ({
+                        raw.map((r: CriterioEvaluacionRow) => ({
                           id: crypto.randomUUID(),
-                          label: typeof r?.label === 'string' ? r.label : '',
-                          value:
-                            typeof r?.value === 'number'
-                              ? String(Math.trunc(r.value))
-                              : typeof r?.value === 'string'
-                                ? String(Math.trunc(Number(r.value)))
+                          criterio:
+                            typeof r.criterio === 'string' ? r.criterio : '',
+                          porcentaje:
+                            typeof r.porcentaje === 'number'
+                              ? String(Math.trunc(r.porcentaje))
+                              : typeof r.porcentaje === 'string'
+                                ? String(Math.trunc(Number(r.porcentaje)))
                                 : '',
                         })),
                       )
@@ -714,7 +734,9 @@ function InfoCard({
                   <p className="text-slate-400 italic">Sin información.</p>
                 ))}
               {type === 'requirements' && <RequirementsView items={data} />}
-              {type === 'evaluation' && <EvaluationView items={data} />}
+              {type === 'evaluation' && (
+                <EvaluationView items={data as Array<CriterioEvaluacionRow>} />
+              )}
             </div>
           )}
         </CardContent>
@@ -745,7 +767,11 @@ function RequirementsView({ items }: { items: Array<any> }) {
 }
 
 // Vista de Evaluación
-function EvaluationView({ items }: { items: Array<any> }) {
+function EvaluationView({ items }: { items: Array<CriterioEvaluacionRow> }) {
+  const porcentajeTotal = items.reduce(
+    (total, item) => total + Number(item.porcentaje),
+    0,
+  )
   return (
     <div className="space-y-2">
       {items.map((item, i) => (
@@ -753,10 +779,15 @@ function EvaluationView({ items }: { items: Array<any> }) {
           key={i}
           className="flex justify-between border-b border-slate-50 pb-1.5 text-sm italic"
         >
-          <span className="text-slate-500">{item.label}</span>
-          <span className="font-bold text-blue-600">{item.value}%</span>
+          <span className="text-slate-500">{item.criterio}</span>
+          <span className="font-bold text-blue-600">{item.porcentaje}%</span>
         </div>
       ))}
+      {porcentajeTotal < 100 && (
+        <p className="text-destructive text-sm font-medium">
+          El porcentaje total es menor a 100%.
+        </p>
+      )}
     </div>
   )
 }
@@ -813,12 +844,12 @@ function parseCriteriosEvaluacionToPlainText(value: unknown): string {
   const lines: Array<string> = []
   for (const item of value) {
     if (!isRecord(item)) continue
-    const label = typeof item.label === 'string' ? item.label.trim() : ''
+    const label = typeof item.criterio === 'string' ? item.criterio.trim() : ''
     const valueNum =
-      typeof item.value === 'number'
-        ? item.value
-        : typeof item.value === 'string'
-          ? Number(item.value)
+      typeof item.porcentaje === 'number'
+        ? item.porcentaje
+        : typeof item.porcentaje === 'string'
+          ? Number(item.porcentaje)
           : NaN
 
     if (!label) continue
