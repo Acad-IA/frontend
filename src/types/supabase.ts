@@ -81,6 +81,56 @@ export type Database = {
           },
         ]
       }
+      asignatura_mensajes_ia: {
+        Row: {
+          campos: Array<string>
+          conversacion_asignatura_id: string
+          enviado_por: string
+          estado: Database['public']['Enums']['estado_mensaje_ia']
+          fecha_actualizacion: string
+          fecha_creacion: string
+          id: string
+          is_refusal: boolean
+          mensaje: string
+          propuesta: Json | null
+          respuesta: string | null
+        }
+        Insert: {
+          campos?: Array<string>
+          conversacion_asignatura_id: string
+          enviado_por?: string
+          estado?: Database['public']['Enums']['estado_mensaje_ia']
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: string
+          is_refusal?: boolean
+          mensaje: string
+          propuesta?: Json | null
+          respuesta?: string | null
+        }
+        Update: {
+          campos?: Array<string>
+          conversacion_asignatura_id?: string
+          enviado_por?: string
+          estado?: Database['public']['Enums']['estado_mensaje_ia']
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: string
+          is_refusal?: boolean
+          mensaje?: string
+          propuesta?: Json | null
+          respuesta?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'asignatura_mensajes_ia_conversacion_asignatura_id_fkey'
+            columns: ['conversacion_asignatura_id']
+            isOneToOne: false
+            referencedRelation: 'conversaciones_asignatura'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       asignaturas: {
         Row: {
           actualizado_en: string
@@ -91,6 +141,7 @@ export type Database = {
           creado_en: string
           creado_por: string | null
           creditos: number
+          criterios_de_evaluacion: Json
           datos: Json
           estado: Database['public']['Enums']['estado_asignatura']
           estructura_id: string | null
@@ -115,6 +166,7 @@ export type Database = {
           creado_en?: string
           creado_por?: string | null
           creditos: number
+          criterios_de_evaluacion?: Json
           datos?: Json
           estado?: Database['public']['Enums']['estado_asignatura']
           estructura_id?: string | null
@@ -139,6 +191,7 @@ export type Database = {
           creado_en?: string
           creado_por?: string | null
           creditos?: number
+          criterios_de_evaluacion?: Json
           datos?: Json
           estado?: Database['public']['Enums']['estado_asignatura']
           estructura_id?: string | null
@@ -175,6 +228,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'estructuras_asignatura'
             referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'asignaturas_estructura_id_fkey'
+            columns: ['estructura_id']
+            isOneToOne: false
+            referencedRelation: 'plantilla_asignatura'
+            referencedColumns: ['estructura_id']
           },
           {
             foreignKeyName: 'asignaturas_linea_plan_fk_compuesta'
@@ -242,6 +302,13 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
+            foreignKeyName: 'bibliografia_asignatura_asignatura_id_fkey'
+            columns: ['asignatura_id']
+            isOneToOne: false
+            referencedRelation: 'plantilla_asignatura'
+            referencedColumns: ['asignatura_id']
+          },
+          {
             foreignKeyName: 'bibliografia_asignatura_creado_por_fkey'
             columns: ['creado_por']
             isOneToOne: false
@@ -294,6 +361,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'asignaturas'
             referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'cambios_asignatura_asignatura_id_fkey'
+            columns: ['asignatura_id']
+            isOneToOne: false
+            referencedRelation: 'plantilla_asignatura'
+            referencedColumns: ['asignatura_id']
           },
           {
             foreignKeyName: 'cambios_asignatura_cambiado_por_fkey'
@@ -442,6 +516,13 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
+            foreignKeyName: 'conversaciones_asignatura_asignatura_id_fkey'
+            columns: ['asignatura_id']
+            isOneToOne: false
+            referencedRelation: 'plantilla_asignatura'
+            referencedColumns: ['asignatura_id']
+          },
+          {
             foreignKeyName: 'conversaciones_asignatura_creado_por_fkey'
             columns: ['creado_por']
             isOneToOne: false
@@ -552,7 +633,8 @@ export type Database = {
           definicion: Json
           id: string
           nombre: string
-          version: string | null
+          template_id: string | null
+          tipo: Database['public']['Enums']['tipo_estructura_plan'] | null
         }
         Insert: {
           actualizado_en?: string
@@ -560,7 +642,8 @@ export type Database = {
           definicion?: Json
           id?: string
           nombre: string
-          version?: string | null
+          template_id?: string | null
+          tipo?: Database['public']['Enums']['tipo_estructura_plan'] | null
         }
         Update: {
           actualizado_en?: string
@@ -568,7 +651,8 @@ export type Database = {
           definicion?: Json
           id?: string
           nombre?: string
-          version?: string | null
+          template_id?: string | null
+          tipo?: Database['public']['Enums']['tipo_estructura_plan'] | null
         }
         Relationships: []
       }
@@ -693,6 +777,13 @@ export type Database = {
             referencedColumns: ['id']
           },
           {
+            foreignKeyName: 'interacciones_ia_asignatura_id_fkey'
+            columns: ['asignatura_id']
+            isOneToOne: false
+            referencedRelation: 'plantilla_asignatura'
+            referencedColumns: ['asignatura_id']
+          },
+          {
             foreignKeyName: 'interacciones_ia_plan_estudio_id_fkey'
             columns: ['plan_estudio_id']
             isOneToOne: false
@@ -794,6 +885,56 @@ export type Database = {
             columns: ['usuario_id']
             isOneToOne: false
             referencedRelation: 'usuarios_app'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      plan_mensajes_ia: {
+        Row: {
+          campos: Array<string>
+          conversacion_plan_id: string
+          enviado_por: string
+          estado: Database['public']['Enums']['estado_mensaje_ia']
+          fecha_actualizacion: string
+          fecha_creacion: string
+          id: string
+          is_refusal: boolean
+          mensaje: string
+          propuesta: Json | null
+          respuesta: string | null
+        }
+        Insert: {
+          campos?: Array<string>
+          conversacion_plan_id: string
+          enviado_por?: string
+          estado?: Database['public']['Enums']['estado_mensaje_ia']
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: string
+          is_refusal?: boolean
+          mensaje: string
+          propuesta?: Json | null
+          respuesta?: string | null
+        }
+        Update: {
+          campos?: Array<string>
+          conversacion_plan_id?: string
+          enviado_por?: string
+          estado?: Database['public']['Enums']['estado_mensaje_ia']
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: string
+          is_refusal?: boolean
+          mensaje?: string
+          propuesta?: Json | null
+          respuesta?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'plan_mensajes_ia_conversacion_plan_id_fkey'
+            columns: ['conversacion_plan_id']
+            isOneToOne: false
+            referencedRelation: 'conversaciones_plan'
             referencedColumns: ['id']
           },
         ]
@@ -933,6 +1074,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: 'asignaturas'
             referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'responsables_asignatura_asignatura_id_fkey'
+            columns: ['asignatura_id']
+            isOneToOne: false
+            referencedRelation: 'plantilla_asignatura'
+            referencedColumns: ['asignatura_id']
           },
           {
             foreignKeyName: 'responsables_asignatura_usuario_id_fkey'
@@ -1199,6 +1347,14 @@ export type Database = {
       }
     }
     Views: {
+      plantilla_asignatura: {
+        Row: {
+          asignatura_id: string | null
+          estructura_id: string | null
+          template_id: string | null
+        }
+        Relationships: []
+      }
       plantilla_plan: {
         Row: {
           estructura_id: string | null
@@ -1221,13 +1377,9 @@ export type Database = {
       unaccent_immutable: { Args: { '': string }; Returns: string }
     }
     Enums: {
-      estado_asignatura:
-        | 'borrador'
-        | 'revisada'
-        | 'aprobada'
-        | 'generando'
-        | 'fallida'
+      estado_asignatura: 'borrador' | 'revisada' | 'aprobada' | 'generando'
       estado_conversacion: 'ACTIVA' | 'ARCHIVANDO' | 'ARCHIVADA' | 'ERROR'
+      estado_mensaje_ia: 'PROCESANDO' | 'COMPLETADO' | 'ERROR'
       estado_tarea_revision: 'PENDIENTE' | 'COMPLETADA' | 'OMITIDA'
       fuente_cambio: 'HUMANO' | 'IA'
       nivel_plan_estudio:
@@ -1400,14 +1552,9 @@ export const Constants = {
   },
   public: {
     Enums: {
-      estado_asignatura: [
-        'borrador',
-        'revisada',
-        'aprobada',
-        'generando',
-        'fallida',
-      ],
+      estado_asignatura: ['borrador', 'revisada', 'aprobada', 'generando'],
       estado_conversacion: ['ACTIVA', 'ARCHIVANDO', 'ARCHIVADA', 'ERROR'],
+      estado_mensaje_ia: ['PROCESANDO', 'COMPLETADO', 'ERROR'],
       estado_tarea_revision: ['PENDIENTE', 'COMPLETADA', 'OMITIDA'],
       fuente_cambio: ['HUMANO', 'IA'],
       nivel_plan_estudio: [

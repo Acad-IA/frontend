@@ -1,11 +1,12 @@
 import { createFileRoute, useNavigate, useParams } from '@tanstack/react-router'
-import { Pencil, Sparkles } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { Minus, Pencil, Plus, Sparkles } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { AsignaturaDetail } from '@/data'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Tooltip,
@@ -37,54 +38,15 @@ export interface AsignaturaResponse {
   datos: AsignaturaDatos
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
+type CriterioEvaluacionRow = {
+  label: string
+  value: number
 }
 
-function parseContenidoTematicoToPlainText(value: unknown): string {
-  if (!Array.isArray(value)) return ''
-
-  const blocks: Array<string> = []
-
-  for (const item of value) {
-    if (!isRecord(item)) continue
-
-    const unidad =
-      typeof item.unidad === 'number' && Number.isFinite(item.unidad)
-        ? item.unidad
-        : undefined
-    const titulo = typeof item.titulo === 'string' ? item.titulo : ''
-
-    const header = `${unidad ?? ''}${unidad ? '.' : ''} ${titulo}`.trim()
-    if (!header) continue
-
-    const lines: Array<string> = [header]
-
-    const temas = Array.isArray(item.temas) ? item.temas : []
-    temas.forEach((tema, idx) => {
-      const temaNombre =
-        typeof tema === 'string'
-          ? tema
-          : isRecord(tema) && typeof tema.nombre === 'string'
-            ? tema.nombre
-            : ''
-      if (!temaNombre) return
-
-      if (unidad != null) {
-        lines.push(`${unidad}.${idx + 1} ${temaNombre}`.trim())
-      } else {
-        lines.push(`${idx + 1}. ${temaNombre}`)
-      }
-    })
-
-    blocks.push(lines.join('\n'))
-  }
-
-  return blocks.join('\n\n').trimEnd()
-}
-
-const columnParsers: Partial<Record<string, (value: unknown) => string>> = {
-  contenido_tematico: parseContenidoTematicoToPlainText,
+type CriterioEvaluacionRowDraft = {
+  id: string
+  label: string
+  value: string // allow empty while editing
 }
 
 export const Route = createFileRoute(
@@ -137,6 +99,13 @@ function DatosGenerales({
   })
 
   const { data: data, isLoading: isLoading } = useSubject(asignaturaId)
+  const updateAsignatura = useUpdateAsignatura()
+
+  const evaluationCardRef = useRef<HTMLDivElement | null>(null)
+  const [evaluationForceEditToken, setEvaluationForceEditToken] =
+    useState<number>(0)
+  const [evaluationHighlightToken, setEvaluationHighlightToken] =
+    useState<number>(0)
 
   // 1. Extraemos la definición de la estructura (los metadatos)
   const definicionRaw = data?.estructuras_asignatura?.definicion
@@ -154,6 +123,56 @@ function DatosGenerales({
   const valoresActuales = isRecord(datosRaw)
     ? (datosRaw as Record<string, any>)
     : {}
+
+  const criteriosEvaluacion: Array<CriterioEvaluacionRow> = useMemo(() => {
+    const raw = (data as any)?.criterios_de_evaluacion
+    console.log(raw)
+
+    if (!Array.isArray(raw)) return []
+
+    const rows: Array<CriterioEvaluacionRow> = []
+    for (const item of raw) {
+      if (!isRecord(item)) continue
+      const label = typeof item.label === 'string' ? item.label : ''
+      const valueNum =
+        typeof item.value === 'number'
+          ? item.value
+          : typeof item.value === 'string'
+            ? Number(item.value)
+            : NaN
+
+      if (!label.trim()) continue
+      if (!Number.isFinite(valueNum)) continue
+      const value = Math.trunc(valueNum)
+      if (value < 1 || value > 100) continue
+
+      rows.push({ label: label.trim(), value })
+    }
+
+    return rows
+  }, [data])
+
+  const openEvaluationEditor = () => {
+    evaluationCardRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    })
+
+    const now = Date.now()
+    setEvaluationForceEditToken(now)
+    setEvaluationHighlightToken(now)
+  }
+
+  const persistCriteriosEvaluacion = async (
+    rows: Array<CriterioEvaluacionRow>,
+  ) => {
+    await updateAsignatura.mutateAsync({
+      asignaturaId: asignaturaId as any,
+      patch: {
+        criterios_de_evaluacion: rows,
+      } as any,
+    })
+  }
   if (isLoading) return <p>Cargando información...</p>
 
   return (
@@ -213,6 +232,7 @@ function DatosGenerales({
                   placeholder={placeholder}
                   description={description}
                   onPersist={(clave, value) => onPersistDato(clave, value)}
+                  onOpenEvaluationEditor={openEvaluationEditor}
                 />
               )
             },
@@ -244,12 +264,12 @@ function DatosGenerales({
             <InfoCard
               title="Sistema de Evaluación"
               type="evaluation"
-              initialContent={[
-                { label: 'Exámenes parciales', value: '30%' },
-                { label: 'Proyecto integrador', value: '35%' },
-                { label: 'Prácticas de laboratorio', value: '20%' },
-                { label: 'Participación', value: '15%' },
-              ]}
+              initialContent={criteriosEvaluacion}
+              containerRef={evaluationCardRef}
+              forceEditToken={evaluationForceEditToken}
+              highlightToken={evaluationHighlightToken}
+              onOpenEvaluationEditor={openEvaluationEditor}
+              onPersistEvaluation={persistCriteriosEvaluacion}
             />
           </div>
         </div>
@@ -270,6 +290,12 @@ interface InfoCardProps {
   type?: 'text' | 'requirements' | 'evaluation'
   onEnhanceAI?: (content: any) => void
   onPersist?: (clave: string, value: string) => void
+  onPersistEvaluation?: (rows: Array<CriterioEvaluacionRow>) => Promise<void>
+  onOpenEvaluationEditor?: () => void
+
+  containerRef?: React.RefObject<HTMLDivElement | null>
+  forceEditToken?: number
+  highlightToken?: number
 }
 
 function InfoCard({
@@ -283,10 +309,20 @@ function InfoCard({
   required,
   type = 'text',
   onPersist,
+  onPersistEvaluation,
+  onOpenEvaluationEditor,
+  containerRef,
+  forceEditToken,
+  highlightToken,
 }: InfoCardProps) {
   const [isEditing, setIsEditing] = useState(false)
+  const [isHighlighted, setIsHighlighted] = useState(false)
   const [data, setData] = useState(initialContent)
   const [tempText, setTempText] = useState(initialContent)
+
+  const [evalRows, setEvalRows] = useState<Array<CriterioEvaluacionRowDraft>>(
+    [],
+  )
   const navigate = useNavigate()
   const { planId } = useParams({
     from: '/planes/$planId/asignaturas/$asignaturaId',
@@ -295,10 +331,79 @@ function InfoCard({
   useEffect(() => {
     setData(initialContent)
     setTempText(initialContent)
-  }, [initialContent])
+
+    if (type === 'evaluation') {
+      const raw = Array.isArray(initialContent) ? initialContent : []
+      const rows: Array<CriterioEvaluacionRowDraft> = raw
+        .map((r: any): CriterioEvaluacionRowDraft | null => {
+          const label = typeof r?.label === 'string' ? r.label : ''
+          const valueNum =
+            typeof r?.value === 'number'
+              ? r.value
+              : typeof r?.value === 'string'
+                ? Number(r.value)
+                : NaN
+
+          const value = Number.isFinite(valueNum)
+            ? String(Math.trunc(valueNum))
+            : ''
+
+          return {
+            id: crypto.randomUUID(),
+            label,
+            value,
+          }
+        })
+        .filter(Boolean) as Array<CriterioEvaluacionRowDraft>
+
+      setEvalRows(rows)
+    }
+  }, [initialContent, type])
+
+  useEffect(() => {
+    if (!forceEditToken) return
+    setIsEditing(true)
+  }, [forceEditToken])
+
+  useEffect(() => {
+    if (!highlightToken) return
+    setIsHighlighted(true)
+    const t = window.setTimeout(() => setIsHighlighted(false), 900)
+    return () => window.clearTimeout(t)
+  }, [highlightToken])
 
   const handleSave = () => {
     console.log('clave, valor:', clave, String(tempText ?? ''))
+
+    if (type === 'evaluation') {
+      const cleaned: Array<CriterioEvaluacionRow> = []
+      for (const r of evalRows) {
+        const label = String(r.label).trim()
+        const valueStr = String(r.value).trim()
+        if (!label) continue
+        if (!valueStr) continue
+
+        const n = Number(valueStr)
+        if (!Number.isFinite(n)) continue
+        const value = Math.trunc(n)
+        if (value < 1 || value > 100) continue
+
+        cleaned.push({ label, value })
+      }
+
+      setData(cleaned)
+      setEvalRows(
+        cleaned.map((x) => ({
+          id: crypto.randomUUID(),
+          label: x.label,
+          value: String(x.value),
+        })),
+      )
+      setIsEditing(false)
+
+      void onPersistEvaluation?.(cleaned)
+      return
+    }
 
     setData(tempText)
     setIsEditing(false)
@@ -325,122 +430,279 @@ function InfoCard({
     })
   }
 
-  return (
-    <Card className="overflow-hidden transition-all hover:border-slate-300">
-      <TooltipProvider>
-        <CardHeader className="border-b bg-slate-50/50 px-5 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <CardTitle className="cursor-help text-sm font-bold text-slate-700">
-                    {title}
-                  </CardTitle>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-xs text-xs">
-                  {description || 'Información del campo'}
-                </TooltipContent>
-              </Tooltip>
+  const evaluationTotal = useMemo(() => {
+    if (type !== 'evaluation') return 0
+    return evalRows.reduce((acc, r) => {
+      const v = String(r.value).trim()
+      if (!v) return acc
+      const n = Number(v)
+      if (!Number.isFinite(n)) return acc
+      const value = Math.trunc(n)
+      if (value < 1 || value > 100) return acc
+      return acc + value
+    }, 0)
+  }, [type, evalRows])
 
-              {required && (
-                <span
-                  className="text-sm font-bold text-red-500"
-                  title="Requerido"
-                >
-                  *
-                </span>
+  return (
+    <div ref={containerRef as any}>
+      <Card
+        className={
+          'overflow-hidden transition-all hover:border-slate-300 ' +
+          (isHighlighted ? 'ring-primary/40 ring-2' : '')
+        }
+      >
+        <TooltipProvider>
+          <CardHeader className="border-b bg-slate-50/50 px-5 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <CardTitle className="cursor-help text-sm font-bold text-slate-700">
+                      {title}
+                    </CardTitle>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs text-xs">
+                    {description || 'Información del campo'}
+                  </TooltipContent>
+                </Tooltip>
+
+                {required && (
+                  <span
+                    className="text-sm font-bold text-red-500"
+                    title="Requerido"
+                  >
+                    *
+                  </span>
+                )}
+              </div>
+
+              {!isEditing && (
+                <div className="flex gap-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-blue-500 hover:bg-blue-100"
+                        onClick={() => clave && handleIARequest(clave)}
+                      >
+                        <Sparkles className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Mejorar con IA</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-slate-400"
+                        onClick={() => {
+                          switch (xColumn) {
+                            case 'contenido_tematico': {
+                              navigate({
+                                to: '/planes/$planId/asignaturas/$asignaturaId/contenido',
+                                params: { planId, asignaturaId: asignaturaId! },
+                              })
+                              return
+                            }
+                            case 'criterios_de_evaluacion': {
+                              onOpenEvaluationEditor?.()
+                              return
+                            }
+                            default: {
+                              setIsEditing(true)
+                            }
+                          }
+                        }}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Editar campo</TooltipContent>
+                  </Tooltip>
+                </div>
               )}
             </div>
+          </CardHeader>
+        </TooltipProvider>
 
-            {!isEditing && (
-              <div className="flex gap-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
+        <CardContent className="pt-4">
+          {isEditing ? (
+            <div className="space-y-3">
+              {type === 'evaluation' ? (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    {evalRows.map((row) => (
+                      <div
+                        key={row.id}
+                        className="grid grid-cols-[1fr_96px_32px] items-center gap-2"
+                      >
+                        <Input
+                          value={row.label}
+                          placeholder="Criterio (label)"
+                          onChange={(e) => {
+                            const nextLabel = e.target.value
+                            setEvalRows((prev) =>
+                              prev.map((r) =>
+                                r.id === row.id
+                                  ? { ...r, label: nextLabel }
+                                  : r,
+                              ),
+                            )
+                          }}
+                        />
+
+                        <Input
+                          value={row.value}
+                          placeholder="%"
+                          type="number"
+                          min={1}
+                          max={100}
+                          step={1}
+                          inputMode="numeric"
+                          onChange={(e) => {
+                            const raw = e.target.value
+                            // Solo permitir '' o dígitos
+                            if (raw !== '' && !/^\d+$/.test(raw)) return
+
+                            if (raw === '') {
+                              setEvalRows((prev) =>
+                                prev.map((r) =>
+                                  r.id === row.id ? { ...r, value: '' } : r,
+                                ),
+                              )
+                              return
+                            }
+
+                            const n = Number(raw)
+                            if (!Number.isFinite(n)) return
+                            const value = Math.trunc(n)
+                            if (value < 1 || value > 100) return
+
+                            // No permitir suma > 100
+                            setEvalRows((prev) => {
+                              const next = prev.map((r) =>
+                                r.id === row.id ? { ...r, value: raw } : r,
+                              )
+
+                              const total = next.reduce((acc, r) => {
+                                const v = String(r.value).trim()
+                                if (!v) return acc
+                                const nn = Number(v)
+                                if (!Number.isFinite(nn)) return acc
+                                const vv = Math.trunc(nn)
+                                if (vv < 1 || vv > 100) return acc
+                                return acc + vv
+                              }, 0)
+
+                              return total > 100 ? prev : next
+                            })
+                          }}
+                        />
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:bg-red-50"
+                          onClick={() => {
+                            setEvalRows((prev) =>
+                              prev.filter((r) => r.id !== row.id),
+                            )
+                          }}
+                          aria-label="Quitar renglón"
+                          title="Quitar"
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-xs">
+                      Total: {evaluationTotal}/100
+                    </span>
+
                     <Button
                       variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-blue-500 hover:bg-blue-100"
-                      onClick={() => clave && handleIARequest(clave)}
-                    >
-                      <Sparkles className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Mejorar con IA</TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-slate-400"
+                      size="sm"
+                      className="text-emerald-700 hover:bg-emerald-50"
                       onClick={() => {
-                        // Si esta InfoCard proviene de una columna externa (ej: contenido_tematico),
-                        // redirigimos a la pestaña de Contenido en vez de editar inline.
-                        if (xColumn === 'contenido_tematico') {
-                          // Agregamos un timestamp para forzar la actualización
-                          // de la location.state aunque la ruta sea la misma.
-                          navigate({
-                            to: '/planes/$planId/asignaturas/$asignaturaId/contenido',
-                            params: { planId, asignaturaId: asignaturaId! },
-                          })
-                          return
-                        }
-
-                        setIsEditing(true)
+                        // Agregar una fila vacía (siempre permitido)
+                        setEvalRows((prev) => [
+                          ...prev,
+                          {
+                            id: crypto.randomUUID(),
+                            label: '',
+                            value: '',
+                          },
+                        ])
                       }}
                     >
-                      <Pencil className="h-3 w-3" />
+                      <Plus className="mr-2 h-4 w-4" /> Agregar renglón
                     </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Editar campo</TooltipContent>
-                </Tooltip>
-              </div>
-            )}
-          </div>
-        </CardHeader>
-      </TooltipProvider>
-
-      <CardContent className="pt-4">
-        {isEditing ? (
-          <div className="space-y-3">
-            <Textarea
-              value={tempText}
-              placeholder={placeholder}
-              onChange={(e) => setTempText(e.target.value)}
-              className="min-h-30 text-sm leading-relaxed"
-            />
-            <div className="flex justify-end gap-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setIsEditing(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                size="sm"
-                className="bg-[#00a878] hover:bg-[#008f66]"
-                onClick={handleSave}
-              >
-                Guardar
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="text-sm leading-relaxed text-slate-600">
-            {type === 'text' &&
-              (data ? (
-                <p className="whitespace-pre-wrap">{data}</p>
+                  </div>
+                </div>
               ) : (
-                <p className="text-slate-400 italic">Sin información.</p>
-              ))}
-            {type === 'requirements' && <RequirementsView items={data} />}
-            {type === 'evaluation' && <EvaluationView items={data} />}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                <Textarea
+                  value={tempText}
+                  placeholder={placeholder}
+                  onChange={(e) => setTempText(e.target.value)}
+                  className="min-h-30 text-sm leading-relaxed"
+                />
+              )}
+              <div className="flex justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setIsEditing(false)
+                    if (type === 'evaluation') {
+                      const raw = Array.isArray(data) ? data : []
+                      setEvalRows(
+                        raw.map((r: any) => ({
+                          id: crypto.randomUUID(),
+                          label: typeof r?.label === 'string' ? r.label : '',
+                          value:
+                            typeof r?.value === 'number'
+                              ? String(Math.trunc(r.value))
+                              : typeof r?.value === 'string'
+                                ? String(Math.trunc(Number(r.value)))
+                                : '',
+                        })),
+                      )
+                    }
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-[#00a878] hover:bg-[#008f66]"
+                  onClick={handleSave}
+                  disabled={type === 'evaluation' && evaluationTotal > 100}
+                >
+                  Guardar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm leading-relaxed text-slate-600">
+              {type === 'text' &&
+                (data ? (
+                  <p className="whitespace-pre-wrap">{data}</p>
+                ) : (
+                  <p className="text-slate-400 italic">Sin información.</p>
+                ))}
+              {type === 'requirements' && <RequirementsView items={data} />}
+              {type === 'evaluation' && <EvaluationView items={data} />}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }
 
@@ -475,9 +737,86 @@ function EvaluationView({ items }: { items: Array<any> }) {
           className="flex justify-between border-b border-slate-50 pb-1.5 text-sm italic"
         >
           <span className="text-slate-500">{item.label}</span>
-          <span className="font-bold text-blue-600">{item.value}</span>
+          <span className="font-bold text-blue-600">{item.value}%</span>
         </div>
       ))}
     </div>
   )
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function parseContenidoTematicoToPlainText(value: unknown): string {
+  if (!Array.isArray(value)) return ''
+
+  const blocks: Array<string> = []
+
+  for (const item of value) {
+    if (!isRecord(item)) continue
+
+    const unidad =
+      typeof item.unidad === 'number' && Number.isFinite(item.unidad)
+        ? item.unidad
+        : undefined
+    const titulo = typeof item.titulo === 'string' ? item.titulo : ''
+
+    const header = `${unidad ?? ''}${unidad ? '.' : ''} ${titulo}`.trim()
+    if (!header) continue
+
+    const lines: Array<string> = [header]
+
+    const temas = Array.isArray(item.temas) ? item.temas : []
+    temas.forEach((tema, idx) => {
+      const temaNombre =
+        typeof tema === 'string'
+          ? tema
+          : isRecord(tema) && typeof tema.nombre === 'string'
+            ? tema.nombre
+            : ''
+      if (!temaNombre) return
+
+      if (unidad != null) {
+        lines.push(`${unidad}.${idx + 1} ${temaNombre}`.trim())
+      } else {
+        lines.push(`${idx + 1}. ${temaNombre}`)
+      }
+    })
+
+    blocks.push(lines.join('\n'))
+  }
+
+  return blocks.join('\n\n').trimEnd()
+}
+
+function parseCriteriosEvaluacionToPlainText(value: unknown): string {
+  if (!Array.isArray(value)) return ''
+
+  const lines: Array<string> = []
+  for (const item of value) {
+    if (!isRecord(item)) continue
+    const label = typeof item.label === 'string' ? item.label.trim() : ''
+    const valueNum =
+      typeof item.value === 'number'
+        ? item.value
+        : typeof item.value === 'string'
+          ? Number(item.value)
+          : NaN
+
+    if (!label) continue
+    if (!Number.isFinite(valueNum)) continue
+
+    const v = Math.trunc(valueNum)
+    if (v < 1 || v > 100) continue
+
+    lines.push(`${label}: ${v}%`)
+  }
+
+  return lines.join('\n')
+}
+
+const columnParsers: Partial<Record<string, (value: unknown) => string>> = {
+  contenido_tematico: parseContenidoTematicoToPlainText,
+  criterios_de_evaluacion: parseCriteriosEvaluacionToPlainText,
 }
