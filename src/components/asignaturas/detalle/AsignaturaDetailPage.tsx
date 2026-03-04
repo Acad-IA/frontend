@@ -94,9 +94,10 @@ function DatosGenerales({
 }: {
   onPersistDato: (clave: string, value: string) => void
 }) {
-  const { asignaturaId } = useParams({
+  const { asignaturaId, planId } = useParams({
     from: '/planes/$planId/asignaturas/$asignaturaId',
   })
+  const navigate = useNavigate()
 
   const { data: data, isLoading: isLoading } = useSubject(asignaturaId)
   const updateAsignatura = useUpdateAsignatura()
@@ -228,11 +229,29 @@ function DatosGenerales({
                   clave={key}
                   title={cardTitle}
                   initialContent={currentContent}
-                  xColumn={xColumn}
                   placeholder={placeholder}
                   description={description}
-                  onPersist={(clave, value) => onPersistDato(clave, value)}
-                  onOpenEvaluationEditor={openEvaluationEditor}
+                  onPersist={({ clave, value }) =>
+                    onPersistDato(String(clave ?? key), String(value ?? ''))
+                  }
+                  onClickEditButton={({ startEditing }) => {
+                    switch (xColumn) {
+                      case 'contenido_tematico': {
+                        navigate({
+                          to: '/planes/$planId/asignaturas/$asignaturaId/contenido',
+                          params: { planId, asignaturaId },
+                        })
+                        return
+                      }
+                      case 'criterios_de_evaluacion': {
+                        openEvaluationEditor()
+                        return
+                      }
+                      default: {
+                        startEditing()
+                      }
+                    }
+                  }}
                 />
               )
             },
@@ -268,8 +287,7 @@ function DatosGenerales({
               containerRef={evaluationCardRef}
               forceEditToken={evaluationForceEditToken}
               highlightToken={evaluationHighlightToken}
-              onOpenEvaluationEditor={openEvaluationEditor}
-              onPersistEvaluation={persistCriteriosEvaluacion}
+              onPersist={({ value }) => persistCriteriosEvaluacion(value)}
             />
           </div>
         </div>
@@ -285,13 +303,15 @@ interface InfoCardProps {
   initialContent: any
   placeholder?: string
   description?: string
-  xColumn?: string
   required?: boolean // Nueva prop para el asterisco
   type?: 'text' | 'requirements' | 'evaluation'
   onEnhanceAI?: (content: any) => void
-  onPersist?: (clave: string, value: string) => void
-  onPersistEvaluation?: (rows: Array<CriterioEvaluacionRow>) => Promise<void>
-  onOpenEvaluationEditor?: () => void
+  onPersist?: (payload: {
+    type: NonNullable<InfoCardProps['type']>
+    clave?: string
+    value: any
+  }) => void | Promise<void>
+  onClickEditButton?: (helpers: { startEditing: () => void }) => void
 
   containerRef?: React.RefObject<HTMLDivElement | null>
   forceEditToken?: number
@@ -305,12 +325,10 @@ function InfoCard({
   initialContent,
   placeholder,
   description,
-  xColumn,
   required,
   type = 'text',
   onPersist,
-  onPersistEvaluation,
-  onOpenEvaluationEditor,
+  onClickEditButton,
   containerRef,
   forceEditToken,
   highlightToken,
@@ -401,15 +419,15 @@ function InfoCard({
       )
       setIsEditing(false)
 
-      void onPersistEvaluation?.(cleaned)
+      void onPersist?.({ type, clave, value: cleaned })
       return
     }
 
     setData(tempText)
     setIsEditing(false)
 
-    if (type === 'text' && clave && onPersist) {
-      onPersist(clave, String(tempText ?? ''))
+    if (type === 'text') {
+      void onPersist?.({ type, clave, value: String(tempText ?? '') })
     }
   }
 
@@ -499,22 +517,14 @@ function InfoCard({
                         size="icon"
                         className="h-8 w-8 text-slate-400"
                         onClick={() => {
-                          switch (xColumn) {
-                            case 'contenido_tematico': {
-                              navigate({
-                                to: '/planes/$planId/asignaturas/$asignaturaId/contenido',
-                                params: { planId, asignaturaId: asignaturaId! },
-                              })
-                              return
-                            }
-                            case 'criterios_de_evaluacion': {
-                              onOpenEvaluationEditor?.()
-                              return
-                            }
-                            default: {
-                              setIsEditing(true)
-                            }
+                          const startEditing = () => setIsEditing(true)
+
+                          if (onClickEditButton) {
+                            onClickEditButton({ startEditing })
+                            return
                           }
+
+                          startEditing()
                         }}
                       >
                         <Pencil className="h-3 w-3" />
@@ -537,7 +547,7 @@ function InfoCard({
                     {evalRows.map((row) => (
                       <div
                         key={row.id}
-                        className="grid grid-cols-[1fr_96px_32px] items-center gap-2"
+                        className="grid grid-cols-[2fr_1fr_1ch_32px] items-center gap-2"
                       >
                         <Input
                           value={row.label}
@@ -601,6 +611,13 @@ function InfoCard({
                             })
                           }}
                         />
+
+                        <div
+                          className="flex w-[1ch] items-center justify-center text-sm text-slate-600"
+                          aria-hidden
+                        >
+                          %
+                        </div>
 
                         <Button
                           variant="ghost"
