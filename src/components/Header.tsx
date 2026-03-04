@@ -1,9 +1,20 @@
-import { Link } from '@tanstack/react-router'
-import { Home, Menu, Network, X } from 'lucide-react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { Home, LogOut, Menu, Network, X } from 'lucide-react'
 import { useState } from 'react'
+
+import { supabaseBrowser } from '@/data/supabase/client'
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false)
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    try {
+      await supabaseBrowser().auth.signOut()
+    } finally {
+      void navigate({ to: '/login', replace: true })
+    }
+  }
 
   return (
     <>
@@ -21,6 +32,16 @@ export default function Header() {
             <img src="/lasalle-logo.svg" alt="La Salle Logo" className="h-10" />
           </Link>
         </h1>
+
+        <button
+          onClick={handleLogout}
+          className="ml-auto inline-flex items-center gap-2 rounded-lg p-2 transition-colors hover:bg-gray-700"
+          aria-label="Logout"
+          title="Logout"
+        >
+          <LogOut size={20} />
+          <span className="hidden sm:inline">Salir</span>
+        </button>
       </header>
 
       <aside

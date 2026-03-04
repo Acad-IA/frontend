@@ -6,6 +6,7 @@ import reportWebVitals from './reportWebVitals.ts'
 import { routeTree } from './routeTree.gen'
 
 import * as TanStackQueryProvider from '@/data/query/queryClient.tsx'
+import { supabaseBrowser } from '@/data/supabase/client'
 
 import './styles.css'
 
@@ -16,6 +17,7 @@ const router = createRouter({
   routeTree,
   context: {
     ...TanStackQueryProviderContext,
+    supabase: supabaseBrowser(),
   },
   defaultPreload: 'intent',
   scrollRestoration: true,

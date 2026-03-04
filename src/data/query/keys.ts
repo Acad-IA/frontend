@@ -2,6 +2,7 @@ export const qk = {
   auth: ['auth'] as const,
   session: () => ['auth', 'session'] as const,
   meProfile: () => ['auth', 'meProfile'] as const,
+  meAccess: () => ['auth', 'meAccess'] as const,
 
   facultades: () => ['meta', 'facultades'] as const,
   carreras: (facultadId?: string | null) =>
