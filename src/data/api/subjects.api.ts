@@ -29,12 +29,78 @@ const EDGE = {
   subjects_clone_from_existing: 'subjects_clone_from_existing',
   subjects_import_from_file: 'subjects_import_from_file',
 
+  // Bibliografía
+  buscar_bibliografia: 'buscar-bibliografia',
+
   subjects_update_fields: 'subjects_update_fields',
   subjects_update_bibliografia: 'subjects_update_bibliografia',
 
   subjects_generate_document: 'subjects_generate_document',
   subjects_get_document: 'subjects_get_document',
 } as const
+
+export type BuscarBibliografiaRequest = {
+  searchTerms: {
+    q: string
+    maxResults: number
+    orderBy?: 'newest' | 'relevance'
+    [k: string]: unknown
+  }
+}
+
+export type GoogleBooksVolume = {
+  kind?: 'books#volume'
+  id: string
+  etag?: string
+  selfLink?: string
+  volumeInfo?: {
+    title?: string
+    subtitle?: string
+    authors?: Array<string>
+    publisher?: string
+    publishedDate?: string
+    description?: string
+    industryIdentifiers?: Array<{ type?: string; identifier?: string }>
+    pageCount?: number
+    categories?: Array<string>
+    language?: string
+    previewLink?: string
+    infoLink?: string
+    canonicalVolumeLink?: string
+    imageLinks?: {
+      smallThumbnail?: string
+      thumbnail?: string
+      small?: string
+      medium?: string
+      large?: string
+      extraLarge?: string
+    }
+  }
+  searchInfo?: {
+    textSnippet?: string
+  }
+  [k: string]: unknown
+}
+
+export async function buscar_bibliografia(
+  input: BuscarBibliografiaRequest,
+): Promise<Array<GoogleBooksVolume>> {
+  const q = input?.searchTerms?.q
+  const maxResults = input?.searchTerms?.maxResults
+
+  if (typeof q !== 'string' || q.trim().length < 1) {
+    throw new Error('q es requerido')
+  }
+  if (!Number.isInteger(maxResults) || maxResults < 0 || maxResults > 40) {
+    throw new Error('maxResults debe ser entero entre 0 y 40')
+  }
+
+  return await invokeEdge<Array<GoogleBooksVolume>>(
+    EDGE.buscar_bibliografia,
+    input,
+    { headers: { 'Content-Type': 'application/json' } },
+  )
+}
 
 export type ContenidoTemaApi =
   | string

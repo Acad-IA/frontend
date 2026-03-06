@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
-/* eslint-disable jsx-a11y/label-has-associated-control */
+
 /* eslint-disable jsx-a11y/no-static-element-interactions */
-import { useParams } from '@tanstack/react-router'
+import { useNavigate, useParams } from '@tanstack/react-router'
 import { Plus, Search, BookOpen, Trash2, Library, Edit3 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -54,7 +54,8 @@ export interface BibliografiaEntry {
 }
 
 export function BibliographyItem() {
-  const { asignaturaId } = useParams({
+  const navigate = useNavigate()
+  const { planId, asignaturaId } = useParams({
     from: '/planes/$planId/asignaturas/$asignaturaId',
   })
 
@@ -68,13 +69,9 @@ export function BibliographyItem() {
   const { mutate: eliminarBibliografia } = useDeleteBibliografia(asignaturaId)
 
   // --- 3. Estados de UI (Solo para diálogos y edición) ---
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isLibraryDialogOpen, setIsLibraryDialogOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [newEntryType, setNewEntryType] = useState<'BASICA' | 'COMPLEMENTARIA'>(
-    'BASICA',
-  )
 
   console.log('Datos actuales en el front:', bibliografia)
   // --- 4. Derivación de datos (Se calculan en cada render) ---
@@ -84,20 +81,6 @@ export function BibliographyItem() {
   )
 
   // --- Handlers Conectados a la Base de Datos ---
-
-  const handleAddManual = (cita: string) => {
-    crearBibliografia(
-      {
-        asignatura_id: asignaturaId,
-        tipo: newEntryType,
-        cita,
-        tipo_fuente: 'MANUAL',
-      },
-      {
-        onSuccess: () => setIsAddDialogOpen(false),
-      },
-    )
-  }
 
   const handleAddFromLibrary = (
     resource: any,
@@ -179,20 +162,17 @@ export function BibliographyItem() {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Plus className="mr-2 h-4 w-4" /> Añadir manual
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <AddManualDialog
-                tipo={newEntryType}
-                onTypeChange={setNewEntryType}
-                onAdd={handleAddManual}
-              />
-            </DialogContent>
-          </Dialog>
+          <Button
+            onClick={() =>
+              navigate({
+                to: `/planes/${planId}/asignaturas/${asignaturaId}/bibliografia/nueva`,
+                resetScroll: false,
+              })
+            }
+            className="ring-offset-background bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-11 items-center justify-center gap-2 rounded-md px-8 text-sm font-medium shadow-md transition-colors"
+          >
+            <Plus className="mr-2 h-4 w-4" /> Agregar Bibliografía
+          </Button>
         </div>
       </div>
 
@@ -361,49 +341,6 @@ function BibliografiaCard({
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-function AddManualDialog({ tipo, onTypeChange, onAdd }: any) {
-  const [cita, setCita] = useState('')
-  return (
-    <div className="space-y-4 py-4">
-      <DialogHeader>
-        <DialogTitle>Referencia Manual</DialogTitle>
-      </DialogHeader>
-      <div className="space-y-2">
-        <label className="text-xs font-bold text-slate-500 uppercase">
-          Tipo
-        </label>
-        <Select value={tipo} onValueChange={onTypeChange}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="BASICA">Básica</SelectItem>
-            <SelectItem value="COMPLEMENTARIA">Complementaria</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <label className="text-xs font-bold text-slate-500 uppercase">
-          Cita APA
-        </label>
-        <Textarea
-          value={cita}
-          onChange={(e) => setCita(e.target.value)}
-          placeholder="Autor, A. (Año). Título..."
-          className="min-h-[120px]"
-        />
-      </div>
-      <Button
-        onClick={() => onAdd(cita)}
-        disabled={!cita.trim()}
-        className="w-full bg-blue-600"
-      >
-        Añadir a la lista
-      </Button>
-    </div>
   )
 }
 

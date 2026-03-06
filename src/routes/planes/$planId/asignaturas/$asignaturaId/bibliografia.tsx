@@ -1,6 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
-
-import { BibliographyItem } from '@/components/asignaturas/detalle/BibliographyItem'
+import { createFileRoute, Outlet } from '@tanstack/react-router'
 
 export const Route = createFileRoute(
   '/planes/$planId/asignaturas/$asignaturaId/bibliografia',
@@ -9,5 +7,5 @@ export const Route = createFileRoute(
 })
 
 function RouteComponent() {
-  return <BibliographyItem />
+  return <Outlet />
 }
