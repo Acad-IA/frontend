@@ -1,10 +1,11 @@
 import { useNavigate } from '@tanstack/react-router'
 import CSL from 'citeproc'
-import { Loader2, Plus, RefreshCw, Sparkles } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Globe, Loader2, Plus, RefreshCw, X } from 'lucide-react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import type { BuscarBibliografiaRequest } from '@/data'
 import type { GoogleBooksVolume } from '@/data/api/subjects.api'
+import type { TablesInsert } from '@/types/supabase'
 
 import { defineStepper } from '@/components/stepper'
 import { Button } from '@/components/ui/button'
@@ -26,6 +27,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { WizardLayout } from '@/components/wizard/WizardLayout'
 import { WizardResponsiveHeader } from '@/components/wizard/WizardResponsiveHeader'
 import { buscar_bibliografia } from '@/data'
@@ -50,9 +56,15 @@ type CSLItem = {
   ISBN?: string
 }
 
+type BibliografiaAsignaturaInsert = TablesInsert<'bibliografia_asignatura'>
+type BibliografiaTipo = BibliografiaAsignaturaInsert['tipo']
+type BibliografiaTipoFuente = NonNullable<
+  BibliografiaAsignaturaInsert['tipo_fuente']
+>
+
 type BibliografiaRef = {
   id: string
-  source: 'IA' | 'MANUAL'
+  source: BibliografiaTipoFuente
   raw?: GoogleBooksVolume
   title: string
   authors: Array<string>
@@ -60,14 +72,15 @@ type BibliografiaRef = {
   year?: number
   isbn?: string
 
-  tipo: 'BASICA' | 'COMPLEMENTARIA'
+  tipo: BibliografiaTipo
 }
 
 type WizardState = {
   metodo: MetodoBibliografia
   ia: {
     q: string
-    cantidadDeSugerencias: number
+    cantidadDeSugerencias: number | null
+    showConservacionTooltip: boolean
     sugerencias: Array<{
       id: string
       selected: boolean
@@ -95,7 +108,7 @@ type WizardState = {
 }
 
 const Wizard = defineStepper(
-  { id: 'metodo', title: 'Método', description: 'Manual o Con IA' },
+  { id: 'metodo', title: 'Método', description: 'Manual o Buscar en línea' },
   {
     id: 'paso2',
     title: 'Datos básicos',
@@ -138,7 +151,7 @@ function volumeToRef(volume: GoogleBooksVolume): BibliografiaRef {
 
   return {
     id: volume.id,
-    source: 'IA',
+    source: 'MANUAL',
     raw: volume,
     title,
     authors,
@@ -147,6 +160,50 @@ function volumeToRef(volume: GoogleBooksVolume): BibliografiaRef {
     isbn,
     tipo: 'BASICA',
   }
+}
+
+function AutoSizeTextarea({
+  value,
+  disabled,
+  placeholder,
+  className,
+  onChange,
+}: {
+  value: string
+  disabled?: boolean
+  placeholder?: string
+  className?: string
+  onChange: (next: string) => void
+}) {
+  const ref = useRef<HTMLTextAreaElement | null>(null)
+
+  const autosize = () => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = '0px'
+    el.style.height = `${el.scrollHeight}px`
+  }
+
+  useLayoutEffect(() => {
+    autosize()
+  }, [value])
+
+  return (
+    <Textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      disabled={disabled}
+      placeholder={placeholder}
+      className={cn('min-h-0 resize-none overflow-hidden pr-10', className)}
+      onChange={(e) => {
+        const el = e.currentTarget
+        el.style.height = '0px'
+        el.style.height = `${el.scrollHeight}px`
+        onChange(el.value)
+      }}
+    />
+  )
 }
 
 function citeprocHtmlToPlainText(value: string) {
@@ -238,6 +295,7 @@ export function NuevaBibliografiaModalContainer({
     ia: {
       q: '',
       cantidadDeSugerencias: 10,
+      showConservacionTooltip: false,
       sugerencias: [],
       isLoading: false,
       errorMessage: null,
@@ -318,20 +376,47 @@ export function NuevaBibliografiaModalContainer({
   const canContinueDesdePaso3 = Boolean(wizard.formato) && allCitationsReady
 
   async function handleBuscarSugerencias() {
+    const hadNoSugerenciasBefore = wizard.ia.sugerencias.length === 0
+
+    const cantidad = wizard.ia.cantidadDeSugerencias
+    if (
+      !Number.isFinite(cantidad ?? Number.NaN) ||
+      (cantidad as number) < 1 ||
+      (cantidad as number) > 40
+    ) {
+      setWizard((w) => ({
+        ...w,
+        ia: {
+          ...w.ia,
+          errorMessage:
+            'La cantidad de sugerencias debe ser un entero entre 1 y 40 (o vacío).',
+        },
+        errorMessage: null,
+      }))
+      return
+    }
+
+    const selected = wizard.ia.sugerencias.filter((s) => s.selected)
+
     setWizard((w) => ({
       ...w,
-      ia: { ...w.ia, isLoading: true, errorMessage: null },
+      ia: {
+        ...w.ia,
+        // Conservar únicamente las sugerencias seleccionadas.
+        sugerencias: w.ia.sugerencias.filter((s) => s.selected),
+        showConservacionTooltip: false,
+        isLoading: true,
+        errorMessage: null,
+      },
       errorMessage: null,
     }))
 
     try {
-      const selectedCount = wizard.ia.sugerencias.filter(
-        (s) => s.selected,
-      ).length
+      const selectedCount = selected.length
       const req: BuscarBibliografiaRequest = {
         searchTerms: {
           q: wizard.ia.q,
-          maxResults: wizard.ia.cantidadDeSugerencias + selectedCount,
+          maxResults: (cantidad as number) + selectedCount,
           // orderBy: ignorado por ahora
         },
       }
@@ -343,7 +428,7 @@ export function NuevaBibliografiaModalContainer({
 
         const newOnes = items
           .filter((it) => !existingById.has(it.id))
-          .slice(0, w.ia.cantidadDeSugerencias)
+          .slice(0, cantidad as number)
           .map((it) => ({ id: it.id, selected: false, volume: it }))
 
         return {
@@ -351,6 +436,8 @@ export function NuevaBibliografiaModalContainer({
           ia: {
             ...w.ia,
             sugerencias: [...w.ia.sugerencias, ...newOnes],
+            showConservacionTooltip:
+              hadNoSugerenciasBefore && newOnes.length > 0,
             isLoading: false,
             errorMessage: null,
           },
@@ -374,7 +461,11 @@ export function NuevaBibliografiaModalContainer({
   async function generateCitasForFormato(
     formato: FormatoCita,
     refs: Array<BibliografiaRef>,
+    options?: {
+      force?: boolean
+    },
   ) {
+    const force = Boolean(options?.force)
     setWizard((w) => {
       const nextIds = new Set(w.generatingIds)
       refs.forEach((r) => nextIds.add(r.id))
@@ -432,9 +523,10 @@ export function NuevaBibliografiaModalContainer({
         const merged: Record<string, string> = { ...existing }
 
         for (const id of Object.keys(citations)) {
-          if (!merged[id] || merged[id].trim().length === 0) {
-            merged[id] = citations[id] ?? ''
-          }
+          merged[id] =
+            force || !merged[id] || merged[id].trim().length === 0
+              ? (citations[id] ?? '')
+              : merged[id]
         }
         nextEdits[formato] = merged
 
@@ -490,7 +582,7 @@ export function NuevaBibliografiaModalContainer({
             asignatura_id: asignaturaId,
             tipo: r.tipo,
             cita: map[r.id] ?? '',
-            tipo_fuente: 'MANUAL',
+            tipo_fuente: r.source,
             biblioteca_item_id: null,
           }),
         ),
@@ -532,7 +624,7 @@ export function NuevaBibliografiaModalContainer({
             }
             footerSlot={
               <Wizard.Stepper.Controls>
-                <div className="flex items-center justify-between">
+                <div className="flex grow items-center justify-between">
                   <Button
                     variant="secondary"
                     onClick={() => methods.prev()}
@@ -602,6 +694,15 @@ export function NuevaBibliografiaModalContainer({
                       isLoading={wizard.ia.isLoading}
                       errorMessage={wizard.ia.errorMessage}
                       sugerencias={wizard.ia.sugerencias}
+                      showConservacionTooltip={
+                        wizard.ia.showConservacionTooltip
+                      }
+                      onDismissConservacionTooltip={() =>
+                        setWizard((w) => ({
+                          ...w,
+                          ia: { ...w.ia, showConservacionTooltip: false },
+                        }))
+                      }
                       onChange={(patch) =>
                         setWizard((w) => ({
                           ...w,
@@ -664,7 +765,13 @@ export function NuevaBibliografiaModalContainer({
                     }}
                     onRegenerate={() => {
                       if (!wizard.formato) return
-                      void generateCitasForFormato(wizard.formato, wizard.refs)
+                      void generateCitasForFormato(
+                        wizard.formato,
+                        wizard.refs,
+                        {
+                          force: true,
+                        },
+                      )
                     }}
                     onChangeTipo={(id, tipo) =>
                       setWizard((w) => ({
@@ -752,7 +859,7 @@ function MetodoStep({
       >
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="text-primary h-5 w-5" /> Con IA
+            <Globe className="text-primary h-5 w-5" /> Buscar en línea
           </CardTitle>
           <CardDescription>
             Busca sugerencias y selecciona las mejores.
@@ -769,11 +876,13 @@ function SugerenciasStep({
   isLoading,
   errorMessage,
   sugerencias,
+  showConservacionTooltip,
+  onDismissConservacionTooltip,
   onChange,
   onGenerate,
 }: {
   q: string
-  cantidad: number
+  cantidad: number | null
   isLoading: boolean
   errorMessage: string | null
   sugerencias: Array<{
@@ -781,16 +890,24 @@ function SugerenciasStep({
     selected: boolean
     volume: GoogleBooksVolume
   }>
+  showConservacionTooltip: boolean
+  onDismissConservacionTooltip: () => void
   onChange: (
     patch: Partial<{
       q: string
-      cantidadDeSugerencias: number
+      cantidadDeSugerencias: number | null
       sugerencias: any
     }>,
   ) => void
   onGenerate: () => void
 }) {
   const selectedCount = sugerencias.filter((s) => s.selected).length
+
+  const cantidadIsValid =
+    typeof cantidad === 'number' &&
+    Number.isFinite(cantidad) &&
+    cantidad >= 1 &&
+    cantidad <= 40
 
   return (
     <div className="space-y-4">
@@ -818,13 +935,27 @@ function SugerenciasStep({
                 type="number"
                 min={1}
                 max={40}
-                value={cantidad}
-                onChange={(e) =>
-                  onChange({
-                    cantidadDeSugerencias:
-                      Number.parseInt(e.target.value || '0', 10) || 0,
-                  })
-                }
+                step={1}
+                inputMode="numeric"
+                placeholder="Ej. 10"
+                value={cantidad ?? ''}
+                onKeyDown={(e) => {
+                  if (['.', ',', '-', 'e', 'E', '+'].includes(e.key)) {
+                    e.preventDefault()
+                  }
+                }}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  if (raw === '') {
+                    onChange({ cantidadDeSugerencias: null })
+                    return
+                  }
+                  const asNumber = Number(raw)
+                  if (!Number.isFinite(asNumber)) return
+                  const n = Math.floor(Math.abs(asNumber))
+                  const capped = Math.min(Math.max(n >= 1 ? n : 1, 1), 40)
+                  onChange({ cantidadDeSugerencias: capped })
+                }}
               />
             </div>
 
@@ -832,7 +963,7 @@ function SugerenciasStep({
               type="button"
               variant="outline"
               onClick={onGenerate}
-              disabled={isLoading || q.trim().length === 0}
+              disabled={isLoading || q.trim().length === 0 || !cantidadIsValid}
               className="gap-2"
             >
               {isLoading ? (
@@ -846,12 +977,6 @@ function SugerenciasStep({
             </Button>
           </div>
 
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-muted-foreground text-sm">
-              {selectedCount} seleccionadas
-            </div>
-          </div>
-
           {errorMessage ? (
             <div className="text-destructive text-sm">{errorMessage}</div>
           ) : null}
@@ -859,7 +984,34 @@ function SugerenciasStep({
       </Card>
 
       <div className="space-y-2">
-        <div className="text-sm font-medium">Sugerencias</div>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-base font-medium">Sugerencias</h3>
+          <Tooltip open={showConservacionTooltip}>
+            <TooltipTrigger asChild>
+              <div className="bg-muted text-foreground inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-sm font-semibold">
+                <span aria-hidden>📌</span>
+                {selectedCount} seleccionadas
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={8} className="max-w-xs">
+              <div className="flex items-start gap-2">
+                <span className="flex-1 text-sm">
+                  Al generar más sugerencias, se conservarán las referencias
+                  seleccionadas.
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5"
+                  onClick={onDismissConservacionTooltip}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </div>
         <div className="max-h-96 space-y-1 overflow-y-auto pr-1">
           {sugerencias.map((s) => {
             const info = s.volume.volumeInfo ?? {}
@@ -1062,28 +1214,25 @@ function FormatoYCitasStep({
   generatingIds: Set<string>
   onChangeFormato: (formato: FormatoCita | null) => void
   onRegenerate: () => void
-  onChangeTipo: (id: string, tipo: 'BASICA' | 'COMPLEMENTARIA') => void
+  onChangeTipo: (id: string, tipo: BibliografiaTipo) => void
   onChangeCita: (id: string, value: string) => void
 }) {
   const isGeneratingAny = generatingIds.size > 0
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Formato</CardTitle>
-          <CardDescription>
-            Selecciona un formato para generar las citas.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-end justify-between gap-3">
-          <div className="min-w-55 flex-1">
-            <Label>Formato</Label>
+    <div className="space-y-6">
+      {/* 1. SECCIÓN DE CONTROLES: Sutil, compacta y sticky */}
+      <div className="bg-muted/40 border-border sticky top-0 z-10 rounded-lg border p-4 backdrop-blur-md">
+        <div className="flex flex-col items-end justify-between gap-4 sm:flex-row">
+          <div className="w-full flex-1 space-y-1.5 sm:max-w-xs">
+            <Label className="text-muted-foreground text-xs tracking-wider uppercase">
+              Formato de citación
+            </Label>
             <Select
               value={formato ?? ''}
               onValueChange={(v) => onChangeFormato(v as any)}
             >
-              <SelectTrigger>
+              <SelectTrigger className="bg-background">
                 <SelectValue placeholder="Seleccionar…" />
               </SelectTrigger>
               <SelectContent>
@@ -1097,77 +1246,94 @@ function FormatoYCitasStep({
 
           <Button
             type="button"
-            variant="outline"
-            className="gap-2"
+            variant="secondary" // Cambiado a secondary para menor peso visual
+            className="w-full gap-2 sm:w-auto"
             onClick={onRegenerate}
             disabled={!formato || refs.length === 0 || isGeneratingAny}
           >
-            <RefreshCw className="h-4 w-4" /> Regenerar
+            <RefreshCw className="h-4 w-4" /> Regenerar citas
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <div className="space-y-3">
-        {refs.map((r) => {
-          const infoText = [
-            r.title,
-            r.authors.join(', '),
-            r.publisher,
-            r.year ? String(r.year) : undefined,
-          ]
-            .filter(Boolean)
-            .join(' • ')
+      {/* 2. SECCIÓN DE LISTA: Separación visual clara */}
+      <div className="space-y-4">
+        {/* {refs.length > 0 && (
+          <div className="flex items-center gap-2">
+            <h3 className="text-muted-foreground text-sm font-medium">
+              Referencias añadidas
+            </h3>
+            <Badge variant="secondary" className="text-xs">
+              {refs.length}
+            </Badge>
+          </div>
+        )} */}
 
-          const isGenerating = generatingIds.has(r.id)
-          return (
-            <Card key={r.id}>
-              <CardHeader>
-                <CardTitle className="text-base">{r.title}</CardTitle>
-                <CardDescription className="wrap-break-word">
-                  {infoText}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Cita</Label>
-                    <Input
-                      value={citations[r.id] ?? ''}
-                      onChange={(e) => onChangeCita(r.id, e.target.value)}
-                      disabled={isGenerating || isGeneratingAny}
-                      placeholder="Cita generada…"
-                    />
-                    {isGenerating ? (
-                      <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />{' '}
-                        Generando cita…
+        <div className="space-y-3">
+          {refs.map((r) => {
+            const infoText = [
+              r.authors.join(', '),
+              r.publisher,
+              r.year ? String(r.year) : undefined,
+            ]
+              .filter(Boolean)
+              .join(' • ')
+
+            const isGenerating = generatingIds.has(r.id)
+
+            return (
+              <Card key={r.id} className="overflow-hidden">
+                <CardHeader className="bg-muted/10">
+                  <CardTitle className="text-base leading-tight">
+                    {r.title}
+                  </CardTitle>
+                  <CardDescription className="wrap-break-word">
+                    {infoText}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-12">
+                    <div className="space-y-2 sm:col-span-9">
+                      <Label className="text-xs">Cita formateada</Label>
+                      <div className="relative">
+                        <AutoSizeTextarea
+                          value={citations[r.id] ?? ''}
+                          onChange={(next) => onChangeCita(r.id, next)}
+                          disabled={isGenerating || isGeneratingAny}
+                          placeholder="Cita generada…"
+                        />
+                        {isGenerating && (
+                          <div className="absolute inset-y-0 right-3 flex items-center">
+                            <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
+                          </div>
+                        )}
                       </div>
-                    ) : null}
-                  </div>
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label>Tipo</Label>
-                    <Select
-                      value={r.tipo}
-                      onValueChange={(v) => onChangeTipo(r.id, v as any)}
-                      disabled={isGenerating || isGeneratingAny}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="BASICA">Básica</SelectItem>
-                        <SelectItem value="COMPLEMENTARIA">
-                          Complementaria
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex w-full flex-col items-start gap-2 sm:col-span-3 sm:items-stretch">
+                      <Label className="text-xs">Tipo</Label>
+                      <Select
+                        value={r.tipo}
+                        onValueChange={(v) => onChangeTipo(r.id, v as any)}
+                        disabled={isGenerating || isGeneratingAny}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="BASICA">Básica</SelectItem>
+                          <SelectItem value="COMPLEMENTARIA">
+                            Complementaria
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
@@ -1184,41 +1350,84 @@ function ResumenStep({
   refs: Array<BibliografiaRef>
   citations: Record<string, string>
 }) {
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Resumen</CardTitle>
-          <CardDescription>Revisa antes de agregar.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <div>
-            <span className="font-medium">Método:</span> {metodo ?? '—'}
-          </div>
-          <div>
-            <span className="font-medium">Formato:</span> {formato ?? '—'}
-          </div>
-          <div>
-            <span className="font-medium">Referencias:</span> {refs.length}
-          </div>
-        </CardContent>
-      </Card>
+  // 1. Separar las referencias
+  const basicas = refs.filter((r) => r.tipo === 'BASICA')
+  const complementarias = refs.filter((r) => r.tipo === 'COMPLEMENTARIA')
+  const metodoLabel =
+    metodo === 'MANUAL' ? 'Manual' : metodo === 'IA' ? 'Buscar en línea' : '—'
 
-      <div className="space-y-2">
-        {refs.map((r) => (
-          <Card key={r.id}>
-            <CardHeader>
-              <CardTitle className="text-base">{r.title}</CardTitle>
-              <CardDescription>
-                {r.tipo === 'BASICA' ? 'Básica' : 'Complementaria'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm">{citations[r.id] ?? ''}</div>
-            </CardContent>
-          </Card>
-        ))}
+  return (
+    <div className="space-y-8">
+      {/* Panel de Resumen General */}
+      <div className="bg-muted/40 rounded-lg border p-4">
+        <h3 className="text-foreground mb-4 text-sm font-semibold">
+          Resumen de importación
+        </h3>
+        <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+          <div>
+            <p className="text-muted-foreground text-xs uppercase">Método</p>
+            <p className="font-medium">{metodoLabel}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground text-xs uppercase">Formato</p>
+            <p className="font-medium uppercase">{formato ?? '—'}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground text-xs uppercase">Básicas</p>
+            <p className="font-medium">{basicas.length}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground text-xs uppercase">
+              Complementarias
+            </p>
+            <p className="font-medium">{complementarias.length}</p>
+          </div>
+        </div>
       </div>
+
+      {/* Sección: Bibliografía Básica */}
+      {basicas.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-foreground border-b pb-2 text-sm font-medium">
+            Bibliografía Básica
+          </h4>
+          <div className="space-y-2">
+            {basicas.map((r) => (
+              <div
+                key={r.id}
+                className="bg-background rounded-md border p-3 text-sm shadow-sm"
+              >
+                <p className="mb-1 font-medium">{r.title}</p>
+                <p className="text-muted-foreground">
+                  {citations[r.id] ?? 'Sin cita generada'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Sección: Bibliografía Complementaria */}
+      {complementarias.length > 0 && (
+        <div className="space-y-3">
+          <h4 className="text-foreground border-b pb-2 text-sm font-medium">
+            Bibliografía Complementaria
+          </h4>
+          <div className="space-y-2">
+            {complementarias.map((r) => (
+              <div
+                key={r.id}
+                className="bg-background rounded-md border p-3 text-sm shadow-sm"
+              >
+                <p className="mb-1 font-medium">{r.title}</p>
+                <p className="text-muted-foreground">
+                  {citations[r.id] ?? 'Sin cita generada'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -19,7 +19,7 @@ import type {
   AsignaturaSugerida,
   DataAsignaturaSugerida,
 } from '@/features/asignaturas/nueva/types'
-import type { Database, TablesInsert } from '@/types/supabase'
+import type { Database, Tables, TablesInsert } from '@/types/supabase'
 
 const EDGE = {
   generate_subject_suggestions: 'generate-subject-suggestions',
@@ -85,8 +85,8 @@ export type GoogleBooksVolume = {
 export async function buscar_bibliografia(
   input: BuscarBibliografiaRequest,
 ): Promise<Array<GoogleBooksVolume>> {
-  const q = input?.searchTerms?.q
-  const maxResults = input?.searchTerms?.maxResults
+  const q = input.searchTerms.q
+  const maxResults = input.searchTerms.maxResults
 
   if (typeof q !== 'string' || q.trim().length < 1) {
     throw new Error('q es requerido')
@@ -158,7 +158,7 @@ export type PlanEstudioInSubject = Pick<
 
 export type EstructuraAsignaturaInSubject = Pick<
   EstructuraAsignatura,
-  'id' | 'nombre' | 'version' | 'definicion'
+  'id' | 'nombre' | 'definicion'
 >
 
 /**
@@ -529,13 +529,9 @@ export async function lineas_delete(lineaId: string) {
   return lineaId
 }
 
-export async function bibliografia_insert(entry: {
-  asignatura_id: string
-  tipo: 'BASICA' | 'COMPLEMENTARIA'
-  cita: string
-  tipo_fuente: 'MANUAL' | 'BIBLIOTECA'
-  biblioteca_item_id?: string | null
-}) {
+export async function bibliografia_insert(
+  entry: TablesInsert<'bibliografia_asignatura'>,
+): Promise<Tables<'bibliografia_asignatura'>> {
   const supabase = supabaseBrowser()
   const { data, error } = await supabase
     .from('bibliografia_asignatura')
@@ -544,7 +540,7 @@ export async function bibliografia_insert(entry: {
     .single()
 
   if (error) throw error
-  return data
+  return data as Tables<'bibliografia_asignatura'>
 }
 
 export async function bibliografia_update(
