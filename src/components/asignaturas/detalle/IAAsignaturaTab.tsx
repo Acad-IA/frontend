@@ -76,6 +76,17 @@ export function IAAsignaturaTab({
   const [isCreatingNewChat, setIsCreatingNewChat] = useState(false)
   const hasInitialSelected = useRef(false)
 
+  const isAiThinking = useMemo(() => {
+    if (isSending) return true
+    if (!rawMessages || rawMessages.length === 0) return false
+
+    // Verificamos si el último mensaje está en estado de procesamiento
+    const lastMessage = rawMessages[rawMessages.length - 1]
+    return (
+      lastMessage.estado === 'PROCESANDO' || lastMessage.estado === 'PENDIENTE'
+    )
+  }, [isSending, rawMessages])
+
   // --- AUTO-SCROLL ---
   useEffect(() => {
     const viewport = scrollRef.current?.querySelector(
@@ -392,11 +403,23 @@ export function IAAsignaturaTab({
                   </div>
                 </div>
               ))}
-              {isSending && (
-                <div className="flex animate-pulse gap-2 p-4">
-                  <div className="h-2 w-2 rounded-full bg-teal-400" />
-                  <div className="h-2 w-2 rounded-full bg-teal-400" />
-                  <div className="h-2 w-2 rounded-full bg-teal-400" />
+              {isAiThinking && (
+                <div className="animate-in fade-in flex flex-row items-start gap-3 duration-300">
+                  <Avatar className="h-8 w-8 shrink-0 border bg-teal-50">
+                    <AvatarFallback>
+                      <Sparkles
+                        size={14}
+                        className="animate-pulse text-teal-600"
+                      />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="rounded-2xl rounded-tl-none border bg-white p-4 shadow-sm">
+                    <div className="flex gap-1.5">
+                      <div className="h-2 w-2 animate-bounce rounded-full bg-teal-400 [animation-delay:-0.3s]" />
+                      <div className="h-2 w-2 animate-bounce rounded-full bg-teal-400 [animation-delay:-0.15s]" />
+                      <div className="h-2 w-2 animate-bounce rounded-full bg-teal-400" />
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

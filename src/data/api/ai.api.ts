@@ -301,7 +301,7 @@ export async function getConversationBySubject(subjectId: string) {
 export async function getMessagesBySubjectConversation(conversationId: string) {
   const supabase = supabaseBrowser()
   const { data, error } = await supabase
-    .from('asignatura_mensajes_ia') // Tabla corregida
+    .from('asignatura_mensajes_ia' as any)
     .select('*')
     .eq('conversacion_asignatura_id', conversationId)
     .order('fecha_creacion', { ascending: true })
