@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 
 import {
   ai_plan_chat_v2,
   ai_plan_improve,
-  ai_subject_chat,
   ai_subject_improve,
   create_conversation,
   get_chat_history,
@@ -13,10 +13,16 @@ import {
   update_recommendation_applied_status,
   update_conversation_title,
   getMessagesByConversation,
+  update_subject_conversation_status,
+  update_subject_recommendation_applied,
+  getMessagesBySubjectConversation,
+  getConversationBySubject,
+  ai_subject_chat_v2,
+  create_subject_conversation,
 } from '../api/ai.api'
+import { supabaseBrowser } from '../supabase/client'
 
-// eslint-disable-next-line node/prefer-node-protocol
-import type { UUID } from 'crypto'
+import type { UUID } from 'node:crypto'
 
 export function useAIPlanImprove() {
   return useMutation({ mutationFn: ai_plan_improve })
@@ -90,22 +96,58 @@ export function useConversationByPlan(planId: string | null) {
 }
 
 export function useMessagesByChat(conversationId: string | null) {
-  return useQuery({
-    // La queryKey debe ser única; incluimos el ID para que se refresque al cambiar de chat
-    queryKey: ['conversation-messages', conversationId],
+  const queryClient = useQueryClient()
+  const supabase = supabaseBrowser()
 
-    // Solo ejecutamos la función si el ID no es null o undefined
+  const query = useQuery({
+    queryKey: ['conversation-messages', conversationId],
     queryFn: () => {
       if (!conversationId) throw new Error('Conversation ID is required')
       return getMessagesByConversation(conversationId)
     },
-
-    // Importante: 'enabled' controla que no se dispare la petición si no hay ID
     enabled: !!conversationId,
-
-    // Opcional: Mantener los datos previos mientras se carga la nueva conversación
     placeholderData: (previousData) => previousData,
   })
+
+  useEffect(() => {
+    if (!conversationId) return
+
+    // Suscribirse a cambios en los mensajes de ESTA conversación
+    const channel = supabase
+      .channel(`realtime-messages-${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Escuchamos INSERT y UPDATE
+          schema: 'public',
+          table: 'plan_mensajes_ia',
+          filter: `conversacion_plan_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          // Opción A: Invalidar la query para que React Query haga refetch (más seguro)
+          queryClient.invalidateQueries({
+            queryKey: ['conversation-messages', conversationId],
+          })
+
+          /* Opción B: Actualización manual del caché (más rápido/fluido)
+             if (payload.eventType === 'INSERT') {
+               queryClient.setQueryData(['conversation-messages', conversationId], (old: any) => [...old, payload.new])
+             } else if (payload.eventType === 'UPDATE') {
+               queryClient.setQueryData(['conversation-messages', conversationId], (old: any) => 
+                 old.map((m: any) => m.id === payload.new.id ? payload.new : m)
+               )
+             }
+          */
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [conversationId, queryClient, supabase])
+
+  return query
 }
 
 export function useUpdateRecommendationApplied() {
@@ -137,10 +179,6 @@ export function useAISubjectImprove() {
   return useMutation({ mutationFn: ai_subject_improve })
 }
 
-export function useAISubjectChat() {
-  return useMutation({ mutationFn: ai_subject_chat })
-}
-
 export function useLibrarySearch() {
   return useMutation({ mutationFn: library_search })
 }
@@ -154,6 +192,92 @@ export function useUpdateConversationTitle() {
     onSuccess: (_, variables) => {
       // Invalidamos para que la lista de chats se refresque
       qc.invalidateQueries({ queryKey: ['conversation-by-plan'] })
+    },
+  })
+}
+
+// Asignaturas
+
+export function useAISubjectChat() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: {
+      subjectId: UUID
+      content: string
+      campos?: Array<string>
+      conversacionId?: string
+    }) => {
+      let currentId = payload.conversacionId
+
+      // 1. Si no hay ID, creamos la conversación de asignatura
+      if (!currentId) {
+        const response = await create_subject_conversation(payload.subjectId)
+        currentId = response.conversation_asignatura.id
+      }
+
+      // 2. Enviamos mensaje al endpoint de asignatura
+      const result = await ai_subject_chat_v2({
+        conversacionId: currentId!,
+        content: payload.content,
+        campos: payload.campos,
+      })
+
+      return { ...result, conversacionId: currentId }
+    },
+    onSuccess: (data) => {
+      // Invalidamos mensajes para que se refresque el chat
+      qc.invalidateQueries({
+        queryKey: ['subject-messages', data.conversacionId],
+      })
+    },
+  })
+}
+
+export function useConversationBySubject(subjectId: string | null) {
+  return useQuery({
+    queryKey: ['conversation-by-subject', subjectId],
+    queryFn: () => getConversationBySubject(subjectId!),
+    enabled: !!subjectId,
+  })
+}
+
+export function useMessagesBySubjectChat(conversationId: string | null) {
+  return useQuery({
+    queryKey: ['subject-messages', conversationId],
+    queryFn: () => {
+      if (!conversationId) throw new Error('Conversation ID is required')
+      return getMessagesBySubjectConversation(conversationId)
+    },
+    enabled: !!conversationId,
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useUpdateSubjectRecommendation() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: { mensajeId: string; campoAfectado: string }) =>
+      update_subject_recommendation_applied(
+        payload.mensajeId,
+        payload.campoAfectado,
+      ),
+    onSuccess: () => {
+      // Refrescamos los mensajes para ver el check de "aplicado"
+      qc.invalidateQueries({ queryKey: ['subject-messages'] })
+    },
+  })
+}
+
+export function useUpdateSubjectConversationStatus() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: { id: string; estado: 'ARCHIVADA' | 'ACTIVA' }) =>
+      update_subject_conversation_status(payload.id, payload.estado),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['conversation-by-subject'] })
     },
   })
 }
