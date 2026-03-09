@@ -98,14 +98,14 @@ function RouteComponent() {
   const [openIA, setOpenIA] = useState(false)
   const { mutateAsync: sendChat, isPending: isLoading } = useAIPlanChat()
   const { mutate: updateStatusMutation } = useUpdateConversationStatus()
-
+  const [isSyncing, setIsSyncing] = useState(false)
   const [activeChatId, setActiveChatId] = useState<string | undefined>(
     undefined,
   )
   const { data: lastConversation, isLoading: isLoadingConv } =
     useConversationByPlan(planId)
   const { data: mensajesDelChat, isLoading: isLoadingMessages } =
-    useMessagesByChat(activeChatId)
+    useMessagesByChat(activeChatId ?? null) // Si es undefined, pasa null
   const [selectedArchivoIds, setSelectedArchivoIds] = useState<Array<string>>(
     [],
   )
@@ -151,10 +151,6 @@ function RouteComponent() {
         !selectedFields.some((s) => s.key === field.key), // No mostrar ya seleccionados
     )
   }, [availableFields, filterQuery, selectedFields])
-
-  const activeChatData = useMemo(() => {
-    return lastConversation?.find((chat: any) => chat.id === activeChatId)
-  }, [lastConversation, activeChatId])
 
   const chatMessages = useMemo(() => {
     if (!activeChatId || !mensajesDelChat) return []
@@ -274,6 +270,7 @@ function RouteComponent() {
     isSending,
     messages.length,
     chatMessages.length,
+    messages,
   ])
 
   useEffect(() => {
@@ -288,7 +285,7 @@ function RouteComponent() {
     setInput((prev) =>
       injectFieldsIntoInput(prev || 'Mejora este campo:', [field]),
     )
-  }, [availableFields])
+  }, [availableFields, routerState.location.state])
 
   const createNewChat = () => {
     setActiveChatId(undefined) // Al ser undefined, el próximo handleSend creará uno nuevo
@@ -404,17 +401,16 @@ function RouteComponent() {
     if (isSending || (!rawText.trim() && selectedFields.length === 0)) return
 
     const currentFields = [...selectedFields]
+    const finalContent = buildPrompt(rawText, currentFields)
     setIsSending(true)
-    setOptimisticMessage(rawText)
-
-    // Limpiar input inmediatamente para feedback visual
+    setOptimisticMessage(finalContent)
     setInput('')
     setSelectedFields([])
 
     try {
       const payload = {
-        planId,
-        content: buildPrompt(rawText, currentFields),
+        planId: planId as any,
+        content: finalContent,
         conversacionId: activeChatId,
         campos:
           currentFields.length > 0
@@ -423,13 +419,12 @@ function RouteComponent() {
       }
 
       const response = await sendChat(payload)
-
-      // IMPORTANTE: Si es un chat nuevo, actualizar el ID antes de invalidar
+      setIsSyncing(true)
       if (response.conversacionId && response.conversacionId !== activeChatId) {
         setActiveChatId(response.conversacionId)
       }
 
-      // Invalidar ambas para asegurar que la lista de la izquierda y los mensajes se
+      // ESPERAMOS a que la caché se actualice antes de quitar el "isSending"
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ['conversation-by-plan', planId],
@@ -440,11 +435,26 @@ function RouteComponent() {
       ])
     } catch (error) {
       console.error('Error:', error)
-    } finally {
-      setIsSending(false)
       setOptimisticMessage(null)
+    } finally {
+      // Solo ahora quitamos los indicadores de carga
+      setIsSending(false)
+      // setOptimisticMessage(null)
     }
   }
+
+  useEffect(() => {
+    if (!isSyncing || !mensajesDelChat || mensajesDelChat.length === 0) return
+
+    // Forzamos el tipo a 'any' o a tu interfaz de mensaje para saltarnos la unión de tipos compleja
+    const ultimoMensajeDB = mensajesDelChat[mensajesDelChat.length - 1] as any
+
+    // Ahora la validación es directa y no debería dar avisos de "unnecessary"
+    if (ultimoMensajeDB?.respuesta) {
+      setIsSyncing(false)
+      setOptimisticMessage(null)
+    }
+  }, [mensajesDelChat, isSyncing])
 
   const totalReferencias = useMemo(() => {
     return (
@@ -647,42 +657,55 @@ function RouteComponent() {
                 </div>
               ) : (
                 <>
-                  {chatMessages.map((msg: any) => (
-                    <div
-                      key={msg.id}
-                      className={`flex max-w-[85%] flex-col ${
-                        msg.role === 'user'
-                          ? 'ml-auto items-end'
-                          : 'items-start'
-                      }`}
-                    >
+                  {chatMessages.map((msg: any) => {
+                    const isAI = msg.role === 'assistant'
+                    const isUser = msg.role === 'user'
+                    // IMPORTANTE: Asegúrate de que msg.id contenga la info de procesamiento o pásala en el map
+                    const isProcessing = msg.isProcessing
+
+                    return (
                       <div
-                        className={`relative rounded-2xl p-3 text-sm whitespace-pre-wrap shadow-sm transition-all duration-300 ${
-                          msg.role === 'user'
-                            ? 'rounded-tr-none bg-teal-600 text-white'
-                            : `rounded-tl-none border bg-white text-slate-700 ${
-                                // --- LÓGICA DE REFUSAL ---
-                                msg.isRefusal
-                                  ? 'border-red-200 bg-red-50/50 ring-1 ring-red-100'
-                                  : 'border-slate-100'
-                              }`
+                        key={msg.id}
+                        className={`flex max-w-[85%] flex-col ${
+                          isUser ? 'ml-auto items-end' : 'items-start'
                         }`}
                       >
-                        {/* Icono opcional de advertencia si es refusal */}
-                        {msg.isRefusal && (
-                          <div className="mb-1 flex items-center gap-1 text-[10px] font-bold text-red-500 uppercase">
-                            <span>Aviso del Asistente</span>
-                          </div>
-                        )}
+                        <div
+                          className={`relative rounded-2xl p-3 text-sm whitespace-pre-wrap shadow-sm transition-all duration-300 ${
+                            isUser
+                              ? 'rounded-tr-none bg-teal-600 text-white'
+                              : `rounded-tl-none border bg-white text-slate-700 ${
+                                  msg.isRefusal
+                                    ? 'border-red-200 bg-red-50/50 ring-1 ring-red-100'
+                                    : 'border-slate-100'
+                                }`
+                          }`}
+                        >
+                          {/* Aviso de Refusal */}
+                          {msg.isRefusal && (
+                            <div className="mb-1 flex items-center gap-1 text-[10px] font-bold text-red-500 uppercase">
+                              <span>Aviso del Asistente</span>
+                            </div>
+                          )}
 
-                        {msg.content}
+                          {/* CONTENIDO CORRECTO: Usamos msg.content */}
+                          {isAI && isProcessing ? (
+                            <div className="flex items-center gap-2 py-1">
+                              <div className="flex gap-1">
+                                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-500" />
+                                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-500 [animation-delay:-0.15s]" />
+                                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-500 [animation-delay:-0.3s]" />
+                              </div>
+                            </div>
+                          ) : (
+                            msg.content // <--- CAMBIO CLAVE
+                          )}
 
-                        {!msg.isRefusal &&
-                          msg.suggestions &&
-                          msg.suggestions.length > 0 && (
+                          {/* Recomendaciones */}
+                          {isAI && msg.suggestions?.length > 0 && (
                             <div className="mt-4">
                               <ImprovementCard
-                                suggestions={msg.suggestions}
+                                suggestions={msg.suggestions} // Usamos el nombre normalizado en el flatMap
                                 dbMessageId={msg.dbMessageId}
                                 planId={planId}
                                 currentDatos={data?.datos}
@@ -693,19 +716,24 @@ function RouteComponent() {
                               />
                             </div>
                           )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
 
-                  {optimisticMessage && (
-                    <div className="animate-in fade-in slide-in-from-right-2 ml-auto flex max-w-[85%] flex-col items-end">
-                      <div className="rounded-2xl rounded-tr-none bg-teal-600/70 p-3 text-sm whitespace-pre-wrap text-white shadow-sm">
-                        {optimisticMessage}
+                  {(isSending || isSyncing) &&
+                    optimisticMessage &&
+                    !chatMessages.some(
+                      (m) => m.content === optimisticMessage,
+                    ) && (
+                      <div className="animate-in fade-in slide-in-from-right-2 ml-auto flex max-w-[85%] flex-col items-end">
+                        <div className="rounded-2xl rounded-tr-none bg-teal-600/70 p-3 text-sm whitespace-pre-wrap text-white shadow-sm">
+                          {optimisticMessage}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {isSending && (
+                  {(isSending || isSyncing) && (
                     <div className="animate-in fade-in slide-in-from-left-2 flex flex-col items-start duration-300">
                       <div className="rounded-2xl rounded-tl-none border border-slate-200 bg-white p-4 shadow-sm">
                         <div className="flex items-center gap-2">
@@ -715,7 +743,9 @@ function RouteComponent() {
                             <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-500" />
                           </div>
                           <span className="text-[10px] font-medium tracking-tight text-slate-400 uppercase">
-                            Esperando respuesta...
+                            {isSyncing
+                              ? 'Actualizando historial...'
+                              : 'Esperando respuesta...'}
                           </span>
                         </div>
                       </div>

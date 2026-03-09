@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 
 import {
   ai_plan_chat_v2,
@@ -19,9 +20,9 @@ import {
   ai_subject_chat_v2,
   create_subject_conversation,
 } from '../api/ai.api'
+import { supabaseBrowser } from '../supabase/client'
 
-// eslint-disable-next-line node/prefer-node-protocol
-import type { UUID } from 'crypto'
+import type { UUID } from 'node:crypto'
 
 export function useAIPlanImprove() {
   return useMutation({ mutationFn: ai_plan_improve })
@@ -95,22 +96,58 @@ export function useConversationByPlan(planId: string | null) {
 }
 
 export function useMessagesByChat(conversationId: string | null) {
-  return useQuery({
-    // La queryKey debe ser única; incluimos el ID para que se refresque al cambiar de chat
-    queryKey: ['conversation-messages', conversationId],
+  const queryClient = useQueryClient()
+  const supabase = supabaseBrowser()
 
-    // Solo ejecutamos la función si el ID no es null o undefined
+  const query = useQuery({
+    queryKey: ['conversation-messages', conversationId],
     queryFn: () => {
       if (!conversationId) throw new Error('Conversation ID is required')
       return getMessagesByConversation(conversationId)
     },
-
-    // Importante: 'enabled' controla que no se dispare la petición si no hay ID
     enabled: !!conversationId,
-
-    // Opcional: Mantener los datos previos mientras se carga la nueva conversación
     placeholderData: (previousData) => previousData,
   })
+
+  useEffect(() => {
+    if (!conversationId) return
+
+    // Suscribirse a cambios en los mensajes de ESTA conversación
+    const channel = supabase
+      .channel(`realtime-messages-${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Escuchamos INSERT y UPDATE
+          schema: 'public',
+          table: 'plan_mensajes_ia',
+          filter: `conversacion_plan_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          // Opción A: Invalidar la query para que React Query haga refetch (más seguro)
+          queryClient.invalidateQueries({
+            queryKey: ['conversation-messages', conversationId],
+          })
+
+          /* Opción B: Actualización manual del caché (más rápido/fluido)
+             if (payload.eventType === 'INSERT') {
+               queryClient.setQueryData(['conversation-messages', conversationId], (old: any) => [...old, payload.new])
+             } else if (payload.eventType === 'UPDATE') {
+               queryClient.setQueryData(['conversation-messages', conversationId], (old: any) => 
+                 old.map((m: any) => m.id === payload.new.id ? payload.new : m)
+               )
+             }
+          */
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [conversationId, queryClient, supabase])
+
+  return query
 }
 
 export function useUpdateRecommendationApplied() {
