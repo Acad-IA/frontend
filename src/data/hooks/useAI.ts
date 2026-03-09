@@ -243,15 +243,54 @@ export function useConversationBySubject(subjectId: string | null) {
 }
 
 export function useMessagesBySubjectChat(conversationId: string | null) {
-  return useQuery({
+  const queryClient = useQueryClient()
+
+  const query = useQuery({
     queryKey: ['subject-messages', conversationId],
-    queryFn: () => {
+    queryFn: async () => {
       if (!conversationId) throw new Error('Conversation ID is required')
       return getMessagesBySubjectConversation(conversationId)
     },
     enabled: !!conversationId,
     placeholderData: (previousData) => previousData,
   })
+
+  useEffect(() => {
+    if (!conversationId) return
+
+    const supabase = supabaseBrowser()
+
+    // Suscripción a cambios en la tabla específica para esta conversación
+    const channel = supabase
+      .channel(`subject_messages_${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE', // Solo nos interesan las actualizaciones (cuando pasa de PROCESANDO a COMPLETADO)
+          schema: 'public',
+          table: 'asignatura_mensajes_ia',
+          filter: `conversacion_asignatura_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          // Si el mensaje se completó o dio error, invalidamos la caché para traer los datos nuevos
+          if (
+            payload.new.estado === 'COMPLETADO' ||
+            payload.new.estado === 'ERROR'
+          ) {
+            queryClient.invalidateQueries({
+              queryKey: ['subject-messages', conversationId],
+            })
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [conversationId, queryClient])
+
+  return query
 }
 
 export function useUpdateSubjectRecommendation() {
