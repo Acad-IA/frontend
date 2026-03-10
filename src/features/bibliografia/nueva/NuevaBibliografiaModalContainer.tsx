@@ -1,6 +1,13 @@
 import { useNavigate } from '@tanstack/react-router'
 import CSL from 'citeproc'
-import { Globe, Loader2, Plus, RefreshCw, X } from 'lucide-react'
+import {
+  Globe,
+  Link as LinkIcon,
+  Loader2,
+  Plus,
+  RefreshCw,
+  X,
+} from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { BuscarBibliografiaRequest } from '@/data'
@@ -1174,6 +1181,25 @@ function SugerenciasStep({
                     : ''
                   ).trim()
 
+            const browserHref = (() => {
+              if (s.endpoint === 'google') {
+                const info = (s.item as GoogleBooksVolume).volumeInfo
+                const previewLink =
+                  typeof info?.previewLink === 'string'
+                    ? info.previewLink
+                    : undefined
+                const infoLink =
+                  typeof info?.infoLink === 'string' ? info.infoLink : undefined
+                return previewLink || infoLink
+              }
+
+              const key = (s.item as OpenLibraryDoc)['key']
+              if (typeof key === 'string' && key.trim()) {
+                return `https://openlibrary.org/${key}`
+              }
+              return undefined
+            })()
+
             const authors =
               s.endpoint === 'google'
                 ? (
@@ -1229,7 +1255,18 @@ function SugerenciasStep({
                     {authors || '—'}
                     {year ? ` • ${year}` : ''}
                   </div>
-                  <div className="flex justify-end-safe">
+                  <div className="flex justify-between">
+                    <a
+                      href={browserHref}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={cn(
+                        'text-muted-foreground hover:text-primary inline-flex items-center gap-1 text-xs underline transition-colors visited:text-purple-500',
+                        !browserHref && 'invisible',
+                      )}
+                    >
+                      Ver ficha <LinkIcon className="h-3.5 w-3.5" />
+                    </a>
                     <Badge variant="secondary" className="shrink-0">
                       {badgeLabel}
                     </Badge>
