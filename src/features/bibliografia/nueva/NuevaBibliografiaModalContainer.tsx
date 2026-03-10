@@ -1408,6 +1408,34 @@ function FormatoYCitasStep({
   onChangeTipo: (id: string, tipo: BibliografiaTipo) => void
 }) {
   const isGeneratingAny = generatingIds.size > 0
+  const [authorsDraftById, setAuthorsDraftById] = useState<
+    Record<string, string>
+  >({})
+
+  useEffect(() => {
+    const ids = new Set(refs.map((r) => r.id))
+    setAuthorsDraftById((prev) => {
+      let next = prev
+
+      // Remove drafts for refs that no longer exist
+      for (const id of Object.keys(prev)) {
+        if (!ids.has(id)) {
+          if (next === prev) next = { ...prev }
+          delete next[id]
+        }
+      }
+
+      // Initialize drafts for new refs (do not override existing edits)
+      for (const r of refs) {
+        if (typeof next[r.id] !== 'string') {
+          if (next === prev) next = { ...prev }
+          next[r.id] = r.authors.join('\n')
+        }
+      }
+
+      return next
+    })
+  }, [refs])
 
   return (
     <div className="space-y-6">
@@ -1461,17 +1489,9 @@ function FormatoYCitasStep({
 
         <div className="space-y-3">
           {refs.map((r) => {
-            const infoText = [
-              r.authors.join(', '),
-              r.publisher,
-              r.year ? String(r.year) : undefined,
-            ]
-              .filter(Boolean)
-              .join(' • ')
-
             const isGenerating = generatingIds.has(r.id)
 
-            const authorsText = r.authors.join('\n')
+            const authorsText = authorsDraftById[r.id] ?? r.authors.join('\n')
             const yearText = typeof r.year === 'number' ? String(r.year) : ''
             const isbnText = r.isbn ?? ''
             const publisherText = r.publisher ?? ''
@@ -1520,14 +1540,20 @@ function FormatoYCitasStep({
                         value={authorsText}
                         disabled={isGeneratingAny || isGenerating}
                         className="min-h-22.5"
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const nextText = e.currentTarget.value
+                          setAuthorsDraftById((prev) => ({
+                            ...prev,
+                            [r.id]: nextText,
+                          }))
+
                           onChangeRef(r.id, {
-                            authors: e.currentTarget.value
+                            authors: nextText
                               .split(/\r?\n/)
                               .map((x) => x.trim())
                               .filter(Boolean),
                           })
-                        }
+                        }}
                       />
                     </div>
 
