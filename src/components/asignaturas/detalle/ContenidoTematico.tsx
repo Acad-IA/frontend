@@ -96,7 +96,7 @@ function InsertUnidadOverlay({
         type="button"
         variant="outline"
         size="sm"
-        className="bg-background/95 border-border/60 hover:bg-background opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
+        className="bg-background/95 border-border/60 hover:bg-background cursor-pointer opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
         onClick={(e) => {
           e.stopPropagation()
           onInsert()
@@ -344,10 +344,17 @@ export function ContenidoTematico() {
     })
   }
 
+  const parseHorasEstimadas = (raw: string): number => {
+    const normalized = raw.trim().replace(',', '.')
+    const parsed = Number.parseFloat(normalized)
+    if (!Number.isFinite(parsed)) return 0
+
+    return parsed
+  }
+
   const commitEditTema = () => {
     if (!editingTema) return
-    const parsedHoras = Number.parseInt(temaDraftHoras, 10)
-    const horasEstimadas = Number.isFinite(parsedHoras) ? parsedHoras : 0
+    const horasEstimadas = parseHorasEstimadas(temaDraftHoras)
 
     const next = unidades.map((u) => {
       if (u.id !== editingTema.unitId) return u
@@ -480,7 +487,10 @@ export function ContenidoTematico() {
               return {
                 id: temaId,
                 nombre: dbTemaNombre,
-                horasEstimadas: t?.horasEstimadas || 0,
+                horasEstimadas:
+                  coerceNumber(
+                    typeof t === 'string' ? undefined : t?.horasEstimadas,
+                  ) ?? 0,
               }
             })
           : [],
@@ -530,7 +540,7 @@ export function ContenidoTematico() {
   // 3. Cálculo de horas (ahora dinámico basado en los nuevos datos)
   const totalHoras = unidades.reduce(
     (acc, u) =>
-      acc + u.temas.reduce((sum, t) => sum + (t.horasEstimadas || 0), 0),
+      acc + u.temas.reduce((sum, t) => sum + (t.horasEstimadas ?? 0), 0),
     0,
   )
 
@@ -701,7 +711,7 @@ export function ContenidoTematico() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-auto p-0"
+                              className="h-auto cursor-pointer p-0"
                             >
                               {expandedUnits.has(unidad.id) ? (
                                 <ChevronDown className="h-4 w-4" />
@@ -753,7 +763,7 @@ export function ContenidoTematico() {
                           )}
 
                           <div className="ml-auto flex items-center gap-3">
-                            <span className="flex items-center gap-1 text-xs font-medium text-slate-400">
+                            <span className="flex cursor-default items-center gap-1 text-xs font-medium text-slate-400">
                               <Clock className="h-3 w-3" />{' '}
                               {unidad.temas.reduce(
                                 (sum, t) => sum + (t.horasEstimadas || 0),
@@ -764,7 +774,7 @@ export function ContenidoTematico() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-slate-400 hover:text-red-500"
+                              className="h-8 w-8 cursor-pointer text-slate-400 hover:text-red-500"
                               onClick={() =>
                                 setDeleteDialog({
                                   type: 'unidad',
@@ -818,7 +828,7 @@ export function ContenidoTematico() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="mt-2 w-full justify-start text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                              className="mt-2 w-full cursor-pointer justify-start text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                               onClick={() => addTema(unidad.id)}
                             >
                               <Plus className="mr-2 h-3 w-3" /> Añadir subtema
@@ -898,6 +908,9 @@ function TemaRow({
           <Input
             type="number"
             value={draftHoras}
+            min={0}
+            max={200}
+            step={0.5}
             onChange={(e) => onDraftHorasChange(e.target.value)}
             className="h-8 w-16 bg-white"
           />
@@ -906,7 +919,7 @@ function TemaRow({
         <>
           <button
             type="button"
-            className="flex flex-1 items-center gap-3 text-left"
+            className="flex flex-1 cursor-pointer items-center gap-3 text-left"
             onClick={(e) => {
               e.stopPropagation()
               onBeginEdit()
@@ -921,7 +934,7 @@ function TemaRow({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-slate-400 hover:text-blue-600"
+              className="h-7 w-7 cursor-pointer text-slate-400 hover:text-blue-600"
               onClick={(e) => {
                 e.stopPropagation()
                 onBeginEdit()
@@ -932,7 +945,7 @@ function TemaRow({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-slate-400 hover:text-red-500"
+              className="h-7 w-7 cursor-pointer text-slate-400 hover:text-red-500"
               onClick={(e) => {
                 e.stopPropagation()
                 onDelete()
