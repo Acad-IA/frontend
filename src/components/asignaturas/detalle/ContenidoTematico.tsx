@@ -688,6 +688,12 @@ export function ContenidoTematico() {
             >
               {({ handleRef }) => (
                 <>
+                  {index === 0 && (
+                    <InsertUnidadOverlay
+                      position="top"
+                      onInsert={() => insertUnidadAt(index)}
+                    />
+                  )}
                   <InsertUnidadOverlay
                     position="bottom"
                     onInsert={() => insertUnidadAt(index + 1)}
