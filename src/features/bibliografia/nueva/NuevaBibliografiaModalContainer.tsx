@@ -2036,6 +2036,12 @@ function DatosBasicosManualStep({
                     publisher: e.target.value.slice(0, 300),
                   })
                 }
+                onBlur={() => {
+                  const trimmed = draft.publisher.trim()
+                  if (trimmed !== draft.publisher) {
+                    onChangeDraft({ ...draft, publisher: trimmed })
+                  }
+                }}
                 maxLength={300}
               />
             </div>
@@ -2434,8 +2440,16 @@ const FormatoYCitasStep = forwardRef<
                         onChange={(e) => {
                           const raw = e.currentTarget.value.slice(0, 300)
                           onChangeRef(r.id, {
-                            publisher: raw.trim() || undefined,
+                            publisher: raw.length > 0 ? raw : undefined,
                           })
+                        }}
+                        onBlur={() => {
+                          const trimmed = publisherText.trim()
+                          if (trimmed !== publisherText) {
+                            onChangeRef(r.id, {
+                              publisher: trimmed || undefined,
+                            })
+                          }
                         }}
                       />
                     </div>
