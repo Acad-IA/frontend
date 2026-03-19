@@ -15,6 +15,7 @@ import {
   Archive,
   Loader2,
   Sparkles,
+  RotateCcw,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo } from 'react'
 
@@ -128,6 +129,7 @@ function RouteComponent() {
   const [pendingSuggestion, setPendingSuggestion] = useState<any>(null)
   const queryClient = useQueryClient()
   const scrollRef = useRef<HTMLDivElement>(null)
+  const isInitialLoad = useRef(true)
   const [showArchived, setShowArchived] = useState(false)
   const [editingChatId, setEditingChatId] = useState<string | null>(null)
   const editableRef = useRef<HTMLSpanElement>(null)
@@ -204,20 +206,20 @@ function RouteComponent() {
       return messages
     })
   }, [mensajesDelChat, activeChatId, availableFields])
-  const scrollToBottom = () => {
+  const scrollToBottom = (behavior = 'smooth') => {
     if (scrollRef.current) {
-      // Buscamos el viewport interno del ScrollArea de Radix
       const scrollContainer = scrollRef.current.querySelector(
         '[data-radix-scroll-area-viewport]',
       )
       if (scrollContainer) {
         scrollContainer.scrollTo({
           top: scrollContainer.scrollHeight,
-          behavior: 'smooth',
+          behavior: behavior, // 'instant' para carga inicial, 'smooth' para mensajes nuevos
         })
       }
     }
   }
+
   const { activeChats, archivedChats } = useMemo(() => {
     const allChats = lastConversation || []
     return {
@@ -229,22 +231,22 @@ function RouteComponent() {
   }, [lastConversation])
 
   useEffect(() => {
-    console.log(mensajesDelChat)
-
-    scrollToBottom()
-  }, [chatMessages, isLoading])
-
-  /* useEffect(() => {
-    // Verificamos cuáles campos de la lista "selectedFields" ya no están presentes en el texto del input
-    const camposActualizados = selectedFields.filter((field) =>
-      input.includes(field.label),
-    )
-
-    // Solo actualizamos el estado si hubo un cambio real (para evitar bucles infinitos)
-    if (camposActualizados.length !== selectedFields.length) {
-      setSelectedFields(camposActualizados)
+    if (chatMessages.length > 0) {
+      if (isInitialLoad.current) {
+        // Si es el primer render con mensajes, vamos al final al instante
+        scrollToBottom('instant')
+        isInitialLoad.current = false
+      } else {
+        // Si ya estaba cargado y llegan nuevos, hacemos el smooth
+        scrollToBottom('smooth')
+      }
     }
-  }, [input, selectedFields]) */
+  }, [chatMessages])
+
+  // 2. Resetear el flag cuando cambies de chat activo
+  useEffect(() => {
+    isInitialLoad.current = true
+  }, [activeChatId])
 
   useEffect(() => {
     if (isLoadingConv || isSending) return
@@ -508,27 +510,38 @@ function RouteComponent() {
         </div>
 
         <ScrollArea className="flex-1">
-          <div className="space-y-1">
+          <div className="space-y-1 pr-2">
+            {' '}
+            {/* Agregamos un pr-2 para que el scrollbar no tape botones */}
             {!showArchived ? (
               activeChats.map((chat) => (
                 <div
                   key={chat.id}
                   onClick={() => setActiveChatId(chat.id)}
-                  className={`group relative flex w-full items-center justify-between overflow-hidden rounded-lg px-3 py-3 text-sm transition-colors ${
+                  className={`group relative flex w-full items-center overflow-hidden rounded-lg px-3 py-3 text-sm transition-colors ${
                     activeChatId === chat.id
                       ? 'bg-slate-100 font-medium text-slate-900'
                       : 'text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  {/* LADO IZQUIERDO: Icono + Texto con Tooltip */}
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                  {/* LADO IZQUIERDO: Icono + Texto */}
+                  <div
+                    className="flex min-w-0 flex-1 items-center gap-3 transition-all duration-200"
+                    style={{
+                      // Aplicamos la máscara solo cuando el mouse está encima para que se note el desvanecimiento
+                      // donde aparecen los botones
+                      maskImage:
+                        'linear-gradient(to right, black 70%, transparent 95%)',
+                      WebkitMaskImage:
+                        'linear-gradient(to right, black 70%, transparent 95%)',
+                    }}
+                  >
+                    {/* pr-12 reserva espacio para los botones absolutos */}
                     <FileText size={16} className="shrink-0 opacity-40" />
-
                     <TooltipProvider delayDuration={400}>
                       <Tooltip>
-                        <TooltipTrigger asChild>
-                          {/* Este contenedor es el que obliga al span a truncarse */}
-                          <div className="max-w-[calc(100%-48px)] min-w-0 flex-1">
+                        <TooltipTrigger asChild className="min-w-0 flex-1">
+                          <div className="min-w-0 flex-1">
                             <span
                               ref={
                                 editingChatId === chat.id ? editableRef : null
@@ -574,8 +587,6 @@ function RouteComponent() {
                             </span>
                           </div>
                         </TooltipTrigger>
-
-                        {/* Tooltip: Solo aparece si no estás editando y el texto es largo */}
                         {editingChatId !== chat.id && (
                           <TooltipContent
                             side="right"
@@ -588,9 +599,9 @@ function RouteComponent() {
                     </TooltipProvider>
                   </div>
 
-                  {/* LADO DERECHO: Acciones con shrink-0 para que no se muevan */}
+                  {/* LADO DERECHO: Acciones ABSOLUTAS */}
                   <div
-                    className={`flex shrink-0 items-center gap-1 pl-2 opacity-0 transition-opacity group-hover:opacity-100 ${
+                    className={`absolute top-1/2 right-2 z-20 flex -translate-y-1/2 items-center gap-1 rounded-md px-1 opacity-0 transition-opacity group-hover:opacity-100 ${
                       activeChatId === chat.id ? 'bg-slate-100' : 'bg-slate-50'
                     }`}
                   >
@@ -614,7 +625,7 @@ function RouteComponent() {
                 </div>
               ))
             ) : (
-              /* Sección de archivados */
+              /* Sección de archivados (Simplificada para mantener consistencia) */
               <div className="animate-in fade-in slide-in-from-left-2 px-1">
                 <p className="mb-2 px-2 text-[10px] font-bold text-slate-400 uppercase">
                   Archivados
@@ -622,18 +633,18 @@ function RouteComponent() {
                 {archivedChats.map((chat) => (
                   <div
                     key={chat.id}
-                    className="group relative mb-1 flex w-full items-center justify-between overflow-hidden rounded-lg bg-slate-50/50 px-3 py-2 text-sm text-slate-400"
+                    className="group relative mb-1 flex w-full items-center overflow-hidden rounded-lg bg-slate-50/50 px-3 py-2 text-sm text-slate-400"
                   >
-                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-3 pr-10">
                       <Archive size={14} className="shrink-0 opacity-30" />
-                      <span className="block min-w-0 flex-1 truncate">
+                      <span className="block truncate">
                         {chat.nombre ||
                           `Archivado ${chat.creado_en.split('T')[0]}`}
                       </span>
                     </div>
                     <button
                       onClick={(e) => unarchiveChat(e, chat.id)}
-                      className="ml-2 shrink-0 rounded bg-slate-50/80 p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:text-teal-600"
+                      className="absolute top-1/2 right-2 shrink-0 -translate-y-1/2 rounded bg-slate-100 p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:text-teal-600"
                     >
                       <RotateCcw size={14} />
                     </button>

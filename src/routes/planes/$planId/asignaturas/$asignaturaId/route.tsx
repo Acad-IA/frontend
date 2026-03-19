@@ -166,30 +166,20 @@ function AsignaturaLayout() {
                   onSave={(val) => handleUpdateHeader('nombre', val)}
                 />
               </h1>
+              {
+                // console.log(headerData),
 
+                console.log(asignaturaApi.planes_estudio?.nombre)
+              }
               <div className="flex flex-wrap gap-4 text-sm text-blue-200">
                 <span className="flex items-center gap-1">
                   <GraduationCap className="h-4 w-4 shrink-0" />
+                  Pertenece al plan:{' '}
                   <span className="text-blue-100">
-                    {(asignaturaApi.planes_estudio?.datos as DatosPlan)
-                      .nombre || ''}
-                  </span>
-                </span>
-
-                <span className="flex items-center gap-1">
-                  <span className="text-blue-100">
-                    {(asignaturaApi.planes_estudio?.datos as DatosPlan)
-                      .nombre ?? ''}
+                    {(asignaturaApi.planes_estudio as DatosPlan).nombre || ''}
                   </span>
                 </span>
               </div>
-
-              <p className="text-sm text-blue-300">
-                Pertenece al plan:{' '}
-                <span className="cursor-pointer underline">
-                  {asignaturaApi.planes_estudio?.nombre}
-                </span>
-              </p>
             </div>
 
             <div className="flex flex-col items-end gap-2 text-right">
