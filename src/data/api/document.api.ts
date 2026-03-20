@@ -1,7 +1,10 @@
 // document.api.ts
 
-const DOCUMENT_PDF_URL =
-  'https://n8n.app.lci.ulsa.mx/webhook/62ca84ec-0adb-4006-aba1-32282d27d434'
+import { invokeEdge } from '../supabase/invokeEdge'
+
+const EDGE = {
+  carbone_io_wrapper: 'carbone-io-wrapper',
+} as const
 
 const DOCUMENT_PDF_ASIGNATURA_URL =
   'https://n8n.app.lci.ulsa.mx/webhook/041a68be-7568-46d0-bc08-09ded12d017d'
@@ -16,20 +19,19 @@ interface GeneratePdfParamsAsignatura {
 export async function fetchPlanPdf({
   plan_estudio_id,
 }: GeneratePdfParams): Promise<Blob> {
-  const response = await fetch(DOCUMENT_PDF_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  return await invokeEdge<Blob>(
+    EDGE.carbone_io_wrapper,
+    {
+      action: 'downloadReport',
+      plan_estudio_id,
     },
-    body: JSON.stringify({ plan_estudio_id }),
-  })
-
-  if (!response.ok) {
-    throw new Error('Error al generar el PDF')
-  }
-
-  // n8n devuelve el archivo → lo tratamos como blob
-  return await response.blob()
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      responseType: 'blob',
+    },
+  )
 }
 
 export async function fetchAsignaturaPdf({

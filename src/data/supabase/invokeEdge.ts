@@ -12,6 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export type EdgeInvokeOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   headers?: Record<string, string>
+  responseType?: 'json' | 'text' | 'blob' | 'arrayBuffer'
 }
 
 export class EdgeFunctionError extends Error {
@@ -42,10 +43,16 @@ export async function invokeEdge<TOut>(
 ): Promise<TOut> {
   const supabase = client ?? supabaseBrowser()
 
-  const { data, error } = await supabase.functions.invoke(functionName, {
+  // Nota: algunas versiones/defs de @supabase/supabase-js no tipan `responseType`
+  // aunque el runtime lo soporte. Usamos `any` para no bloquear el uso de Blob.
+  const invoke: any = (supabase.functions as any).invoke.bind(
+    supabase.functions,
+  )
+  const { data, error } = await invoke(functionName, {
     body,
     method: opts.method ?? 'POST',
     headers: opts.headers,
+    responseType: opts.responseType,
   })
 
   if (error) {
