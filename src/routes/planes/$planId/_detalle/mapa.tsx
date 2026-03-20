@@ -5,7 +5,6 @@ import {
   Plus,
   ChevronDown,
   AlertTriangle,
-  GripVertical,
   Trash2,
   Pencil,
 } from 'lucide-react'
@@ -46,16 +45,33 @@ import {
   useUpdateAsignatura,
   useUpdateLinea,
 } from '@/data'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 // --- Mapeadores (Fuera del componente para mayor limpieza) ---
+const palette = [
+  '#4F46E5', // índigo
+  '#7C3AED', // violeta
+  '#EA580C', // naranja
+  '#059669', // esmeralda
+  '#DC2626', // rojo
+  '#0891B2', // cyan
+  '#CA8A04', // ámbar
+  '#C026D3', // fucsia
+]
+
 const mapLineasToLineaCurricular = (
   lineasApi: Array<any> = [],
 ): Array<LineaCurricular> => {
-  return lineasApi.map((linea) => ({
+  return lineasApi.map((linea, index) => ({
     id: linea.id,
     nombre: linea.nombre,
     orden: linea.orden ?? 0,
-    color: '#1976d2',
+    color: palette[index % palette.length],
   }))
 }
 
@@ -121,52 +137,216 @@ function StatItem({
   )
 }
 
+import * as Icons from 'lucide-react'
+
+const estadoConfig: Record<
+  Asignatura['estado'],
+  {
+    label: string
+    dot: string
+    soft: string
+    icon: React.ComponentType<{ className?: string }>
+  }
+> = {
+  borrador: {
+    label: 'Borrador',
+    dot: 'bg-slate-500',
+    soft: 'bg-slate-100 text-slate-700',
+    icon: Icons.FileText,
+  },
+  revisada: {
+    label: 'Revisada',
+    dot: 'bg-amber-500',
+    soft: 'bg-amber-100 text-amber-700',
+    icon: Icons.ScanSearch,
+  },
+  aprobada: {
+    label: 'Aprobada',
+    dot: 'bg-emerald-500',
+    soft: 'bg-emerald-100 text-emerald-700',
+    icon: Icons.BadgeCheck,
+  },
+  generando: {
+    label: 'Generando',
+    dot: 'bg-sky-500',
+    soft: 'bg-sky-100 text-sky-700',
+    icon: Icons.LoaderCircle,
+  },
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const clean = hex.replace('#', '')
+  const bigint = parseInt(clean, 16)
+  const r = (bigint >> 16) & 255
+  const g = (bigint >> 8) & 255
+  const b = bigint & 255
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
 function AsignaturaCardItem({
   asignatura,
+  lineaColor,
+  lineaNombre,
   onDragStart,
   isDragging,
   onClick,
 }: {
   asignatura: Asignatura
+  lineaColor: string
+  lineaNombre?: string
   onDragStart: (e: React.DragEvent, id: string) => void
   isDragging: boolean
   onClick: () => void
 }) {
+  const estado = estadoConfig[asignatura.estado] ?? estadoConfig.borrador
+  const EstadoIcon = estado.icon
+
   return (
-    <button
-      draggable
-      onDragStart={(e) => onDragStart(e, asignatura.id)}
-      onClick={onClick}
-      className={`group cursor-grab rounded-lg border bg-white p-3 shadow-sm transition-all active:cursor-grabbing ${
-        isDragging
-          ? 'scale-95 opacity-40'
-          : 'hover:border-teal-400 hover:shadow-md'
-      }`}
-    >
-      <div className="mb-1 flex items-start justify-between">
-        <span className="font-mono text-[10px] font-bold text-slate-400">
-          {asignatura.clave}
-        </span>
-        <Badge
-          variant="outline"
-          className={`px-1 py-0 text-[9px] uppercase ${statusBadge[asignatura.estado] || ''}`}
-        >
-          {asignatura.estado}
-        </Badge>
-      </div>
-      <p className="mb-1 text-xs leading-tight font-bold text-slate-700">
-        {asignatura.nombre}
-      </p>
-      <div className="mt-2 flex items-center justify-between">
-        <span className="text-[10px] text-slate-500">
-          {asignatura.creditos} CR • HD:{asignatura.hd} • HI:{asignatura.hi}
-        </span>
-        <GripVertical
-          size={12}
-          className="text-slate-300 opacity-0 transition-opacity group-hover:opacity-100"
-        />
-      </div>
-    </button>
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            draggable
+            onDragStart={(e) => onDragStart(e, asignatura.id)}
+            onClick={onClick}
+            className={[
+              'group relative h-[200px] w-[272px] shrink-0 overflow-hidden rounded-[22px] border text-left',
+              'transition-all duration-300 ease-out',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
+              'active:cursor-grabbing',
+              isDragging
+                ? 'scale-[0.985] opacity-45 shadow-none'
+                : 'hover:-translate-y-1 hover:shadow-lg',
+            ].join(' ')}
+            style={{
+              borderColor: hexToRgba(lineaColor, 0.18),
+              background: `
+                radial-gradient(circle at top right, ${hexToRgba(lineaColor, 0.22)} 0%, transparent 34%),
+                linear-gradient(180deg, ${hexToRgba(lineaColor, 0.12)} 0%, ${hexToRgba(lineaColor, 0.04)} 42%, var(--card) 100%)
+              `,
+            }}
+            title={asignatura.nombre}
+          >
+            {/* franja */}
+            <div
+              className="absolute inset-x-0 top-0 h-2"
+              style={{ backgroundColor: lineaColor }}
+            />
+
+            {/* glow decorativo */}
+            <div
+              className="absolute -top-10 -right-10 h-28 w-28 rounded-full blur-2xl transition-transform duration-500 group-hover:scale-110"
+              style={{ backgroundColor: hexToRgba(lineaColor, 0.22) }}
+            />
+
+            <div className="relative flex h-full flex-col p-4">
+              {/* top */}
+              <div className="flex items-start justify-between gap-2">
+                <div
+                  className="inline-flex h-8 max-w-[200px] items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold"
+                  style={{
+                    borderColor: hexToRgba(lineaColor, 0.2),
+                    backgroundColor: hexToRgba(lineaColor, 0.1),
+                    color: lineaColor,
+                  }}
+                >
+                  <Icons.KeyRound className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{asignatura.clave || 'Sin clave'}</span>
+                </div>
+
+                <div className="relative flex h-8 items-center overflow-hidden rounded-full bg-background/70 px-2 backdrop-blur-sm">
+                  <div className="flex gap-4 items-center gap-1.5 transition-transform duration-300 group-hover:-translate-x-[72px]">
+                    <span className={`h-2.5 w-2.5 rounded-full ${estado.dot}`} />
+                    <EstadoIcon
+                      className={[
+                        'h-3.5 w-3.5 text-foreground/65',
+                        asignatura.estado === 'generando' ? 'animate-spin' : '',
+                      ].join(' ')}
+                    />
+                  </div>
+                  <div
+                    className={[
+                      'absolute right-2 flex translate-x-6 items-center gap-1.5 opacity-0 transition-all duration-300',
+                      'group-hover:translate-x-0 group-hover:opacity-100'
+                    ].join(' ')}
+                  >
+                    <span className="text-[11px] font-semibold whitespace-nowrap">
+                      {estado.label}
+                    </span>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* titulo */}
+              <div className="mt-4 min-h-[72px]">
+                <h3
+                  className="overflow-hidden text-[18px] leading-[1.08] font-bold text-foreground"
+                  style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: 'vertical',
+                  }}
+                >
+                  {asignatura.nombre}
+                </h3>
+              </div>
+
+              {/* bottom */}
+              <div className="mt-auto grid grid-cols-3 gap-2">
+                <div className="rounded-2xl border border-white/40 bg-white/55 px-2.5 py-2 backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
+                  <div className="mb-1 flex items-center gap-1.5 text-muted-foreground">
+                    <Icons.Award className="h-3.5 w-3.5" />
+                    <span className="text-[10px] font-medium uppercase tracking-wide">
+                      CR
+                    </span>
+                  </div>
+                  <div className="text-sm font-bold text-foreground">
+                    {asignatura.creditos}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/40 bg-white/55 px-2.5 py-2 backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
+                  <div className="mb-1 flex items-center gap-1.5 text-muted-foreground">
+                    <Icons.Clock3 className="h-3.5 w-3.5" />
+                    <span className="text-[10px] font-medium uppercase tracking-wide">
+                      HD
+                    </span>
+                  </div>
+                  <div className="text-sm font-bold text-foreground">
+                    {asignatura.hd}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/40 bg-white/55 px-2.5 py-2 backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
+                  <div className="mb-1 flex items-center gap-1.5 text-muted-foreground">
+                    <Icons.BookOpenText className="h-3.5 w-3.5" />
+                    <span className="text-[10px] font-medium uppercase tracking-wide">
+                      HI
+                    </span>
+                  </div>
+                  <div className="text-sm font-bold text-foreground">
+                    {asignatura.hi}
+                  </div>
+                </div>
+              </div>
+
+              {/* drag affordance */}
+              <div className="pointer-events-none absolute right-3 bottom-3 rounded-full bg-background/70 p-1.5 opacity-0 backdrop-blur-sm transition-all duration-300 group-hover:opacity-100">
+                <Icons.GripVertical className="h-4 w-4 text-muted-foreground/55" />
+              </div>
+            </div>
+          </button>
+        </TooltipTrigger>
+
+        <TooltipContent side="bottom">
+          <div className="text-xs">
+            {lineaNombre ? `${lineaNombre} · ` : ''}
+            {asignatura.nombre}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
@@ -524,15 +704,15 @@ function MapaCurricularPage() {
           </Button>
           {asignaturas.filter((m) => !m.ciclo || !m.lineaCurricularId).length >
             0 && (
-            <Badge className="border-amber-100 bg-amber-50 text-amber-600 hover:bg-amber-50">
-              <AlertTriangle size={14} className="mr-1" />{' '}
-              {
-                asignaturas.filter((m) => !m.ciclo || !m.lineaCurricularId)
-                  .length
-              }{' '}
-              sin asignar
-            </Badge>
-          )}
+              <Badge className="border-amber-100 bg-amber-50 text-amber-600 hover:bg-amber-50">
+                <AlertTriangle size={14} className="mr-1" />{' '}
+                {
+                  asignaturas.filter((m) => !m.ciclo || !m.lineaCurricularId)
+                    .length
+                }{' '}
+                sin asignar
+              </Badge>
+            )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button className="bg-teal-700 text-white hover:bg-teal-800">
@@ -618,9 +798,8 @@ function MapaCurricularPage() {
               return (
                 <Fragment key={linea.id}>
                   <div
-                    className={`group relative flex items-center justify-between rounded-xl border-l-4 p-4 transition-all ${
-                      lineColors[idx % lineColors.length]
-                    } ${editingLineaId === linea.id ? 'bg-white ring-2 ring-teal-500/20' : ''}`}
+                    className={`group relative flex items-center justify-between rounded-xl border-l-4 p-4 transition-all ${lineColors[idx % lineColors.length]
+                      } ${editingLineaId === linea.id ? 'bg-white ring-2 ring-teal-500/20' : ''}`}
                   >
                     <div className="flex-1 overflow-hidden">
                       <span
@@ -635,11 +814,10 @@ function MapaCurricularPage() {
                             setTempNombreLinea(linea.nombre)
                           }
                         }}
-                        className={`block w-full text-xs font-bold break-words outline-none ${
-                          editingLineaId === linea.id
-                            ? 'cursor-text border-b border-teal-500/50 pb-1'
-                            : 'cursor-pointer'
-                        }`}
+                        className={`block w-full text-xs font-bold break-words outline-none ${editingLineaId === linea.id
+                          ? 'cursor-text border-b border-teal-500/50 pb-1'
+                          : 'cursor-pointer'
+                          }`}
                       >
                         {linea.nombre}
                       </span>
@@ -677,6 +855,8 @@ function MapaCurricularPage() {
                           <AsignaturaCardItem
                             key={m.id}
                             asignatura={m}
+                            lineaColor={linea.color || '#1976d2'}
+                            lineaNombre={linea.nombre}
                             isDragging={draggedAsignatura === m.id}
                             onDragStart={handleDragStart}
                             onClick={() => {
@@ -727,45 +907,81 @@ function MapaCurricularPage() {
       </div>
 
       {/* Asignaturas Sin Asignar */}
-      <div className="mt-10 rounded-2xl border border-slate-200 bg-slate-50 p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-slate-600">
-            <h3 className="text-sm font-bold tracking-wider uppercase">
-              Bandeja de Entrada / Asignaturas sin asignar
-            </h3>
-            <Badge variant="secondary">{unassignedAsignaturas.length}</Badge>
+      <div className="mt-12 rounded-[28px] border border-border bg-card/80 p-5 shadow-sm backdrop-blur-sm">
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                <Icons.Inbox className="h-4.5 w-4.5" />
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold tracking-wide text-foreground uppercase">
+                    Bandeja de entrada
+                  </h3>
+
+                  <div className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-muted px-2 text-[11px] font-semibold text-muted-foreground">
+                    {unassignedAsignaturas.length}
+                  </div>
+                </div>
+
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Asignaturas sin ciclo o línea curricular
+                </p>
+              </div>
+            </div>
           </div>
-          <p className="text-xs text-slate-400">
-            Arrastra una asignatura aquí para quitarla del mapa
-          </p>
+
+          <div className="flex items-center gap-2 rounded-full border border-dashed border-border bg-background/80 px-3 py-1.5 text-xs text-muted-foreground">
+            <Icons.MoveDown className="h-3.5 w-3.5" />
+            <span>Arrastra aquí para desasignar</span>
+          </div>
         </div>
 
         <div
-          className={`flex min-h-[120px] flex-wrap gap-4 rounded-xl border-2 border-dashed p-4 transition-colors ${
-            draggedAsignatura
-              ? 'border-teal-300 bg-teal-50/50'
-              : 'border-slate-200 bg-white/50'
-          }`}
           onDragOver={handleDragOver}
-          onDrop={(e) => handleDrop(e, null, null)} // Limpia ciclo y línea
+          onDrop={(e) => handleDrop(e, null, null)}
+          className={[
+            'rounded-[24px] border-2 border-dashed p-4 transition-all duration-300',
+            'min-h-[220px]',
+            draggedAsignatura
+              ? 'border-primary/35 bg-primary/6 shadow-inner'
+              : 'border-border bg-muted/20',
+          ].join(' ')}
         >
-          {unassignedAsignaturas.map((m) => (
-            <div key={m.id} className="w-[200px]">
-              <AsignaturaCardItem
-                asignatura={m}
-                isDragging={draggedAsignatura === m.id}
-                onDragStart={handleDragStart}
-                onClick={() => {
-                  setEditingData(m) // Cargamos los datos en el estado de edición
-                  setIsEditModalOpen(true)
-                }}
-              />
+          {unassignedAsignaturas.length > 0 ? (
+            <div className="flex flex-wrap gap-4">
+              {unassignedAsignaturas.map((m) => (
+                <div key={m.id} className="w-[272px] shrink-0">
+                  <AsignaturaCardItem
+                    asignatura={m}
+                    lineaColor="#94A3B8"
+                    lineaNombre="Sin asignar"
+                    isDragging={draggedAsignatura === m.id}
+                    onDragStart={handleDragStart}
+                    onClick={() => {
+                      setEditingData(m)
+                      setIsEditModalOpen(true)
+                    }}
+                  />
+                </div>
+              ))}
             </div>
-          ))}
-          {unassignedAsignaturas.length === 0 && (
-            <div className="flex w-full items-center justify-center text-sm text-slate-400">
-              No hay asignaturas pendientes. Arrastra una asignatura aquí para
-              desasignarla.
+          ) : (
+            <div className="flex min-h-[188px] flex-col items-center justify-center rounded-[20px] border border-border/70 bg-background/70 px-6 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                <Icons.CheckCheck className="h-5 w-5" />
+              </div>
+
+              <p className="text-sm font-semibold text-foreground">
+                No hay asignaturas pendientes
+              </p>
+
+              <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                Todo está colocado en el mapa. Arrastra una asignatura aquí para quitarle
+                ciclo y línea curricular.
+              </p>
             </div>
           )}
         </div>
