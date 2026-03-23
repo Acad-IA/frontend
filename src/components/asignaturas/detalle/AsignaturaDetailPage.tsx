@@ -7,6 +7,13 @@ import type { AsignaturaDetail } from '@/data'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Tooltip,
@@ -14,6 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { usePlanAsignaturas } from '@/data'
 import { useSubject, useUpdateAsignatura } from '@/data/hooks/useSubjects'
 import { columnParsers } from '@/lib/asignaturaColumnParsers'
 
@@ -64,8 +72,12 @@ export default function AsignaturaDetailPage() {
   const { asignaturaId } = useParams({
     from: '/planes/$planId/asignaturas/$asignaturaId',
   })
+  const { planId } = useParams({
+    from: '/planes/$planId/asignaturas/$asignaturaId',
+  })
   const { data: asignaturaApi } = useSubject(asignaturaId)
-
+  const { data: asignaturasApi, isLoading: loadingAsig } =
+    usePlanAsignaturas(planId)
   const [asignatura, setAsignatura] = useState<AsignaturaDetail | null>(null)
   const updateAsignatura = useUpdateAsignatura()
 
@@ -86,16 +98,54 @@ export default function AsignaturaDetailPage() {
       },
     })
   }
+
+  const asignaturaSeriada = useMemo(() => {
+    if (!asignaturaApi?.prerrequisito_asignatura_id || !asignaturasApi)
+      return null
+    return asignaturasApi.find(
+      (asig) => asig.id === asignaturaApi.prerrequisito_asignatura_id,
+    )
+  }, [asignaturaApi, asignaturasApi])
+  const requisitosFormateados = useMemo(() => {
+    if (!asignaturaSeriada) return []
+    return [
+      {
+        type: 'Pre-requisito',
+        code: asignaturaSeriada.codigo,
+        name: asignaturaSeriada.nombre,
+        id: asignaturaSeriada.id, // Guardamos el ID para el select
+      },
+    ]
+  }, [asignaturaSeriada])
+
+  const handleUpdatePrerrequisito = (newId: string | null) => {
+    updateAsignatura.mutate({
+      asignaturaId,
+      patch: {
+        prerrequisito_asignatura_id: newId,
+      },
+    })
+  }
   /* ---------- sincronizar API ---------- */
   useEffect(() => {
-    if (asignaturaApi) setAsignatura(asignaturaApi)
-  }, [asignaturaApi])
+    console.log(requisitosFormateados)
 
-  return <DatosGenerales onPersistDato={handlePersistDatoGeneral} />
+    if (asignaturaApi) setAsignatura(asignaturaApi)
+  }, [asignaturaApi, requisitosFormateados])
+
+  return (
+    <DatosGenerales
+      pre={requisitosFormateados}
+      availableSubjects={asignaturasApi}
+      onPersistDato={handlePersistDatoGeneral}
+    />
+  )
 }
 
 function DatosGenerales({
   onPersistDato,
+  pre,
+  availableSubjects,
 }: {
   onPersistDato: (clave: string, value: string) => void
 }) {
@@ -270,18 +320,19 @@ function DatosGenerales({
             <InfoCard
               title="Requisitos y Seriación"
               type="requirements"
-              initialContent={[
-                {
-                  type: 'Pre-requisito',
-                  code: 'PA-301',
-                  name: 'Programación Avanzada',
-                },
-                {
-                  type: 'Co-requisito',
-                  code: 'MAT-201',
-                  name: 'Matemáticas Discretas',
-                },
-              ]}
+              initialContent={pre}
+              // Pasamos las materias del plan para el Select (excluyendo la actual)
+              availableSubjects={
+                availableSubjects?.filter((a) => a.id !== asignaturaId) || []
+              }
+              onPersist={({ value }) => {
+                updateAsignatura.mutate({
+                  asignaturaId,
+                  patch: {
+                    prerrequisito_asignatura_id: value, // value ya viene como ID o null desde handleSave
+                  },
+                })
+              }}
             />
 
             {/* Tarjeta de Evaluación */}
@@ -321,6 +372,7 @@ interface InfoCardProps {
   containerRef?: React.RefObject<HTMLDivElement | null>
   forceEditToken?: number
   highlightToken?: number
+  availableSubjects?: any
 }
 
 function InfoCard({
@@ -337,6 +389,7 @@ function InfoCard({
   containerRef,
   forceEditToken,
   highlightToken,
+  availableSubjects,
 }: InfoCardProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [isHighlighted, setIsHighlighted] = useState(false)
@@ -354,7 +407,8 @@ function InfoCard({
   useEffect(() => {
     setData(initialContent)
     setTempText(initialContent)
-
+    console.log(data)
+    console.log(initialContent)
     if (type === 'evaluation') {
       const raw = Array.isArray(initialContent) ? initialContent : []
       const rows: Array<CriterioEvaluacionRowDraft> = raw
@@ -397,6 +451,8 @@ function InfoCard({
 
   const handleSave = () => {
     console.log('clave, valor:', clave, String(tempText ?? ''))
+    console.log(clave)
+    console.log(tempText)
 
     if (type === 'evaluation') {
       const cleaned: Array<CriterioEvaluacionRow> = []
@@ -425,6 +481,25 @@ function InfoCard({
       setIsEditing(false)
 
       void onPersist?.({ type, clave, value: cleaned })
+      return
+    }
+    if (type === 'requirements') {
+      console.log('entre aqui ')
+
+      // Si tempText es un array y tiene elementos, tomamos el ID del primero
+      // Si es "none" o está vacío, mandamos null (para limpiar la seriación)
+      const prerequisiteId =
+        Array.isArray(tempText) && tempText.length > 0 ? tempText[0].id : null
+
+      setData(tempText) // Actualiza la vista local
+      setIsEditing(false)
+
+      // Mandamos el ID específico a la base de datos
+      void onPersist?.({
+        type,
+        clave: 'prerrequisito_asignatura_id', // Forzamos la columna correcta
+        value: prerequisiteId,
+      })
       return
     }
 
@@ -546,7 +621,52 @@ function InfoCard({
         <CardContent className="pt-4">
           {isEditing ? (
             <div className="space-y-3">
-              {type === 'evaluation' ? (
+              {/* Condicionales de edición según el tipo */}
+              {type === 'requirements' ? (
+                <div className="space-y-3">
+                  <label className="text-xs font-medium text-slate-500">
+                    Materia de Seriación
+                  </label>
+                  <Select
+                    value={tempText?.[0]?.id || 'none'}
+                    onValueChange={(val) => {
+                      const selected = availableSubjects?.find(
+                        (s) => s.id === val,
+                      )
+                      if (val === 'none' || !selected) {
+                        console.log('guardando')
+
+                        setTempText([])
+                      } else {
+                        console.log('hola')
+
+                        setTempText([
+                          {
+                            id: selected.id,
+                            type: 'Pre-requisito',
+                            code: selected.codigo,
+                            name: selected.nombre,
+                          },
+                        ])
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona una materia" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        Ninguna (Sin seriación)
+                      </SelectItem>
+                      {availableSubjects?.map((asig) => (
+                        <SelectItem key={asig.id} value={asig.id}>
+                          {asig.codigo} - {asig.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : type === 'evaluation' ? (
                 <div className="space-y-3">
                   <div className="space-y-2">
                     {evalRows.map((row) => (
@@ -568,85 +688,36 @@ function InfoCard({
                             )
                           }}
                         />
-
                         <Input
                           value={row.porcentaje}
                           placeholder="%"
                           type="number"
-                          min={1}
-                          max={100}
-                          step={1}
-                          inputMode="numeric"
                           onChange={(e) => {
                             const raw = e.target.value
-                            // Solo permitir '' o dígitos
                             if (raw !== '' && !/^\d+$/.test(raw)) return
 
-                            if (raw === '') {
-                              setEvalRows((prev) =>
-                                prev.map((r) =>
-                                  r.id === row.id
-                                    ? {
-                                        id: r.id,
-                                        criterio: r.criterio,
-                                        porcentaje: '',
-                                      }
-                                    : r,
-                                ),
-                              )
-                              return
-                            }
-
-                            const n = Number(raw)
-                            if (!Number.isFinite(n)) return
-                            const porcentaje = Math.trunc(n)
-                            if (porcentaje < 1 || porcentaje > 100) return
-
-                            // No permitir suma > 100
                             setEvalRows((prev) => {
                               const next = prev.map((r) =>
-                                r.id === row.id
-                                  ? {
-                                      id: r.id,
-                                      criterio: r.criterio,
-                                      porcentaje: raw,
-                                    }
-                                  : r,
+                                r.id === row.id ? { ...r, porcentaje: raw } : r,
                               )
-
-                              const total = next.reduce((acc, r) => {
-                                const v = String(r.porcentaje).trim()
-                                if (!v) return acc
-                                const nn = Number(v)
-                                if (!Number.isFinite(nn)) return acc
-                                const vv = Math.trunc(nn)
-                                if (vv < 1 || vv > 100) return acc
-                                return acc + vv
-                              }, 0)
-
+                              const total = next.reduce(
+                                (acc, r) => acc + (Number(r.porcentaje) || 0),
+                                0,
+                              )
                               return total > 100 ? prev : next
                             })
                           }}
                         />
-
-                        <div
-                          className="flex w-[1ch] items-center justify-center text-sm text-slate-600"
-                          aria-hidden
-                        >
-                          %
-                        </div>
-
+                        <div className="text-sm text-slate-600">%</div>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-red-600 hover:bg-red-50"
-                          onClick={() => {
+                          onClick={() =>
                             setEvalRows((prev) =>
                               prev.filter((r) => r.id !== row.id),
                             )
-                          }}
-                          aria-label="Quitar renglón"
-                          title="Quitar"
+                          }
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
@@ -656,22 +727,15 @@ function InfoCard({
 
                   <div className="flex items-center justify-between">
                     <span
-                      className={
-                        'text-sm ' +
-                        (evaluationTotal === 100
-                          ? 'text-muted-foreground'
-                          : 'text-destructive font-semibold')
-                      }
+                      className={`text-sm ${evaluationTotal === 100 ? 'text-muted-foreground' : 'text-destructive font-semibold'}`}
                     >
                       Total: {evaluationTotal}/100
                     </span>
-
                     <Button
                       variant="ghost"
                       size="sm"
                       className="text-emerald-700 hover:bg-emerald-50"
-                      onClick={() => {
-                        // Agregar una fila vacía (siempre permitido)
+                      onClick={() =>
                         setEvalRows((prev) => [
                           ...prev,
                           {
@@ -680,7 +744,7 @@ function InfoCard({
                             porcentaje: '',
                           },
                         ])
-                      }}
+                      }
                     >
                       <Plus className="mr-2 h-4 w-4" /> Agregar renglón
                     </Button>
@@ -694,28 +758,15 @@ function InfoCard({
                   className="min-h-30 text-sm leading-relaxed"
                 />
               )}
+
+              {/* Botones de acción comunes */}
               <div className="flex justify-end gap-2">
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={() => {
                     setIsEditing(false)
-                    if (type === 'evaluation') {
-                      const raw = Array.isArray(data) ? data : []
-                      setEvalRows(
-                        raw.map((r: CriterioEvaluacionRow) => ({
-                          id: crypto.randomUUID(),
-                          criterio:
-                            typeof r.criterio === 'string' ? r.criterio : '',
-                          porcentaje:
-                            typeof r.porcentaje === 'number'
-                              ? String(Math.trunc(r.porcentaje))
-                              : typeof r.porcentaje === 'string'
-                                ? String(Math.trunc(Number(r.porcentaje)))
-                                : '',
-                        })),
-                      )
-                    }
+                    // Lógica de reset si es necesario...
                   }}
                 >
                   Cancelar
@@ -731,6 +782,7 @@ function InfoCard({
               </div>
             </div>
           ) : (
+            /* Modo Visualización */
             <div className="text-sm leading-relaxed text-slate-600">
               {type === 'text' &&
                 (data ? (
@@ -739,9 +791,7 @@ function InfoCard({
                   <p className="text-slate-400 italic">Sin información.</p>
                 ))}
               {type === 'requirements' && <RequirementsView items={data} />}
-              {type === 'evaluation' && (
-                <EvaluationView items={data as Array<CriterioEvaluacionRow>} />
-              )}
+              {type === 'evaluation' && <EvaluationView items={data} />}
             </div>
           )}
         </CardContent>
