@@ -210,7 +210,7 @@ function RouteComponent() {
       return messages
     })
   }, [mensajesDelChat, activeChatId, availableFields])
-  const scrollToBottom = (behavior = 'smooth') => {
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     if (scrollRef.current) {
       const scrollContainer = scrollRef.current.querySelector(
         '[data-radix-scroll-area-viewport]',
@@ -218,7 +218,7 @@ function RouteComponent() {
       if (scrollContainer) {
         scrollContainer.scrollTo({
           top: scrollContainer.scrollHeight,
-          behavior: behavior, // 'instant' para carga inicial, 'smooth' para mensajes nuevos
+          behavior,
         })
       }
     }
@@ -576,7 +576,7 @@ function RouteComponent() {
                               onBlur={(e) => {
                                 if (editingChatId === chat.id) {
                                   const newTitle =
-                                    e.currentTarget.textContent?.trim() || ''
+                                    e.currentTarget.textContent.trim() || ''
                                   if (newTitle && newTitle !== chat.nombre) {
                                     updateTitleMutation({
                                       id: chat.id,

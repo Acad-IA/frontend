@@ -20,8 +20,6 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 
 import { ImprovementCard } from './SaveAsignatura/ImprovementCardProps'
 
-import type { IASugerencia } from '@/types/asignatura'
-
 import ReferenciasParaIA from '@/components/planes/wizard/PasoDetallesPanel/ReferenciasParaIA'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -55,16 +53,7 @@ interface SelectedField {
   value: string
 }
 
-interface IAAsignaturaTabProps {
-  asignatura?: Record<string, any>
-  onAcceptSuggestion: (sugerencia: IASugerencia) => void
-  onRejectSuggestion: (messageId: string) => void
-}
-
-export function IAAsignaturaTab({
-  onAcceptSuggestion,
-  onRejectSuggestion,
-}: IAAsignaturaTabProps) {
+export function IAAsignaturaTab() {
   const queryClient = useQueryClient()
   const { asignaturaId } = useParams({
     from: '/planes/$planId/asignaturas/$asignaturaId',
@@ -147,7 +136,7 @@ export function IAAsignaturaTab({
     const dynamicFields = datosGenerales?.datos
       ? Object.keys(datosGenerales.datos).map((key) => {
           const estructuraProps =
-            datosGenerales?.estructuras_asignatura?.definicion?.properties || {}
+            datosGenerales.estructuras_asignatura?.definicion?.properties || {}
           return {
             key,
             label:
