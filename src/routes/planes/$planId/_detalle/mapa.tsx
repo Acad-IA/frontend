@@ -266,7 +266,7 @@ function AsignaturaCardItem({
               {/* titulo */}
               <div className="mt-4 min-h-18">
                 <h3
-                  className="text-foreground overflow-hidden text-[18px] leading-[1.08] font-bold"
+                  className="text-foreground text-md overflow-hidden leading-[1.08] font-bold"
                   style={{
                     display: '-webkit-box',
                     WebkitLineClamp: 3,
@@ -325,7 +325,7 @@ function AsignaturaCardItem({
         </TooltipTrigger>
 
         <TooltipContent side="bottom">
-          <div className="text-xs">
+          <div className="text-lg">
             {/* ciclo */}
             {asignatura.ciclo ? (
               <span className="font-bold">C{asignatura.ciclo} · </span>
@@ -760,7 +760,7 @@ function MapaCurricularPage() {
 
       <div className="overflow-x-auto pb-6">
         <div
-          className="grid gap-3"
+          className="grid gap-2"
           style={{
             gridTemplateColumns: `140px repeat(${ciclosTotales}, minmax(auto, 1fr)) 120px`,
           }}
@@ -835,7 +835,7 @@ function MapaCurricularPage() {
                     key={`${linea.id}-${ciclo}`}
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, ciclo, linea.id)}
-                    className="min-h-[140px] space-y-2 rounded-xl border-2 border-dashed border-slate-100 bg-slate-50/20 p-2"
+                    className="min-h-35 space-y-2 rounded-xl border-2 border-dashed border-slate-100 bg-slate-50/20"
                   >
                     {asignaturas
                       .filter(
