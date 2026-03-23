@@ -859,10 +859,27 @@ function MapaCurricularPage() {
                   </div>
                 ))}
 
-                <div className="flex flex-col justify-center rounded-xl border border-slate-100 bg-slate-50 p-4 text-[10px] font-medium text-slate-500">
-                  <div>Cr: {sub.cr}</div>
-                  <div>HD: {sub.hd}</div>
-                  <div>HI: {sub.hi}</div>
+                <div
+                  className={`flex flex-col justify-center rounded-xl border p-4 text-[10px] font-medium ${
+                    sub.cr === 0 && sub.hd === 0 && sub.hi === 0
+                      ? 'border-slate-100 bg-slate-50/50 text-slate-300'
+                      : 'border-slate-200 bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  {sub.cr === 0 && sub.hd === 0 && sub.hi === 0 ? (
+                    <div className="text-slate-400">—</div>
+                  ) : (
+                    <>
+                      <div className="space-y-1">
+                        <div className="font-bold text-slate-700">
+                          Cr: {sub.cr}
+                        </div>
+                        <div className="text-slate-600">
+                          HD: {sub.hd} • HI: {sub.hi}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </Fragment>
             )
@@ -876,15 +893,25 @@ function MapaCurricularPage() {
 
           {ciclosArray.map((ciclo) => {
             const t = getTotalesCiclo(ciclo)
+            const isEmpty = t.cr === 0 && t.hd === 0 && t.hi === 0
+
             return (
               <div
                 key={`footer-${ciclo}`}
-                className="rounded-lg bg-slate-50 p-2 text-center text-[10px]"
+                className={`rounded-lg p-2 text-center text-[10px] ${
+                  isEmpty ? 'bg-slate-100/50 text-slate-400' : 'bg-slate-50'
+                }`}
               >
-                <div className="font-bold text-slate-700">Cr: {t.cr}</div>
-                <div>
-                  HD: {t.hd} • HI: {t.hi}
-                </div>
+                {isEmpty ? (
+                  <div className="py-1 text-xs text-slate-400">—</div>
+                ) : (
+                  <>
+                    <div className="font-bold text-slate-700">Cr: {t.cr}</div>
+                    <div>
+                      HD: {t.hd} • HI: {t.hi}
+                    </div>
+                  </>
+                )}
               </div>
             )
           })}
