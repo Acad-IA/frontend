@@ -1,7 +1,6 @@
-/* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/label-has-associated-control */
 import { createFileRoute } from '@tanstack/react-router'
-import { Plus, AlertTriangle, Trash2, Pencil, Download } from 'lucide-react'
+import { Plus, AlertTriangle, Trash2, Download } from 'lucide-react'
 import * as Icons from 'lucide-react'
 import { useMemo, useState, useEffect, Fragment } from 'react'
 
@@ -238,7 +237,7 @@ function AsignaturaCardItem({
                       <EstadoIcon className="text-foreground/65 h-3.5 w-3.5" />
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent side="left">
+                  <TooltipContent side="right">
                     <span className="text-xs font-semibold">
                       {estado.label}
                     </span>
@@ -249,7 +248,7 @@ function AsignaturaCardItem({
               {/* titulo */}
               <div className="mt-4 min-h-18">
                 <h3
-                  className="text-foreground text-md overflow-hidden leading-[1.08] font-bold"
+                  className="text-foreground text-md overflow-hidden leading-[1.08]"
                   style={{
                     display: '-webkit-box',
                     WebkitLineClamp: 3,
@@ -333,7 +332,6 @@ function MapaCurricularPage() {
   const { data } = usePlan(planId)
   const [totalCiclos, setTotalCiclos] = useState(0)
   const [editingLineaId, setEditingLineaId] = useState<string | null>(null)
-  const [tempNombreLinea, setTempNombreLinea] = useState('')
   const { mutate: createLinea } = useCreateLinea()
   const { mutate: updateLineaApi } = useUpdateLinea()
   const { mutate: deleteLineaApi } = useDeleteLinea()
@@ -397,11 +395,8 @@ function MapaCurricularPage() {
       },
     )
   }
-  const guardarEdicionLinea = (id: string, nuevoNombre?: string) => {
-    // Usamos el nombre que viene por parámetro o el del estado como fallback
-    const nombreAFijar = (
-      nuevoNombre !== undefined ? nuevoNombre : tempNombreLinea
-    ).trim()
+  const guardarEdicionLinea = (id: string, nuevoNombre: string) => {
+    const nombreAFijar = nuevoNombre.trim()
 
     if (!nombreAFijar) {
       setEditingLineaId(null)
@@ -421,7 +416,6 @@ function MapaCurricularPage() {
             ),
           )
           setEditingLineaId(null)
-          setTempNombreLinea('')
         },
         onError: (err) => {
           console.error('Error al actualizar linea:', err)
@@ -632,38 +626,28 @@ function MapaCurricularPage() {
     [asignaturas],
   )
 
-  const handleKeyDownLinea = (
-    e: React.KeyboardEvent<HTMLSpanElement>,
-    _id: string,
-  ) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      e.currentTarget.blur()
-    }
-  }
-
-  const handleBlurLinea = (
-    e: React.FocusEvent<HTMLSpanElement>,
-    id: string,
-  ) => {
-    const nuevoNombre = e.currentTarget.textContent.trim() || ''
-
-    // Buscamos la línea original para comparar
+  const confirmarEdicionLinea = (id: string, nuevoNombreRaw: string) => {
+    const nuevoNombre = nuevoNombreRaw.trim()
     const lineaOriginal = lineas.find((l) => l.id === id)
 
-    if (nuevoNombre !== lineaOriginal?.nombre) {
-      // IMPORTANTE: Pasamos nuevoNombre directamente
-      guardarEdicionLinea(id, nuevoNombre)
-    } else {
+    if (!nuevoNombre) {
       setEditingLineaId(null)
+      return
     }
+
+    if (nuevoNombre !== lineaOriginal?.nombre) {
+      guardarEdicionLinea(id, nuevoNombre)
+      return
+    }
+
+    setEditingLineaId(null)
   }
 
   if (loadingAsig || loadingLineas)
     return <div className="p-10 text-center">Cargando mapa curricular...</div>
 
   return (
-    <div className="container space-y-6 py-4">
+    <div className="space-y-6">
       {/* Header */}
       <div className="border-border bg-card/70 rounded-2xl border p-4 shadow-sm">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
@@ -770,7 +754,7 @@ function MapaCurricularPage() {
             return (
               <Fragment key={linea.id}>
                 <div
-                  className={`group relative flex items-center justify-between rounded-xl border p-3 transition-all ${editingLineaId === linea.id ? 'ring-primary/30 ring-2' : ''}`}
+                  className={`group relative flex items-start justify-between gap-2 rounded-xl border p-3 transition-all ${editingLineaId === linea.id ? 'ring-primary/30 ring-2' : 'cursor-text'}`}
                   style={{
                     borderColor: hexToRgba(linea.color || '#1976d2', 0.24),
                     backgroundColor:
@@ -779,42 +763,50 @@ function MapaCurricularPage() {
                         : hexToRgba(linea.color || '#1976d2', 0.08),
                   }}
                 >
-                  <div className="min-w-0 flex-1 overflow-hidden">
-                    <span
-                      contentEditable={editingLineaId === linea.id}
-                      suppressContentEditableWarning
-                      spellCheck={false}
-                      onKeyDown={(e) => handleKeyDownLinea(e, linea.id)}
-                      onBlur={(e) => handleBlurLinea(e, linea.id)}
-                      onClick={() => {
-                        if (editingLineaId !== linea.id) {
-                          setEditingLineaId(linea.id)
-                          setTempNombreLinea(linea.nombre)
-                        }
-                      }}
-                      className={`text-foreground block w-full truncate text-sm font-bold wrap-break-word outline-none ${
-                        editingLineaId === linea.id
-                          ? 'border-primary/40 cursor-text border-b pb-1'
-                          : 'cursor-pointer'
-                      }`}
-                    >
-                      {linea.nombre}
-                    </span>
+                  <div className="min-w-0 flex-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          contentEditable
+                          role="textbox"
+                          tabIndex={0}
+                          aria-label={`Nombre de línea ${linea.nombre}`}
+                          suppressContentEditableWarning
+                          spellCheck={false}
+                          onFocus={() => setEditingLineaId(linea.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              e.currentTarget.blur()
+                            }
+                            if (e.key === 'Escape') {
+                              e.preventDefault()
+                              e.currentTarget.textContent = linea.nombre
+                              e.currentTarget.blur()
+                            }
+                          }}
+                          onBlur={(e) =>
+                            confirmarEdicionLinea(
+                              linea.id,
+                              e.currentTarget.textContent,
+                            )
+                          }
+                          className="text-foreground hover:text-foreground/85 block w-full cursor-text text-sm leading-snug wrap-break-word transition-colors outline-none"
+                        >
+                          {linea.nombre}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs text-sm">
+                        {linea.nombre}
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
-                  <div className="ml-2 flex shrink-0 items-center gap-1">
-                    <button
-                      type="button"
-                      aria-label="Editar línea"
-                      onClick={() => setEditingLineaId(linea.id)}
-                      className="text-foreground/65 hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-                    >
-                      <Pencil size={12} />
-                    </button>
+                  <div className="ml-1 flex shrink-0 items-center gap-1">
                     <button
                       type="button"
                       aria-label="Eliminar línea"
                       onClick={() => borrarLinea(linea.id)}
-                      className="text-destructive/80 hover:text-destructive inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
+                      className="text-destructive/80 hover:text-destructive hover:bg-destructive/10 inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>
