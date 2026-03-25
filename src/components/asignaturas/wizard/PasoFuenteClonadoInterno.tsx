@@ -93,16 +93,28 @@ export function PasoFuenteClonadoInterno({
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const supabase = supabaseBrowser()
-
       const from = (page - 1) * pageSize
-      const to = from + pageSize - 1
-
       const term = debouncedSearch.trim()
 
-      // Full text search (tsvector) para el campo Buscar.
-      // Si no hay término, conservamos el listado base por nombre.
-      if (term) {
-        const mapRow = (r: SearchAsignaturasRow): SourceSubjectRow => ({
+      // Una sola llamada limpia. RPC maneja tanto búsqueda vacía como llena.
+      const { data, error } = await supabase.rpc('search_asignaturas', {
+        p_search: term,
+        p_facultad_id: facultadId ?? undefined, // Corrección TS 2322
+        p_carrera_id: carreraId ?? undefined, // Corrección TS 2322
+        p_plan_estudio_id: planOrigenId ?? undefined, // Corrección TS 2322
+        p_limit: pageSize,
+        p_offset: from,
+      })
+
+      if (error) throw new Error(error.message)
+
+      // Extraemos el conteo total de la primera fila.
+      // ESLint feliz: "data" ya no puede ser null a este punto.
+      const count = data.length > 0 ? Number(data[0].total_count) : 0
+
+      return {
+        // ESLint feliz: map directo sobre data
+        data: data.map((r) => ({
           id: r.id,
           nombre: r.nombre,
           codigo: r.codigo,
@@ -111,132 +123,9 @@ export function PasoFuenteClonadoInterno({
           plan_estudio_id: r.plan_estudio_id,
           estructura_id: null,
           rank: r.rank,
-        })
-
-        if (planOrigenId) {
-          const args: Database['public']['Functions']['search_asignaturas']['Args'] =
-            {
-              p_search: term,
-              p_plan_estudio_id: planOrigenId,
-              p_limit: pageSize,
-              p_offset: from,
-            }
-
-          const { data, error, count } = await supabase.rpc(
-            'search_asignaturas',
-            args,
-            { count: 'exact' },
-          )
-          if (error) throw new Error(error.message)
-
-          return {
-            data: data.map(mapRow),
-            count: count ?? 0,
-          }
-        }
-
-        if (needPlansForFilter) {
-          const planIds = plansForFilter.map((p) => p.id)
-          if (!planIds.length) {
-            return { data: [] as Array<SourceSubjectRow>, count: 0 }
-          }
-
-          const perPlanLimit = pageSize * page
-
-          const perPlan = await Promise.all(
-            planIds.map(async (planId) => {
-              const args: Database['public']['Functions']['search_asignaturas']['Args'] =
-                {
-                  p_search: term,
-                  p_plan_estudio_id: planId,
-                  p_limit: perPlanLimit,
-                  p_offset: 0,
-                }
-
-              const { data, error, count } = await supabase.rpc(
-                'search_asignaturas',
-                args,
-                { count: 'exact' },
-              )
-              if (error) throw new Error(error.message)
-
-              return {
-                data,
-                count: count ?? 0,
-              }
-            }),
-          )
-
-          const merged = perPlan
-            .flatMap((p) => p.data)
-            .map(mapRow)
-            .sort((a, b) => {
-              const ar = a.rank ?? 0
-              const br = b.rank ?? 0
-              if (br !== ar) return br - ar
-              const byName = a.nombre.localeCompare(b.nombre, 'es')
-              if (byName !== 0) return byName
-              return String(a.id).localeCompare(String(b.id))
-            })
-
-          const pageData = merged.slice(from, to + 1)
-          const totalCount = perPlan.reduce((acc, p) => acc + p.count, 0)
-
-          return {
-            data: pageData,
-            count: totalCount,
-          }
-        }
-
-        const args: Database['public']['Functions']['search_asignaturas']['Args'] =
-          {
-            p_search: term,
-            p_limit: pageSize,
-            p_offset: from,
-          }
-
-        const { data, error, count } = await supabase.rpc(
-          'search_asignaturas',
-          args,
-          { count: 'exact' },
-        )
-        if (error) throw new Error(error.message)
-
-        return {
-          data: data.map(mapRow),
-          count: count ?? 0,
-        }
+        })),
+        count,
       }
-
-      // let q = supabase
-      //   .from('asignaturas')
-      //   .select(
-      //     'id,nombre,codigo,creditos,tipo,plan_estudio_id,estructura_id',
-      //     {
-      //       count: 'exact',
-      //     },
-      //   )
-      //   .order('nombre', { ascending: true })
-
-      // if (planOrigenId) {
-      //   q = q.eq('plan_estudio_id', planOrigenId)
-      // } else if (needPlansForFilter) {
-      //   const planIds = plansForFilter.map((p) => p.id)
-      //   if (!planIds.length) {
-      //     return { data: [] as Array<SourceSubjectRow>, count: 0 }
-      //   }
-      //   q = q.in('plan_estudio_id', planIds)
-      // }
-
-      // q = q.range(from, to)
-
-      // const { data, error, count } = await q
-      // if (error) throw new Error(error.message)
-
-      // return {
-      //   data: data as unknown as Array<SourceSubjectRow>,
-      //   count: count ?? 0,
-      // }
     },
   })
 

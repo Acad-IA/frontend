@@ -1403,10 +1403,12 @@ export type Database = {
       recalcular_vectores_asignaturas: { Args: never; Returns: undefined }
       search_asignaturas: {
         Args: {
+          p_carrera_id?: string
+          p_facultad_id?: string
           p_limit?: number
           p_offset?: number
           p_plan_estudio_id?: string
-          p_search: string
+          p_search?: string
         }
         Returns: Array<{
           codigo: string
@@ -1420,6 +1422,7 @@ export type Database = {
           plan_estudio_id: string
           rank: number
           tipo: Database['public']['Enums']['tipo_asignatura']
+          total_count: number
         }>
       }
       suma_porcentajes: { Args: { '': Json }; Returns: number }
