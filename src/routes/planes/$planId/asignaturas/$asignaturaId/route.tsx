@@ -28,7 +28,7 @@ export const Route = createFileRoute(
   component: AsignaturaLayout,
 })
 
-// --- 1. COMPONENTE PARA EDITAR EL TÍTULO (h1) ---
+// --- 1. COMPONENTE PARA EDITAR EL TÍTULO SOBRE FONDO AZUL ---
 function InlineEditTitle({
   value,
   onSave,
@@ -61,7 +61,8 @@ function InlineEditTitle({
             setIsEditing(false)
           }
         }}
-        className="bg-background text-foreground border-primary focus:ring-primary/20 w-full rounded-md border-2 px-2 py-1 text-3xl font-bold shadow-sm outline-none focus:ring-4"
+        // Input estilizado para fondo oscuro: borde blanco sutil, texto blanco
+        className="focus:ring-primary/40 w-full rounded-md border-2 border-white/20 bg-transparent px-2 py-1 text-3xl font-bold text-white shadow-sm outline-none focus:ring-4"
       />
     )
   }
@@ -69,15 +70,17 @@ function InlineEditTitle({
   return (
     <h1
       onClick={() => setIsEditing(true)}
-      className="group text-foreground hover:bg-muted/50 flex cursor-pointer items-center gap-3 rounded-md px-2 py-1 text-3xl font-bold transition-colors"
+      // Texto blanco por defecto, fondo blanco sutil al hover
+      className="group flex cursor-pointer items-center gap-3 rounded-md px-2 py-1 text-3xl font-bold text-white transition-colors hover:bg-white/5"
     >
       {value}
-      <Pencil className="text-muted-foreground hover:text-primary h-5 w-5 opacity-0 transition-all group-hover:opacity-100" />
+      {/* Lápiz blanco sutil */}
+      <Pencil className="h-5 w-5 text-white/50 opacity-0 transition-all group-hover:opacity-100 hover:text-white" />
     </h1>
   )
 }
 
-// --- 2. COMPONENTE PARA EDITAR LOS BADGES (Código, Créditos, Semestre) ---
+// --- 2. COMPONENTE PARA EDITAR LOS BADGES SOBRE FONDO AZUL ---
 function InlineEditBadge({
   icon,
   label,
@@ -107,8 +110,9 @@ function InlineEditBadge({
 
   if (isEditing) {
     return (
-      <div className="bg-background border-primary ring-primary/20 flex h-8 items-center gap-2 rounded-md border px-3 shadow-sm ring-2">
-        <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+      // Contenedor del input con estética de badge oscuro
+      <div className="focus:ring-primary/40 flex h-8 items-center gap-2 rounded-md border border-white/20 bg-white/5 px-3 shadow-sm ring-1 focus-within:ring-2">
+        <span className="text-xs font-medium tracking-wider text-white/60 uppercase">
           {label}:
         </span>
         <input
@@ -124,7 +128,8 @@ function InlineEditBadge({
               setIsEditing(false)
             }
           }}
-          className="text-foreground w-16 bg-transparent text-sm font-semibold outline-none"
+          // Texto blanco dentro del input
+          className="w-16 bg-transparent text-sm font-semibold text-white outline-none"
         />
       </div>
     )
@@ -133,16 +138,19 @@ function InlineEditBadge({
   return (
     <button
       onClick={() => setIsEditing(true)}
-      className="border-border bg-muted/30 hover:border-primary/40 hover:bg-muted group flex h-8 items-center gap-2 rounded-md border px-3 text-sm transition-all"
+      // Badge oscuro: borde blanco sutil, texto blanco, fondo más claro al hover
+      className="group flex h-8 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white transition-all hover:border-white/20 hover:bg-white/10"
     >
-      <span className="text-muted-foreground">{icon}</span>
-      <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+      {/* Ícono blanco sutil */}
+      <span className="text-white/70">{icon}</span>
+      <span className="text-xs font-medium tracking-wider text-white/60 uppercase">
         {label}:
       </span>
-      <span className="text-foreground font-semibold">
+      <span className="font-semibold text-white">
         {value} {suffix}
       </span>
-      <Pencil className="text-muted-foreground h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
+      {/* Lápiz blanco sutil */}
+      <Pencil className="h-3 w-3 text-white/50 opacity-0 transition-opacity group-hover:opacity-100" />
     </button>
   )
 }
@@ -212,19 +220,20 @@ function AsignaturaLayout() {
 
   return (
     <div className="bg-background min-h-screen">
-      {/* HEADER DE LA ASIGNATURA */}
-      <section className="bg-card border-border border-b pt-6 pb-8">
+      {/* HEADER DE LA ASIGNATURA CON TU FONDO AZUL HARDCODEADO */}
+      <section className="border-border border-b bg-[#0b1d3a] pt-6 pb-8">
         <div className="mx-auto px-4 md:px-6 lg:px-8">
           <Link
             to="/planes/$planId/asignaturas"
             params={{ planId }}
-            className="text-muted-foreground hover:text-foreground mb-4 flex w-fit items-center gap-2 text-sm transition-colors"
+            // Enlace blanco sutil
+            className="mb-4 flex w-fit items-center gap-2 text-sm text-white/70 transition-colors hover:text-white"
           >
             <ArrowLeft className="h-4 w-4" /> Volver al plan
           </Link>
 
           <div className="flex flex-col gap-4">
-            {/* Título Editable */}
+            {/* Título Editable (Texto blanco controlado dentro del componente) */}
             <div className="-ml-2">
               <InlineEditTitle
                 value={headerData.nombre}
@@ -234,16 +243,16 @@ function AsignaturaLayout() {
 
             {/* Fila de Metadatos Alineados */}
             <div className="flex flex-wrap items-center gap-3">
-              {/* Badge Estático del Tipo */}
+              {/* Badge Estático del Tipo (Estilo oscuro sutil) */}
               <Badge
-                variant="secondary"
-                className="flex h-8 items-center gap-1.5 px-3"
+                variant="outline"
+                className="flex h-8 items-center gap-1.5 border-white/10 bg-white/5 px-3 text-white hover:border-white/20 hover:bg-white/10"
               >
-                <Tag size={12} className="opacity-70" />
+                <Tag size={12} className="text-white/70" />
                 {asignaturaApi.tipo}
               </Badge>
 
-              {/* Badges Editables */}
+              {/* Badges Editables (Texto blanco controlado dentro de los componentes) */}
               <InlineEditBadge
                 icon={<Hash size={14} />}
                 label="Código"
@@ -273,11 +282,11 @@ function AsignaturaLayout() {
               />
             </div>
 
-            {/* Subtítulo de contexto */}
-            <div className="text-muted-foreground mt-2 flex items-center gap-2 text-sm">
-              <GraduationCap className="h-4 w-4 shrink-0" />
+            {/* Subtítulo de contexto (Texto blanco sutil) */}
+            <div className="mt-2 flex items-center gap-2 text-sm text-white/70">
+              <GraduationCap className="h-4 w-4 shrink-0 text-white/60" />
               <span>Pertenece al plan:</span>
-              <span className="text-foreground font-medium">
+              <span className="font-medium text-white">
                 {(asignaturaApi.planes_estudio as DatosPlan).nombre || ''}
               </span>
             </div>
@@ -285,8 +294,8 @@ function AsignaturaLayout() {
         </div>
       </section>
 
-      {/* TABS NAVEGACIÓN */}
-      <nav className="bg-background/80 border-border sticky top-0 z-20 border-b backdrop-blur-md">
+      {/* TABS NAVEGACIÓN (Se mantiene semántico para el cuerpo de la página) */}
+      <nav className="border-border bg-background/80 sticky top-0 z-20 border-b backdrop-blur-md">
         <div className="mx-auto px-4 py-1 md:px-6 lg:px-8">
           <div className="scrollbar-hide flex items-center justify-start gap-8 overflow-x-auto whitespace-nowrap md:justify-start">
             {[
