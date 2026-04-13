@@ -246,7 +246,7 @@ function AsignaturaLayout() {
               {/* Badge Estático del Tipo (Estilo oscuro sutil) */}
               <Badge
                 variant="outline"
-                className="flex h-8 items-center gap-1.5 border-white/10 bg-white/5 px-3 text-white hover:border-white/20 hover:bg-white/10"
+                className="flex h-8 cursor-default items-center gap-1.5 border-white/10 bg-white/5 px-3 text-white"
               >
                 <Tag size={12} className="text-white/70" />
                 {asignaturaApi.tipo}

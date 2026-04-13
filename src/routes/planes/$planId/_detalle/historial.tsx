@@ -9,7 +9,6 @@ import {
   User,
   Loader2,
   Clock,
-  Eye,
   History,
   Calendar,
   ChevronLeft,
@@ -156,7 +155,16 @@ function RouteComponent() {
                 </div>
               </div>
 
-              <Card className="border-border hover:border-primary/50 flex-1 shadow-none transition-colors">
+              <Card
+                className="border-border hover:border-primary/50 flex-1 cursor-pointer shadow-none transition-colors"
+                onClick={() => openCompareModal(event)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ')
+                    openCompareModal(event)
+                }}
+              >
                 <CardContent className="p-4">
                   <div className="flex flex-col gap-2">
                     {/* LÍNEA SUPERIOR: Título a la izquierda --- Usuario, Botón y Fecha a la derecha */}
@@ -185,15 +193,6 @@ function RouteComponent() {
                             {event.user}
                           </span>
                         </div>
-
-                        {/* Botón Ver Cambios */}
-                        <button
-                          onClick={() => openCompareModal(event)}
-                          className="text-primary md:text-muted-foreground md:hover:text-primary group/btn flex items-center gap-1.5 text-xs font-medium"
-                        >
-                          <Eye className="text-muted-foreground/70 group-hover/btn:text-primary h-4 w-4" />
-                          <span>Ver cambios</span>
-                        </button>
 
                         {/* Fecha exacta (Solo visible en desktop para no amontonar) */}
                         <span className="text-muted-foreground/70 hidden text-[11px] lg:block">

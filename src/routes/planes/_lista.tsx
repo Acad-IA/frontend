@@ -194,9 +194,7 @@ function RouteComponent() {
                 variant="secondary"
                 onClick={resetFilters}
                 disabled={isClearDisabled}
-                className={`shadow-md ${
-                  isClearDisabled ? 'cursor-not-allowed opacity-50' : ''
-                }`}
+                className={`shadow-md`}
               >
                 <Icons.X className="h-4 w-4" /> Limpiar
               </Button>
