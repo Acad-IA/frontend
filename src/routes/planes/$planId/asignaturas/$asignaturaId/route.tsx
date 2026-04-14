@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query'
 import {
   createFileRoute,
   Outlet,
@@ -23,41 +24,30 @@ export const Route = createFileRoute(
 function EditableHeaderField({
   value,
   onSave,
-  className,
 }: {
   value: string | number
   onSave: (val: string) => void
-  className?: string
 }) {
-  const textValue = String(value)
+  const [localValue, setLocalValue] = useState(String(value))
 
-  // Manejador para cuando el usuario termina de editar (pierde el foco)
-  const handleBlur = (e: React.FocusEvent<HTMLSpanElement>) => {
-    const newValue = e.currentTarget.innerText
-    if (newValue !== textValue) {
-      onSave(newValue)
-    }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      e.currentTarget.blur() // Forzamos el guardado al presionar Enter
-    }
-  }
+  // Sincronizar si el valor externo cambia (por ejemplo, tras el onSuccess)
+  useEffect(() => {
+    setLocalValue(String(value))
+  }, [value])
 
   return (
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <span
       contentEditable
-      suppressContentEditableWarning={true} // Evita el warning de React por tener hijos y contentEditable
-      spellCheck={false}
-      onBlur={handleBlur}
-      onKeyDown={handleKeyDown}
-      className={`inline-block cursor-text rounded-sm px-1 transition-all hover:bg-white/10 focus:bg-white/20 focus:ring-2 focus:ring-blue-400/50 focus:outline-none ${className ?? ''} `}
-    >
-      {textValue}
-    </span>
+      suppressContentEditableWarning
+      onBlur={(e) => {
+        const newValue = e.currentTarget.innerText
+        if (newValue !== String(value)) onSave(newValue)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+      }}
+      dangerouslySetInnerHTML={{ __html: localValue }}
+    />
   )
 }
 interface DatosPlan {
@@ -66,14 +56,11 @@ interface DatosPlan {
 
 function AsignaturaLayout() {
   const location = useLocation()
-  const { asignaturaId } = useParams({
+  const { asignaturaId, planId } = useParams({
     from: '/planes/$planId/asignaturas/$asignaturaId',
   })
-  const { planId } = useParams({
-    from: '/planes/$planId/asignaturas/$asignaturaId',
-  })
-  const { data: asignaturaApi, isLoading: loadingAsig } =
-    useSubject(asignaturaId)
+
+  const { data: asignaturaApi, isLoading } = useSubject(asignaturaId)
   const { data: todasLasAsignaturas } = usePlanAsignaturas(planId)
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean
@@ -112,58 +99,33 @@ function AsignaturaLayout() {
       })
     })
   }
-
-  const updateAsignatura = useUpdateAsignatura()
-
-  // Dentro de AsignaturaDetailPage
-  const [headerData, setHeaderData] = useState({
-    codigo: '',
-    nombre: '',
-    creditos: 0,
-    ciclo: 0,
+  const queryClient = useQueryClient()
+  const updateAsignatura = useUpdateAsignatura({
+    onSuccess: () => {
+      // ESTO ES LO QUE FALTA: Obliga a react-query a traer los datos nuevos
+      queryClient.invalidateQueries({ queryKey: ['subject', asignaturaId] })
+    },
   })
 
-  // Sincronizar cuando llegue la API
-  useEffect(() => {
-    if (asignaturaApi) {
-      setHeaderData({
-        codigo: asignaturaApi.codigo ?? '',
-        nombre: asignaturaApi.nombre,
-        creditos: asignaturaApi.creditos,
-        ciclo: asignaturaApi.numero_ciclo ?? 0,
-      })
-    }
-  }, [asignaturaApi])
-
   const handleUpdateHeader = async (key: string, value: string | number) => {
-    // 1. Si es ciclo, validamos antes de hacer nada
+    // 1. Validación de ciclo
     if (key === 'ciclo') {
       const nuevoCiclo = Number(value)
       const acepto = await validarConInterrupcion(nuevoCiclo)
 
-      setConfirmState(null) // Cerramos el modal tras la respuesta
-
+      // Si no aceptó, no hacemos nada más
       if (!acepto) {
-        // Revertimos el estado local al valor de la API si cancela
-        setHeaderData((prev) => ({
-          ...prev,
-          ciclo: asignaturaApi?.numero_ciclo ?? 0,
-        }))
+        setConfirmState(null)
         return
       }
+      setConfirmState(null)
     }
 
-    // 2. Si no es ciclo o si aceptó el conflicto, procedemos
-    const newData = { ...headerData, [key]: value }
-    setHeaderData(newData)
+    // 2. Ejecutar mutación
+    const patch = key === 'ciclo' ? { numero_ciclo: value } : { [key]: value }
 
-    const patch: Record<string, any> =
-      key === 'ciclo' ? { numero_ciclo: value } : { [key]: value }
-
-    updateAsignatura.mutate({
-      asignaturaId,
-      patch,
-    })
+    // Esto disparará el onSuccess de useUpdateAsignatura que ya tienes
+    updateAsignatura.mutate({ asignaturaId, patch })
   }
 
   const pathname = useRouterState({
@@ -172,13 +134,14 @@ function AsignaturaLayout() {
 
   // Confetti al llegar desde creación IA
   useEffect(() => {
+    
     if ((location.state as any)?.showConfetti) {
       lateralConfetti()
       window.history.replaceState({}, document.title)
     }
   }, [location.state])
 
-  if (loadingAsig) {
+  if (isLoading || !asignaturaApi) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#0b1d3a] text-white">
         Cargando asignatura...
@@ -206,7 +169,7 @@ function AsignaturaLayout() {
               {/* CÓDIGO EDITABLE */}
               <Badge className="border border-blue-700 bg-blue-900/50">
                 <EditableHeaderField
-                  value={headerData.codigo}
+                  value={asignaturaApi.codigo}
                   onSave={(val) => handleUpdateHeader('codigo', val)}
                 />
               </Badge>
@@ -214,7 +177,7 @@ function AsignaturaLayout() {
               {/* NOMBRE EDITABLE */}
               <h1 className="text-3xl font-bold">
                 <EditableHeaderField
-                  value={headerData.nombre}
+                  value={asignaturaApi.nombre}
                   onSave={(val) => handleUpdateHeader('nombre', val)}
                 />
               </h1>
@@ -235,7 +198,7 @@ function AsignaturaLayout() {
               <Badge variant="secondary" className="gap-1">
                 <span className="inline-flex max-w-fit">
                   <EditableHeaderField
-                    value={headerData.creditos}
+                    value={asignaturaApi.creditos}
                     onSave={(val) =>
                       handleUpdateHeader('creditos', parseInt(val) || 0)
                     }
@@ -247,7 +210,7 @@ function AsignaturaLayout() {
               {/* SEMESTRE EDITABLE */}
               <Badge variant="secondary" className="gap-1">
                 <EditableHeaderField
-                  value={headerData.ciclo}
+                  value={asignaturaApi.numero_ciclo}
                   onSave={(val) =>
                     handleUpdateHeader('ciclo', parseInt(val) || 0)
                   }
