@@ -48,15 +48,11 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install Supabase CLI
+      - name: Setup Supabase CLI
         if: github.event_name == 'pull_request'
-        run: npm install -g supabase
-
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
       # Producción: seguir usando tus variables normales
       - name: Set production Supabase env
         if: github.event_name == 'push'
