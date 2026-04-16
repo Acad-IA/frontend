@@ -38,6 +38,73 @@ type CarboneDownload = {
   contentDisposition: string | null;
 };
 
+async function prepararDatosParaExcel(
+  supabase: SupabaseClient,
+  planEstudioId: string
+) {
+  const { data: plan, error: planError } = await supabase
+    .from("planes_estudio")
+    .select("*, planes_estudio_datos:datos, estructura:estructuras_plan(*)")
+    .eq("id", planEstudioId)
+    .single();
+
+  const { data: asignaturas, error: asigError } = await supabase
+    .from("asignaturas")
+    .select("*, linea:lineas_plan(nombre)")
+    .eq("plan_estudio_id", planEstudioId)
+    .order("numero_ciclo", { ascending: true });
+
+  if (planError || asigError) throw new Error("Error obteniendo datos");
+
+  // 1. Calcular el máximo de materias por ciclo
+  const materiasPorCiclo = Array.from({ length: plan.numero_ciclos }, (_, i) => 
+    asignaturas.filter(a => a.numero_ciclo === i + 1).length
+  );
+  const maxMaterias = Math.max(...materiasPorCiclo);
+
+  // 2. Transformación con padding de nulls
+  const semestres = Array.from({ length: plan.numero_ciclos }, (_, i) => {
+    const materiasDelCiclo = asignaturas.filter(a => a.numero_ciclo === i + 1);
+    
+    // Calculamos totales
+    const totalHi = materiasDelCiclo.reduce((sum, a) => sum + (a.horas_independientes || 0), 0);
+    const totalHp = materiasDelCiclo.reduce((sum, a) => sum + (a.horas_academicas || 0), 0);
+    const totalCreditos = materiasDelCiclo.reduce((sum, a) => sum + (Number(a.creditos) || 0), 0);
+
+    // Mapeamos las materias reales
+    const listaMaterias = materiasDelCiclo.map(a => ({
+      clave: a.codigo,
+      nombre: a.nombre,
+      clave_prerrequisito: null, // Si necesitas lógica adicional, aquí va
+      tipo: a.tipo,
+      instalacion: (a.datos as any)?.instalacion || "Aula",
+      creditos: Number(a.creditos),
+      hi: a.horas_independientes,
+      hp: a.horas_academicas
+    }));
+
+    // 3. Aplicamos el padding: rellenamos con null hasta llegar al máximo
+    const materiasRellenas = [
+      ...listaMaterias,
+      ...Array(maxMaterias - listaMaterias.length).fill(null)
+    ];
+
+    return {
+      nombre: ["Primer", "Segundo", "Tercer", "Cuarto", "Quinto", "Sexto", "Séptimo", "Octavo"][i] || `Ciclo ${i + 1}`,
+      creditos: totalCreditos,
+      hi: totalHi,
+      hp: totalHp,
+      materias: materiasRellenas
+    };
+  });
+
+  return {
+    tipo_ciclo: plan.tipo_ciclo,
+    semestres,
+    lineas_plan: [...new Set(asignaturas.map(a => a.linea?.nombre).filter(Boolean))].map(n => ({ nombre: n })),
+  };
+}
+
 async function loadPlanDatos(
   supabase: SupabaseClient,
   planEstudioId: string,
@@ -204,8 +271,25 @@ export async function handleDownloadReportAction(args: {
     args.bodyUnknown,
   );
   const carbone = new CarboneClient(args.carboneBaseUrl, args.carboneApiToken);
-
+  
   if ("plan_estudio_id" in input) {
+
+    const { convertTo  } = input.body as any; 
+    if (convertTo === "xlsx") {
+      const datosExcel = await prepararDatosParaExcel(args.supabase, input.plan_estudio_id);
+
+      // Template harcodeado para Excel
+      const templateId = "1385464409176924930"; 
+      
+      const result = await carbone.render(
+        templateId,
+        { data: datosExcel },
+        { download: true, format: "xlsx" }
+      );
+
+      return downloadToResponse(ensureCarboneDownload(result));
+    }
+
     const { datos, estructura_id } = await loadPlanDatos(
       args.supabase,
       input.plan_estudio_id,

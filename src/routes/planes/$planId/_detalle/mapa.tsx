@@ -45,6 +45,7 @@ import {
 } from '@/data'
 import { cn } from '@/lib/utils'
 import { generarColorContrastante } from '@/utils/colors'
+import { fetchPlanExcel, fetchPlanPdf } from '@/data/api/document.api'
 
 // --- Mapeadores (Fuera del componente para mayor limpieza) ---
 const palette = [
@@ -757,6 +758,31 @@ function MapaCurricularPage() {
     setEditingLineaId(null)
   }
 
+  const generateExcel = async () =>{
+    console.log("generando excel ");
+    try {
+  const formato = 'xlsx'; // O el valor que venga de tu UI
+  const blob = await fetchPlanExcel({
+    plan_estudio_id: planId,
+    convertTo: formato,
+  })
+
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  // Cambia .pdf por la variable del formato
+  link.download = `${"prueba"}.${formato}` 
+  document.body.appendChild(link)
+  link.click()
+
+  link.remove()
+  window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error(error)
+      alert('No se pudo generar el PDF')
+    } 
+  }
+ 
   if (loadingAsig || loadingLineas)
     return <div className="p-10 text-center">Cargando mapa curricular...</div>
 
@@ -781,6 +807,7 @@ function MapaCurricularPage() {
 
           <Button
             variant="outline"
+            onClick={() => generateExcel()}
             className={cn(
               'inline-flex h-11 w-full items-center justify-start gap-2 rounded-md px-8 text-sm font-medium shadow-sm transition-colors',
               // Fondo verde claro y texto oscuro para contraste
