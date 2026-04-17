@@ -4,6 +4,9 @@ import { corsHeaders } from "../_shared/cors.ts";
 import type { Database, Json } from "../_shared/database.types.ts";
 import { HttpError } from "../_shared/utils.ts";
 import { CarboneClient } from "./carbone.ts";
+import { Workbook } from "@cj-tech-master/excelts";
+import { applyColumnWidthPattern, applyMergePattern } from "./CombinateCells/excelUtils.ts";
+import { Buffer } from "node:buffer";
 
 const DownloadReportBodySchema = z.record(z.unknown()).optional().default({});
 
@@ -98,11 +101,76 @@ async function prepararDatosParaExcel(
     };
   });
 
+    const totalPlanCreditos = semestres.reduce((sum, s) => sum + s.creditos, 0);
+    const totalPlanHi = semestres.reduce((sum, s) => sum + s.hi, 0);
+    const totalPlanHp = semestres.reduce((sum, s) => sum + s.hp, 0);
+
   return {
     tipo_ciclo: plan.tipo_ciclo,
     semestres,
     lineas_plan: [...new Set(asignaturas.map(a => a.linea?.nombre).filter(Boolean))].map(n => ({ nombre: n })),
-  };
+    creditos: totalPlanCreditos,
+    hi: totalPlanHi,
+    hp: totalPlanHp,
+    config: {
+      ciclos: plan.numero_ciclos,
+      maxMaterias: maxMaterias
+    }
+    };
+}
+export async function postProcessExcel(buffer: Uint8Array, config: { ciclos: number, maxMaterias: number }) {
+  const workbook = new Workbook();
+  await workbook.xlsx.load(buffer as any);
+  const sheet = workbook.getWorksheet('RÍGIDO-Anexo 2 (A)');
+  
+  if (!sheet) throw new Error("Hoja no encontrada");
+
+  const { ciclos, maxMaterias } = config;
+
+   const matrizAsignaturas = {
+              startColumn: "C",
+              numberOfColumns: maxMaterias,
+              firstStartRow: 8,
+              mergeWidthInColumns: 5,
+              mergeHeightInRows: 3,
+              mergeBlockCount: ciclos,
+              rowStepBetweenBlocks: 14 - 8,
+          } as const;
+          const semestres = {
+              startColumn: "A",
+              numberOfColumns: 1,
+              firstStartRow: 7,
+              mergeWidthInColumns: 1,
+              mergeHeightInRows: 5,
+              mergeBlockCount: ciclos,
+              rowStepBetweenBlocks: 13 - 7,
+          } as const;
+          const clave_materias = {
+              startColumn: "C",
+              numberOfColumns: maxMaterias,
+              firstStartRow: 7,
+              mergeWidthInColumns: 3,
+              mergeHeightInRows: 1,
+              mergeBlockCount: ciclos,
+              columnStepBetweenBlocks: 3,
+              rowStepBetweenBlocks: 14 - 8,
+          } as const;
+
+          const columnWidths = {
+              fromColumn: "I",
+              numberOfBlocks: maxMaterias - 1,
+              columnStepBetweenBlocks: 5 + 1,
+              rowStepBetweenBlocks: 14 - 8,
+              widths: [4, .25, 4, 7.29, 13.57, 2.43],
+          } as const;
+
+          applyMergePattern(sheet, matrizAsignaturas);
+            applyMergePattern(sheet, semestres);
+            applyMergePattern(sheet, clave_materias);
+            applyColumnWidthPattern(sheet, columnWidths);
+  
+  
+  return await workbook.xlsx.writeBuffer();
 }
 
 async function loadPlanDatos(
@@ -278,16 +346,20 @@ export async function handleDownloadReportAction(args: {
     if (convertTo === "xlsx") {
       const datosExcel = await prepararDatosParaExcel(args.supabase, input.plan_estudio_id);
 
-      // Template harcodeado para Excel
-      const templateId = "1385464409176924930"; 
-      
       const result = await carbone.render(
-        templateId,
+        "1385464409176924930",
         { data: datosExcel },
         { download: true, format: "xlsx" }
       );
-
-      return downloadToResponse(ensureCarboneDownload(result));
+      
+      
+      const processedBuffer = await postProcessExcel(result.buffer, datosExcel.config);
+      
+      return downloadToResponse({
+        ...result,
+        buffer: processedBuffer as Uint8Array
+      });
+      
     }
 
     const { datos, estructura_id } = await loadPlanDatos(
