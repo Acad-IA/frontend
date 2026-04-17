@@ -111,6 +111,15 @@ export function PasoDetallesPanel({
           selectedArchivoIds={wizard.iaConfig?.archivosReferencia || []}
           selectedRepositorioIds={wizard.iaConfig?.repositoriosReferencia || []}
           uploadedFiles={wizard.iaConfig?.archivosAdjuntos || []}
+          enableSha256Dedupe={true}
+          onDedupePendingChange={(pendingCount) =>
+            onChange(
+              (w): NewSubjectWizardState => ({
+                ...w,
+                archivosAdjuntosDedupePending: pendingCount,
+              }),
+            )
+          }
           onToggleArchivo={(id, checked) =>
             onChange((w): NewSubjectWizardState => {
               const prev = w.iaConfig?.archivosReferencia || []

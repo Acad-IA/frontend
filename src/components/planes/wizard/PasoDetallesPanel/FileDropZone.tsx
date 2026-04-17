@@ -1,7 +1,9 @@
 import { Upload, File, X, FileText } from 'lucide-react'
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { supabaseBrowser } from '@/data'
 import { formatFileSize } from '@/features/planes/utils/format-file-size'
 import { cn } from '@/lib/utils'
 
@@ -9,6 +11,7 @@ export interface UploadedFile {
   id: string // Necesario para React (key)
   file: File // La fuente de verdad (contiene name, size, type)
   preview?: string // Opcional: si fueran imágenes
+  sha256?: string // Hash SHA256 (hex) calculado en frontend
 }
 
 interface FileDropzoneProps {
@@ -19,6 +22,8 @@ interface FileDropzoneProps {
   title?: string
   description?: string
   autoScrollToDropzone?: boolean
+  enableSha256Dedupe?: boolean
+  onDedupePendingChange?: (pendingCount: number) => void
 }
 
 export function FileDropzone({
@@ -29,12 +34,101 @@ export function FileDropzone({
   title = 'Arrastra archivos aquí',
   description = 'o haz clic para seleccionar',
   autoScrollToDropzone = false,
+  enableSha256Dedupe = false,
+  onDedupePendingChange,
 }: FileDropzoneProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [files, setFiles] = useState<Array<UploadedFile>>(persistentFiles ?? [])
   const onFilesChangeRef = useRef<typeof onFilesChange>(onFilesChange)
+  const onDedupePendingChangeRef = useRef<typeof onDedupePendingChange>(
+    onDedupePendingChange,
+  )
   const bottomRef = useRef<HTMLDivElement>(null)
   const prevFilesLengthRef = useRef(files.length)
+
+  const pendingChecksRef = useRef(new Set<string>())
+  const [pendingChecks, setPendingChecks] = useState(0)
+
+  useEffect(() => {
+    onDedupePendingChangeRef.current = onDedupePendingChange
+  }, [onDedupePendingChange])
+
+  useEffect(() => {
+    onDedupePendingChangeRef.current?.(pendingChecks)
+  }, [pendingChecks])
+
+  const computeSha256Hex = useCallback(async (file: File): Promise<string> => {
+    const buf = await file.arrayBuffer()
+    const digest = await crypto.subtle.digest('SHA-256', buf)
+    const bytes = new Uint8Array(digest)
+    return Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+  }, [])
+
+  const getBasename = (path: string) => {
+    const parts = path.split('/').filter(Boolean)
+    return parts.length ? parts[parts.length - 1] : path
+  }
+
+  const runDuplicateCheck = useCallback(
+    async (uploaded: UploadedFile) => {
+      if (!enableSha256Dedupe) return
+      if (pendingChecksRef.current.has(uploaded.id)) return
+
+      pendingChecksRef.current.add(uploaded.id)
+      setPendingChecks((n) => n + 1)
+
+      try {
+        const sha256 = await computeSha256Hex(uploaded.file)
+
+        setFiles((prev) =>
+          prev.map((f) => (f.id === uploaded.id ? { ...f, sha256 } : f)),
+        )
+
+        const supabase = supabaseBrowser()
+        const supabaseAny = supabase as any
+        const { data: existing, error } = await supabase
+          .from('archivos')
+          .select('id')
+          .eq('hash', sha256)
+          .maybeSingle()
+
+        if (error) {
+          console.error('Error buscando duplicados por hash:', error)
+          return
+        }
+
+        if (existing?.id) {
+          let nombreExistente = ''
+          const { data: obj, error: objErr } = await supabaseAny
+            .schema('storage')
+            .from('objects')
+            .select('name')
+            .eq('id', existing.id)
+            .maybeSingle()
+
+          if (!objErr && obj?.name) {
+            nombreExistente = getBasename(String(obj.name))
+          }
+
+          toast(
+            `Ese archivo ya existe en la base de datos${
+              nombreExistente ? ` con el nombre ${nombreExistente}` : ''
+            }.`,
+          )
+
+          setFiles((prev) => prev.filter((f) => f.id !== uploaded.id))
+        }
+      } catch (e) {
+        console.error('Error calculando hash / dedupe:', e)
+      } finally {
+        pendingChecksRef.current.delete(uploaded.id)
+        setPendingChecks((n) => Math.max(0, n - 1))
+      }
+    },
+    [computeSha256Hex, enableSha256Dedupe],
+  )
 
   const addFiles = useCallback(
     (incomingFiles: Array<File>) => {
@@ -74,10 +168,20 @@ export function FileDropzone({
           ...previousFiles,
           ...filesToUpload.slice(0, room),
         ].slice(0, maxFiles)
+
+        // Lanzar dedupe no bloqueante (fuera del flujo de render)
+        if (enableSha256Dedupe) {
+          window.setTimeout(() => {
+            filesToUpload.slice(0, room).forEach((u) => {
+              void runDuplicateCheck(u)
+            })
+          }, 0)
+        }
+
         return nextFiles
       })
     },
-    [maxFiles],
+    [enableSha256Dedupe, maxFiles, runDuplicateCheck],
   )
 
   // Manejador para cuando se arrastran archivos sobre la zona
@@ -221,9 +325,11 @@ export function FileDropzone({
             </div>
             <div className="text-center">
               <p className="text-foreground text-sm font-medium">{title}</p>
-              {/* <p className="text-muted-foreground mt-1 text-xs">
-                {description}
-              </p> */}
+              {description ? (
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {description}
+                </p>
+              ) : null}
               <p className="text-muted-foreground mt-1 text-xs">
                 Formatos:{' '}
                 {acceptedTypes

@@ -108,8 +108,11 @@ export function NuevaAsignaturaModalContainer({ planId }: { planId: string }) {
         const idx = Wizard.utils.getIndex(methods.current.id)
         const stepId = methods.current.id
 
+        const hasPendingDedupe = (wizard.archivosAdjuntosDedupePending ?? 0) > 0
+
         const disableNext =
           wizard.isLoading ||
+          hasPendingDedupe ||
           (stepId === 'metodo'
             ? !canContinueDesdeMetodo
             : stepId === 'basicos'
@@ -139,9 +142,11 @@ export function NuevaAsignaturaModalContainer({ planId }: { planId: string }) {
                   errorMessage={wizard.errorMessage}
                   onPrev={() => methods.prev()}
                   onNext={() => methods.next()}
-                  disablePrev={idx === 0 || wizard.isLoading}
+                  disablePrev={
+                    idx === 0 || wizard.isLoading || hasPendingDedupe
+                  }
                   disableNext={disableNext}
-                  disableCreate={wizard.isLoading}
+                  disableCreate={wizard.isLoading || hasPendingDedupe}
                   isLastStep={idx >= Wizard.steps.length - 1}
                   wizard={wizard}
                   setWizard={setWizard}

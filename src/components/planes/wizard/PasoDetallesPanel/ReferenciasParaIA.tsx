@@ -26,6 +26,8 @@ const ReferenciasParaIA = ({
   onToggleArchivo,
   onToggleRepositorio,
   onFilesChange,
+  enableSha256Dedupe,
+  onDedupePendingChange,
 }: {
   selectedArchivoIds?: Array<string>
   selectedRepositorioIds?: Array<string>
@@ -33,6 +35,8 @@ const ReferenciasParaIA = ({
   onToggleArchivo?: (id: string, checked: boolean) => void
   onToggleRepositorio?: (id: string, checked: boolean) => void
   onFilesChange?: (files: Array<UploadedFile>) => void
+  enableSha256Dedupe?: boolean
+  onDedupePendingChange?: (pendingCount: number) => void
 }) => {
   const [busquedaArchivos, setBusquedaArchivos] = useState('')
   const [busquedaRepositorios, setBusquedaRepositorios] = useState('')
@@ -176,6 +180,8 @@ const ReferenciasParaIA = ({
           <FileDropzone
             persistentFiles={uploadedFiles}
             onFilesChange={onFilesChange}
+            enableSha256Dedupe={enableSha256Dedupe}
+            onDedupePendingChange={onDedupePendingChange}
             title="Sube archivos de referencia"
             description="Documentos que serán usados como contexto para la generación"
             autoScrollToDropzone={true}

@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -7,59 +7,56 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.1"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
       archivos: {
         Row: {
-          bytes: number | null
+          created_at: string
+          hash: string | null
           id: string
-          mime_type: string | null
-          nombre: string
-          notas: string | null
           openai_file_id: string | null
-          ruta_storage: string
-          subido_en: string
-          subido_por: string | null
-          temporal: boolean
+          path: string
         }
         Insert: {
-          bytes?: number | null
-          id?: string
-          mime_type?: string | null
-          nombre: string
-          notas?: string | null
+          created_at?: string
+          hash?: string | null
+          id: string
           openai_file_id?: string | null
-          ruta_storage: string
-          subido_en?: string
-          subido_por?: string | null
-          temporal?: boolean
+          path: string
         }
         Update: {
-          bytes?: number | null
+          created_at?: string
+          hash?: string | null
           id?: string
-          mime_type?: string | null
-          nombre?: string
-          notas?: string | null
           openai_file_id?: string | null
-          ruta_storage?: string
-          subido_en?: string
-          subido_por?: string | null
-          temporal?: boolean
+          path?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "archivos_subido_por_fkey"
-            columns: ["subido_por"]
-            isOneToOne: false
-            referencedRelation: "usuarios_app"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       asignatura_mensajes_ia: {
         Row: {
@@ -608,6 +605,7 @@ export type Database = {
       estados_plan: {
         Row: {
           clave: string
+          color: string | null
           es_final: boolean
           etiqueta: string
           id: string
@@ -615,6 +613,7 @@ export type Database = {
         }
         Insert: {
           clave: string
+          color?: string | null
           es_final?: boolean
           etiqueta: string
           id?: string
@@ -622,6 +621,7 @@ export type Database = {
         }
         Update: {
           clave?: string
+          color?: string | null
           es_final?: boolean
           etiqueta?: string
           id?: string
@@ -813,6 +813,7 @@ export type Database = {
         Row: {
           actualizado_en: string
           area: string | null
+          color: string | null
           creado_en: string
           id: string
           nombre: string
@@ -822,6 +823,7 @@ export type Database = {
         Insert: {
           actualizado_en?: string
           area?: string | null
+          color?: string | null
           creado_en?: string
           id?: string
           nombre: string
@@ -831,6 +833,7 @@ export type Database = {
         Update: {
           actualizado_en?: string
           area?: string | null
+          color?: string | null
           creado_en?: string
           id?: string
           nombre?: string
@@ -1417,7 +1420,7 @@ export type Database = {
       fuente_cambio: "HUMANO" | "IA"
       nivel_plan_estudio:
         | "Licenciatura"
-        | "Maestría"
+        | "Maestr├¡a"
         | "Doctorado"
         | "Especialidad"
         | "Diplomado"
@@ -1580,6 +1583,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       estado_asignatura: ["borrador", "revisada", "aprobada", "generando"],
@@ -1589,7 +1595,7 @@ export const Constants = {
       fuente_cambio: ["HUMANO", "IA"],
       nivel_plan_estudio: [
         "Licenciatura",
-        "Maestría",
+        "Maestr├¡a",
         "Doctorado",
         "Especialidad",
         "Diplomado",
@@ -1639,3 +1645,4 @@ export const Constants = {
     },
   },
 } as const
+
