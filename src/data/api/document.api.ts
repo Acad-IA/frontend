@@ -11,6 +11,10 @@ const EDGE = {
   carbone_io_wrapper: 'carbone-io-wrapper',
 } as const
 
+interface GenerateExcelParams {
+  plan_estudio_id: string
+  convertTo?: 'pdf'| 'xlsx'
+}
 interface GeneratePdfParams {
   plan_estudio_id: string
   convertTo?: 'pdf'
@@ -75,6 +79,27 @@ export async function fetchAsignaturaPdf({
       body: {
         ...body,
       },
+    },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      responseType: 'blob',
+    },
+  )
+}
+
+
+export async function fetchPlanExcel({
+  plan_estudio_id,
+  convertTo,
+}: GenerateExcelParams): Promise<Blob> {
+  return await invokeEdge<Blob>(
+    EDGE.carbone_io_wrapper,
+    {
+      action: 'downloadReport',
+      plan_estudio_id,
+      body: convertTo ? { convertTo } : {},
     },
     {
       headers: {

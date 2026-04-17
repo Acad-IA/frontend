@@ -255,9 +255,14 @@ export class CarboneClient {
   async render(
     templateIdOrVersionId: string,
     body: Record<string, unknown>,
-    opts?: { download?: boolean },
+    opts?: { download?: boolean; format?: "pdf" | "xlsx" }
   ) {
-    const query = opts?.download ? "?download=true" : "";
+    const params = new URLSearchParams();
+    if (opts?.download) params.set("download", "true");
+  
+   if (opts?.format) params.set("format", opts.format); 
+  
+  const query = params.toString() ? `?${params.toString()}` : "";
     const res = await fetch(
       `${this.baseUrl}/render/${templateIdOrVersionId}${query}`,
       {
