@@ -88,12 +88,6 @@ jobs:
       - name: Build
         run: bunx --bun vite build
 
-      - name: Copy SWA config
-        run: |
-          if [ -f staticwebapp.config.json ]; then
-            cp staticwebapp.config.json dist/staticwebapp.config.json
-          fi
-
       - name: Deploy prebuilt app
         uses: Azure/static-web-apps-deploy@v1
         with:
