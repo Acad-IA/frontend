@@ -58,6 +58,39 @@ export type Database = {
         }
         Relationships: []
       }
+      archivos_repositorios: {
+        Row: {
+          archivo_id: string
+          created_at: string
+          repositorio_id: string
+        }
+        Insert: {
+          archivo_id: string
+          created_at?: string
+          repositorio_id: string
+        }
+        Update: {
+          archivo_id?: string
+          created_at?: string
+          repositorio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "archivos_repositorios_archivo_id_fkey"
+            columns: ["archivo_id"]
+            isOneToOne: false
+            referencedRelation: "archivos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "archivos_repositorios_repositorio_id_fkey"
+            columns: ["repositorio_id"]
+            isOneToOne: false
+            referencedRelation: "repositorios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asignatura_mensajes_ia: {
         Row: {
           campos: string[]
@@ -1051,6 +1084,27 @@ export type Database = {
           },
         ]
       }
+      repositorios: {
+        Row: {
+          created_at: string
+          id: string
+          nombre: string | null
+          openai_vector_store_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nombre?: string | null
+          openai_vector_store_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nombre?: string | null
+          openai_vector_store_id?: string | null
+        }
+        Relationships: []
+      }
       responsables_asignatura: {
         Row: {
           asignatura_id: string
@@ -1420,7 +1474,7 @@ export type Database = {
       fuente_cambio: "HUMANO" | "IA"
       nivel_plan_estudio:
         | "Licenciatura"
-        | "Maestr├¡a"
+        | "Maestría"
         | "Doctorado"
         | "Especialidad"
         | "Diplomado"
@@ -1595,7 +1649,7 @@ export const Constants = {
       fuente_cambio: ["HUMANO", "IA"],
       nivel_plan_estudio: [
         "Licenciatura",
-        "Maestr├¡a",
+        "Maestría",
         "Doctorado",
         "Especialidad",
         "Diplomado",

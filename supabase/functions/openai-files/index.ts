@@ -6,22 +6,18 @@ import { corsHeaders } from '../_shared/cors.ts'
 import { OpenAIService } from '../_shared/openai-service.ts'
 import { HttpError, sendError, sendSuccess } from '../_shared/utils.ts'
 
-import type { Database } from '../_shared/database.types.ts'
+import type { Database, Tables } from '../_shared/database.types.ts'
 import type {
   OpenAIFileDeleted,
   OpenAIFileObject,
 } from '../_shared/openai-service.ts'
 
-type ArchivoRow = {
-  id: string
-  path: string
-  openai_file_id: string | null
-}
+type ArchivoRow = Tables<'archivos'>
 
 const filesPattern = new URLPattern({ pathname: '*/openai-files/files' })
 const fileIdPattern = new URLPattern({ pathname: '*/openai-files/files/:id' })
 
-const PostFilesBodySchema = z.preprocess(
+const PostFileBodySchema = z.preprocess(
   (val) => {
     if (!val || typeof val !== 'object' || Array.isArray(val)) return val
     const rec = val as Record<string, unknown>
@@ -35,6 +31,34 @@ const PostFilesBodySchema = z.preprocess(
     })
     .strict(),
 )
+
+const DeleteFileBodySchema = z.preprocess(
+  (val) => {
+    if (!val || typeof val !== 'object' || Array.isArray(val)) return val
+    const rec = val as Record<string, unknown>
+    if (typeof rec.archivoId === 'string') return val
+    if (typeof rec.id === 'string') return { archivoId: rec.id }
+    return val
+  },
+  z
+    .object({
+      archivoId: z.string().uuid('archivoId debe ser un UUID'),
+    })
+    .strict(),
+)
+
+type PostFileBody = z.infer<typeof PostFileBodySchema>
+type DeleteFileBody = z.infer<typeof DeleteFileBodySchema>
+
+function parseBody<T extends z.ZodTypeAny>(schema: T, rawBody: unknown) {
+  const parsed = schema.safeParse(rawBody)
+  if (!parsed.success) {
+    throw new HttpError(422, 'Body inválido.', 'VALIDATION_ERROR', {
+      issues: parsed.error.issues,
+    })
+  }
+  return parsed.data as z.infer<T>
+}
 
 function basenameFromPath(path: string): string {
   const parts = path.split('/').filter(Boolean)
@@ -125,14 +149,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
           })
         }
 
-        const parsed = PostFilesBodySchema.safeParse(rawBody)
-        if (!parsed.success) {
-          throw new HttpError(422, 'Body inválido.', 'VALIDATION_ERROR', {
-            issues: parsed.error.issues,
-          })
-        }
-
-        const archivoId = parsed.data.archivoId
+        const body: PostFileBody = parseBody(PostFileBodySchema, rawBody)
+        const archivoId = body.archivoId
 
         const { data: archivo, error: archivoError } = await supabase
           .from('archivos')
@@ -230,28 +248,221 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const match = fileIdPattern.exec(req.url)
         if (!match) break
 
-        const openaiFileId = String(match.pathname.groups.id ?? '')
-        if (!openaiFileId) {
-          throw new HttpError(400, 'file_id inválido.', 'VALIDATION_ERROR')
-        }
-
-        let deleted: OpenAIFileDeleted
-        try {
-          deleted = await svc.deleteFile(openaiFileId)
-        } catch (e) {
+        const contentType = (
+          req.headers.get('content-type') || ''
+        ).toLowerCase()
+        if (!contentType.includes('application/json')) {
           throw new HttpError(
-            502,
-            'No se pudo borrar el archivo en OpenAI.',
-            'OPENAI_FILE_DELETE_FAILED',
-            { cause: e },
+            415,
+            'Content-Type no soportado.',
+            'UNSUPPORTED_MEDIA_TYPE',
+            { contentType, expected: 'application/json' },
           )
         }
 
+        let rawBody: unknown
+        try {
+          rawBody = await req.json()
+        } catch (e) {
+          throw new HttpError(400, 'Body JSON inválido.', 'INVALID_JSON', {
+            cause: e,
+          })
+        }
+
+        const body: DeleteFileBody = parseBody(DeleteFileBodySchema, rawBody)
+        const archivoId = body.archivoId
+
+        // 1) Obtener el renglón en public.archivos
+        const { data: archivo, error: archivoError } = await supabase
+          .from('archivos')
+          .select('id,path,openai_file_id')
+          .eq('id', archivoId)
+          .maybeSingle()
+
+        if (archivoError) {
+          throw new HttpError(
+            500,
+            'No se pudo resolver el archivo.',
+            'SUPABASE_QUERY_FAILED',
+            archivoError,
+          )
+        }
+
+        if (!archivo?.id) {
+          throw new HttpError(404, 'Archivo no encontrado.', 'NOT_FOUND', {
+            table: 'archivos',
+            id: archivoId,
+          })
+        }
+
+        const openaiFileId = archivo.openai_file_id
+          ? String(archivo.openai_file_id)
+          : ''
+
+        // 2) Obtener todos los vector_store_id de repositorios donde esté el archivo
+        const { data: rels, error: relsError } = await supabase
+          .from('archivos_repositorios')
+          .select('repositorio_id')
+          .eq('archivo_id', archivoId)
+
+        if (relsError) {
+          throw new HttpError(
+            500,
+            'No se pudo resolver la relación archivo-repositorios.',
+            'SUPABASE_QUERY_FAILED',
+            relsError,
+          )
+        }
+
+        const repositorioIds = (Array.isArray(rels) ? rels : [])
+          .map((r) =>
+            String((r as { repositorio_id?: string }).repositorio_id ?? ''),
+          )
+          .filter((x) => x.length > 0)
+
+        let vectorStoreIds: Array<string> = []
+        if (repositorioIds.length > 0) {
+          const { data: repos, error: reposError } = await supabase
+            .from('repositorios')
+            .select('id,openai_vector_store_id')
+            .in('id', repositorioIds)
+
+          if (reposError) {
+            throw new HttpError(
+              500,
+              'No se pudieron resolver los repositorios del archivo.',
+              'SUPABASE_QUERY_FAILED',
+              reposError,
+            )
+          }
+
+          vectorStoreIds = (Array.isArray(repos) ? repos : [])
+            .map((r) =>
+              String(
+                (r as { openai_vector_store_id?: string | null })
+                  .openai_vector_store_id ?? '',
+              ),
+            )
+            .filter((x) => x.length > 0)
+        }
+
+        // Dedup
+        vectorStoreIds = Array.from(new Set(vectorStoreIds))
+
+        // 3) Borrar el registro de public.archivos
+        const { data: deletedRows, error: deleteError } = await supabase
+          .from('archivos')
+          .delete()
+          .eq('id', archivoId)
+          .select('id')
+
+        if (deleteError) {
+          throw new HttpError(
+            500,
+            'No se pudo borrar el registro de archivos.',
+            'SUPABASE_DELETE_FAILED',
+            deleteError,
+          )
+        }
+
+        const didDelete = Array.isArray(deletedRows) && deletedRows.length > 0
+        if (!didDelete) {
+          throw new HttpError(
+            409,
+            'No se pudo borrar el archivo (estado inconsistente).',
+            'DELETE_FAILED',
+            { id: archivoId },
+          )
+        }
+
+        // 4) Borrar el objeto correspondiente del Storage
+        const path = String(archivo.path)
+        if (path) {
+          const { error: storageDeleteError } = await supabase.storage
+            .from('ai-storage')
+            .remove([path])
+
+          if (storageDeleteError) {
+            throw new HttpError(
+              500,
+              'No se pudo borrar el archivo desde Storage.',
+              'SUPABASE_STORAGE_DELETE_FAILED',
+              storageDeleteError,
+            )
+          }
+        }
+
+        // 5) Si se borró de public.archivos: borrar de vector stores y luego de OpenAI
+        const apiKey = Deno.env.get('OPENAI_API_KEY') ?? ''
+
+        const deletedVectorStoreFiles: Array<unknown> = []
+        if (openaiFileId && vectorStoreIds.length > 0) {
+          if (!apiKey) {
+            throw new HttpError(
+              500,
+              'Configuración del servidor incompleta.',
+              'MISSING_ENV',
+              { missing: ['OPENAI_API_KEY'] },
+            )
+          }
+
+          for (const vsId of vectorStoreIds) {
+            const endpoint = `https://api.openai.com/v1/vector_stores/${encodeURIComponent(vsId)}/files/${encodeURIComponent(openaiFileId)}`
+            const resp = await fetch(endpoint, {
+              method: 'DELETE',
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+              },
+            })
+
+            const responseBody = await resp
+              .json()
+              .catch(() => ({ error: 'invalid_json_response' }))
+
+            if (!resp.ok) {
+              throw new HttpError(
+                502,
+                'No se pudo borrar el archivo de uno de los repositorios (vector store).',
+                'OPENAI_VECTOR_STORE_FILE_DELETE_FAILED',
+                {
+                  vector_store_id: vsId,
+                  openai_file_id: openaiFileId,
+                  status: resp.status,
+                  body: responseBody,
+                },
+              )
+            }
+
+            deletedVectorStoreFiles.push(responseBody)
+          }
+        }
+
+        let deletedOpenAIFile: OpenAIFileDeleted | null = null
+        if (openaiFileId) {
+          try {
+            deletedOpenAIFile = await svc.deleteFile(openaiFileId)
+          } catch (e) {
+            throw new HttpError(
+              502,
+              'No se pudo borrar el archivo en OpenAI.',
+              'OPENAI_FILE_DELETE_FAILED',
+              { cause: e, openai_file_id: openaiFileId },
+            )
+          }
+        }
+
         console.info(
-          `[${new Date().toISOString()}][${functionName}] deleted openaiFileId=${openaiFileId}`,
+          `[${new Date().toISOString()}][${functionName}] deleted archivoId=${archivoId} openaiFileId=${openaiFileId || '(none)'} vectorStores=${vectorStoreIds.length}`,
         )
 
-        return sendSuccess(deleted)
+        return sendSuccess({
+          archivoId,
+          openaiFileId: openaiFileId || null,
+          vectorStoreIds,
+          deletedVectorStoreFiles,
+          deletedOpenAIFile,
+        })
       }
 
       default:
