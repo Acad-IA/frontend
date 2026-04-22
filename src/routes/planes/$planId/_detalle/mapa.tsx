@@ -177,6 +177,7 @@ function AsignaturaCardItem({
   lineaColor,
   lineaNombre,
   onDragStart,
+  onDragEnd,
   isDragging,
   onClick,
 }: {
@@ -184,6 +185,7 @@ function AsignaturaCardItem({
   lineaColor: string
   lineaNombre?: string
   onDragStart: (e: React.DragEvent, id: string) => void
+  onDragEnd: () => void
   isDragging: boolean
   onClick: () => void
 }) {
@@ -197,6 +199,7 @@ function AsignaturaCardItem({
           <button
             draggable
             onDragStart={(e) => onDragStart(e, asignatura.id)}
+            onDragEnd={onDragEnd}
             onClick={onClick}
             className={[
               'group bg-background relative h-50 w-40 shrink-0 overflow-hidden rounded-[22px] border text-left',
@@ -703,29 +706,57 @@ function MapaCurricularPage() {
       )
   }
 
+  const limpiarArrastre = () => {
+    setDraggedAsignatura(null)
+  }
+
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedAsignatura(id)
     e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', id)
   }
+
+  const handleDragEnd = () => {
+    limpiarArrastre()
+  }
+
   const handleDragOver = (e: React.DragEvent) => e.preventDefault()
+
   const handleDrop = async (
     e: React.DragEvent,
     cicloDestino: number | null,
     lineaId: string | null,
   ) => {
     e.preventDefault()
-    if (!draggedAsignatura) {
-      return
+    const asignaturaId =
+      draggedAsignatura || e.dataTransfer.getData('text/plain')
+    if (!asignaturaId) return
+
+    try {
+      // Solo disparamos la lógica si realmente hay un cambio de posición
+      await procesarCambioAsignatura(asignaturaId, {
+        ciclo: cicloDestino,
+        lineaCurricularId: lineaId,
+      })
+    } finally {
+      limpiarArrastre()
+    }
+  }
+
+  useEffect(() => {
+    // Fallback global: limpia estado incluso si sueltan fuera de cualquier dropzone React.
+    const resetDragState = () => {
+      limpiarArrastre()
     }
 
-    // Solo disparamos la lógica si realmente hay un cambio de posición
-    procesarCambioAsignatura(draggedAsignatura, {
-      ciclo: cicloDestino,
-      lineaCurricularId: lineaId,
-    })
+    window.addEventListener('drop', resetDragState)
+    window.addEventListener('dragend', resetDragState)
 
-    setDraggedAsignatura(null)
-  }
+    return () => {
+      window.removeEventListener('drop', resetDragState)
+      window.removeEventListener('dragend', resetDragState)
+    }
+  }, [])
 
   const stats = useMemo(
     () =>
@@ -983,6 +1014,7 @@ function MapaCurricularPage() {
                           lineaNombre={linea.nombre}
                           isDragging={draggedAsignatura === m.id}
                           onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
                           onClick={() => {
                             setEditingData(m)
                             setIsEditModalOpen(true)
@@ -1126,6 +1158,7 @@ function MapaCurricularPage() {
                     lineaNombre="Sin asignar"
                     isDragging={draggedAsignatura === m.id}
                     onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
                     onClick={() => {
                       setEditingData(m)
                       setIsEditModalOpen(true)
