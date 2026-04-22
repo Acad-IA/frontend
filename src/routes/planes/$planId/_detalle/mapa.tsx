@@ -43,9 +43,9 @@ import {
   useUpdateAsignatura,
   useUpdateLinea,
 } from '@/data'
+import { fetchPlanExcel } from '@/data/api/document.api'
 import { cn } from '@/lib/utils'
 import { generarColorContrastante } from '@/utils/colors'
-import { fetchPlanExcel, fetchPlanPdf } from '@/data/api/document.api'
 
 // --- Mapeadores (Fuera del componente para mayor limpieza) ---
 const palette = [
@@ -177,6 +177,7 @@ function AsignaturaCardItem({
   lineaColor,
   lineaNombre,
   onDragStart,
+  onDragEnd,
   isDragging,
   onClick,
 }: {
@@ -184,6 +185,7 @@ function AsignaturaCardItem({
   lineaColor: string
   lineaNombre?: string
   onDragStart: (e: React.DragEvent, id: string) => void
+  onDragEnd: () => void
   isDragging: boolean
   onClick: () => void
 }) {
@@ -197,6 +199,7 @@ function AsignaturaCardItem({
           <button
             draggable
             onDragStart={(e) => onDragStart(e, asignatura.id)}
+            onDragEnd={onDragEnd}
             onClick={onClick}
             className={[
               'group bg-background relative h-50 w-40 shrink-0 overflow-hidden rounded-[22px] border text-left',
@@ -703,27 +706,57 @@ function MapaCurricularPage() {
       )
   }
 
+  const limpiarArrastre = () => {
+    setDraggedAsignatura(null)
+  }
+
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedAsignatura(id)
     e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', id)
   }
+
+  const handleDragEnd = () => {
+    limpiarArrastre()
+  }
+
   const handleDragOver = (e: React.DragEvent) => e.preventDefault()
+
   const handleDrop = async (
     e: React.DragEvent,
     cicloDestino: number | null,
     lineaId: string | null,
   ) => {
     e.preventDefault()
-    if (!draggedAsignatura) return
+    const asignaturaId =
+      draggedAsignatura || e.dataTransfer.getData('text/plain')
+    if (!asignaturaId) return
 
-    // Solo disparamos la lógica si realmente hay un cambio de posición
-    procesarCambioAsignatura(draggedAsignatura, {
-      ciclo: cicloDestino,
-      lineaCurricularId: lineaId,
-    })
-
-    setDraggedAsignatura(null)
+    try {
+      // Solo disparamos la lógica si realmente hay un cambio de posición
+      await procesarCambioAsignatura(asignaturaId, {
+        ciclo: cicloDestino,
+        lineaCurricularId: lineaId,
+      })
+    } finally {
+      limpiarArrastre()
+    }
   }
+
+  useEffect(() => {
+    // Fallback global: limpia estado incluso si sueltan fuera de cualquier dropzone React.
+    const resetDragState = () => {
+      limpiarArrastre()
+    }
+
+    window.addEventListener('drop', resetDragState)
+    window.addEventListener('dragend', resetDragState)
+
+    return () => {
+      window.removeEventListener('drop', resetDragState)
+      window.removeEventListener('dragend', resetDragState)
+    }
+  }, [])
 
   const stats = useMemo(
     () =>
@@ -758,28 +791,28 @@ function MapaCurricularPage() {
     setEditingLineaId(null)
   }
 
-  const generateExcel = async () =>{
+  const generateExcel = async () => {
     try {
-  const formato = 'xlsx'; 
-  const blob = await fetchPlanExcel({
-    plan_estudio_id: planId,
-    convertTo: formato,
-  })
-  const url = window.URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `${data?.nombre}.${formato}` 
-  document.body.appendChild(link)
-  link.click()
+      const formato = 'xlsx'
+      const blob = await fetchPlanExcel({
+        plan_estudio_id: planId,
+        convertTo: formato,
+      })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${data?.nombre}.${formato}`
+      document.body.appendChild(link)
+      link.click()
 
-  link.remove()
-  window.URL.revokeObjectURL(url)
+      link.remove()
+      window.URL.revokeObjectURL(url)
     } catch (error) {
       console.error(error)
       alert('No se pudo generar el PDF')
-    } 
+    }
   }
- 
+
   if (loadingAsig || loadingLineas)
     return <div className="p-10 text-center">Cargando mapa curricular...</div>
 
@@ -981,6 +1014,7 @@ function MapaCurricularPage() {
                           lineaNombre={linea.nombre}
                           isDragging={draggedAsignatura === m.id}
                           onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
                           onClick={() => {
                             setEditingData(m)
                             setIsEditModalOpen(true)
@@ -1124,6 +1158,7 @@ function MapaCurricularPage() {
                     lineaNombre="Sin asignar"
                     isDragging={draggedAsignatura === m.id}
                     onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
                     onClick={() => {
                       setEditingData(m)
                       setIsEditModalOpen(true)
@@ -1298,249 +1333,291 @@ function MapaCurricularPage() {
 
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent
-          className="sm:max-w-137.5"
+          className="w-[min(98vw,1200px)] max-w-none overflow-hidden p-0"
           onInteractOutside={(e) => e.preventDefault()}
         >
-          <DialogHeader>
-            <DialogTitle className="text-foreground font-bold">
+          <DialogHeader className="border-border bg-card/60 border-b px-6 py-5">
+            <DialogTitle className="text-foreground text-xl font-bold tracking-tight">
               Editar Asignatura
             </DialogTitle>
           </DialogHeader>
 
           {/* Verificación de seguridad: solo renderiza si hay datos */}
           {editingData ? (
-            <div className="grid gap-4 py-4">
-              {/* Fila 1: Clave y Nombre */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase">
-                    Clave
-                  </label>
-                  <Input
-                    maxLength={100}
-                    value={editingData.clave}
-                    onChange={(e) =>
-                      setEditingData({ ...editingData, clave: e.target.value })
-                    }
-                  />
+            <div className="max-h-[calc(88vh-140px)] space-y-5 overflow-y-auto px-6 py-5">
+              {/* Bloque 1: Identificación */}
+              <section className="border-border/70 bg-background/40 space-y-4 rounded-2xl border p-4">
+                <div className="text-foreground/90 text-sm font-semibold">
+                  Identificación
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase">
-                    Nombre
-                  </label>
-                  <Input
-                    maxLength={200}
-                    value={editingData.nombre}
-                    onChange={(e) =>
-                      setEditingData({ ...editingData, nombre: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
 
-              {/* Fila 2: Créditos y Horas */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase">
-                    Créditos
-                  </label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={editingData.creditos}
-                    onChange={(e) => {
-                      const val = handleDecimalChange(e.target.value, 10)
-                      if (val !== null) {
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">
+                      Clave
+                    </label>
+                    <Input
+                      maxLength={100}
+                      value={editingData.clave}
+                      onChange={(e) =>
                         setEditingData({
                           ...editingData,
-                          creditos: val === '' ? 0 : Number(val),
+                          clave: e.target.value,
                         })
                       }
-                    }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase">
-                    HD (Horas Docente)
-                  </label>
-                  <Input
-                    type="number"
-                    value={editingData.hd}
-                    onChange={(e) => {
-                      const val = handleIntegerChange(e.target.value)
-                      if (val !== null) {
-                        setEditingData({
-                          ...editingData,
-                          hd: Number(e.target.value),
-                        })
-                      }
-                    }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase">
-                    HI (Horas Indep.)
-                  </label>
-                  <Input
-                    type="number"
-                    value={editingData.hi}
-                    onChange={(e) => {
-                      const val = handleIntegerChange(e.target.value)
-                      if (val !== null) {
-                        setEditingData({
-                          ...editingData,
-                          hi: Number(e.target.value),
-                        })
-                      }
-                    }}
-                  />
-                </div>
-              </div>
+                      className="h-10 shadow-sm"
+                    />
+                  </div>
 
-              {/* Fila 3: Ciclo y Línea */}
-              <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">
+                      Nombre
+                    </label>
+                    <Input
+                      maxLength={200}
+                      value={editingData.nombre}
+                      onChange={(e) =>
+                        setEditingData({
+                          ...editingData,
+                          nombre: e.target.value,
+                        })
+                      }
+                      className="h-10 shadow-sm"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {/* Bloque 2: Carga horaria */}
+              <section className="border-border/70 bg-background/40 space-y-4 rounded-2xl border p-4">
+                <div className="text-foreground/90 text-sm font-semibold">
+                  Carga horaria
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">
+                      Créditos
+                    </label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={editingData.creditos}
+                      onChange={(e) => {
+                        const val = handleDecimalChange(e.target.value, 10)
+                        if (val !== null) {
+                          setEditingData({
+                            ...editingData,
+                            creditos: val === '' ? 0 : Number(val),
+                          })
+                        }
+                      }}
+                      className="h-10 shadow-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">
+                      HD (Horas Docente)
+                    </label>
+                    <Input
+                      type="number"
+                      value={editingData.hd}
+                      onChange={(e) => {
+                        const val = handleIntegerChange(e.target.value)
+                        if (val !== null) {
+                          setEditingData({
+                            ...editingData,
+                            hd: Number(e.target.value),
+                          })
+                        }
+                      }}
+                      className="h-10 shadow-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">
+                      HI (Horas Indep.)
+                    </label>
+                    <Input
+                      type="number"
+                      value={editingData.hi}
+                      onChange={(e) => {
+                        const val = handleIntegerChange(e.target.value)
+                        if (val !== null) {
+                          setEditingData({
+                            ...editingData,
+                            hi: Number(e.target.value),
+                          })
+                        }
+                      }}
+                      className="h-10 shadow-sm"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {/* Bloque 3: Organización */}
+              <section className="border-border/70 bg-background/40 space-y-4 rounded-2xl border p-4">
+                <div className="text-foreground/90 text-sm font-semibold">
+                  Organización
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">
+                      Ciclo
+                    </label>
+                    <Select
+                      value={editingData.ciclo?.toString() || 'unassigned'}
+                      onValueChange={(val) =>
+                        setEditingData({
+                          ...editingData,
+                          ciclo: val === 'unassigned' ? null : Number(val),
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-10 shadow-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">
+                          -- Sin Asignar --
+                        </SelectItem>
+                        {ciclosArray.map((n) => (
+                          <SelectItem key={n} value={n.toString()}>
+                            Ciclo {n}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">
+                      Línea Curricular
+                    </label>
+                    <Select
+                      value={editingData.lineaCurricularId || 'unassigned'}
+                      onValueChange={(val) =>
+                        setEditingData({
+                          ...editingData,
+                          lineaCurricularId: val === 'unassigned' ? null : val,
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-10 shadow-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unassigned">
+                          -- Sin Asignar --
+                        </SelectItem>
+                        {lineas.map((l) => (
+                          <SelectItem key={l.id} value={l.id}>
+                            {l.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </section>
+
+              {/* Bloque 4: Dependencias y tipo */}
+              <section className="border-border/70 bg-background/40 space-y-4 rounded-2xl border p-4">
+                <div className="text-foreground/90 text-sm font-semibold">
+                  Configuración académica
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-500 uppercase">
-                    Ciclo
+                    Seriación (Prerrequisito)
                   </label>
                   <Select
-                    value={editingData.ciclo?.toString() || 'unassigned'}
-                    onValueChange={(val) =>
+                    value={editingData.prerrequisito_asignatura_id || undefined}
+                    onValueChange={(val) => {
+                      console.log(editingData)
+
                       setEditingData({
                         ...editingData,
-                        ciclo: val === 'unassigned' ? null : Number(val),
+                        prerrequisito_asignatura_id:
+                          val === 'none' ? null : val,
                       })
-                    }
+                    }}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className="h-10 w-full bg-white shadow-sm">
+                      <SelectValue placeholder="Seleccionar asignatura..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="unassigned">
-                        -- Sin Asignar --
-                      </SelectItem>
-                      {ciclosArray.map((n) => (
-                        <SelectItem key={n} value={n.toString()}>
-                          Ciclo {n}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="none">-- Sin Seriación --</SelectItem>
+
+                      {asignaturas
+                        .filter((asig) => {
+                          const noEsMisma = asig.id !== editingData.id
+                          const esCicloMenor =
+                            asig.ciclo !== null &&
+                            editingData.ciclo !== null &&
+                            asig.ciclo < editingData.ciclo
+
+                          return noEsMisma && esCicloMenor
+                        })
+                        .sort(
+                          (a, b) =>
+                            (a.ciclo || 0) - (b.ciclo || 0) ||
+                            a.nombre.localeCompare(b.nombre),
+                        )
+                        .map((asig) => (
+                          <SelectItem key={asig.id} value={asig.id}>
+                            <span className="text-primary font-bold">
+                              [C{asig.ciclo}]
+                            </span>{' '}
+                            {asig.nombre}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase">
-                    Línea Curricular
-                  </label>
-                  <Select
-                    value={editingData.lineaCurricularId || 'unassigned'}
-                    onValueChange={(val) =>
-                      setEditingData({
-                        ...editingData,
-                        lineaCurricularId: val === 'unassigned' ? null : val,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unassigned">
-                        -- Sin Asignar --
-                      </SelectItem>
-                      {lineas.map((l) => (
-                        <SelectItem key={l.id} value={l.id}>
-                          {l.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase">
+                      Tipo
+                    </label>
+                    <Select
+                      value={editingData.tipo}
+                      onValueChange={(val: 'OBLIGATORIA' | 'OPTATIVA') =>
+                        setEditingData({ ...editingData, tipo: val })
+                      }
+                    >
+                      <SelectTrigger className="h-10 shadow-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OBLIGATORIA">Obligatoria</SelectItem>
+                        <SelectItem value="OPTATIVA">Optativa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="border-border/60 bg-muted/30 text-muted-foreground flex items-center rounded-xl border px-3 text-sm">
+                    Ajusta ciclo y seriación con cuidado para evitar conflictos.
+                  </div>
                 </div>
-              </div>
+              </section>
 
-              {/* Fila 4: Seriación (Prerrequisitos) */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase">
-                  Seriación (Prerrequisito)
-                </label>
-                <Select
-                  // Cambiamos a manejo de valor único basado en el ID de la columna
-                  value={editingData.prerrequisito_asignatura_id || undefined}
-                  onValueChange={(val) => {
-                    console.log(editingData)
-
-                    setEditingData({
-                      ...editingData,
-                      prerrequisito_asignatura_id: val === 'none' ? null : val,
-                    })
-                  }}
-                >
-                  <SelectTrigger className="w-full bg-white">
-                    <SelectValue placeholder="Seleccionar asignatura..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">-- Sin Seriación --</SelectItem>
-
-                    {asignaturas
-                      .filter((asig) => {
-                        // 1. No es la misma materia
-                        const noEsMisma = asig.id !== editingData.id
-                        // 2. El ciclo debe ser estrictamente MENOR
-                        const esCicloMenor =
-                          asig.ciclo !== null &&
-                          editingData.ciclo !== null &&
-                          asig.ciclo < editingData.ciclo
-
-                        return noEsMisma && esCicloMenor
-                      })
-                      .sort(
-                        (a, b) =>
-                          (a.ciclo || 0) - (b.ciclo || 0) ||
-                          a.nombre.localeCompare(b.nombre),
-                      )
-                      .map((asig) => (
-                        <SelectItem key={asig.id} value={asig.id}>
-                          <span className="text-primary font-bold">
-                            [C{asig.ciclo}]
-                          </span>{' '}
-                          {asig.nombre}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-
-                {/* Visualización del Prerrequisito con el Nombre */}
-              </div>
-
-              {/* Fila 5: Tipo */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500 uppercase">
-                  Tipo
-                </label>
-                <Select
-                  value={editingData.tipo}
-                  onValueChange={(val: 'OBLIGATORIA' | 'OPTATIVA') =>
-                    setEditingData({ ...editingData, tipo: val })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="OBLIGATORIA">Obligatoria</SelectItem>
-                    <SelectItem value="OPTATIVA">Optativa</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="mt-4 flex justify-end gap-3">
+              <div className="border-border bg-background/95 sticky bottom-0 -mx-6 mt-2 flex justify-end gap-3 border-t px-6 py-4 backdrop-blur">
                 <Button
                   variant="outline"
                   onClick={() => setIsEditModalOpen(false)}
+                  className="h-10 px-5"
                 >
                   Cancelar
                 </Button>
-                <Button onClick={handleSaveChanges}>Guardar</Button>
+                <Button onClick={handleSaveChanges} className="h-10 px-5">
+                  Guardar cambios
+                </Button>
               </div>
             </div>
           ) : (
