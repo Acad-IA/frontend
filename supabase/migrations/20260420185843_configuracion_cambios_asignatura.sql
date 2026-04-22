@@ -187,3 +187,5 @@ grant trigger on table "public"."repositorios" to "service_role";
 grant truncate on table "public"."repositorios" to "service_role";
 
 grant update on table "public"."repositorios" to "service_role";
+
+alter table "public"."archivos" add column "size" integer;

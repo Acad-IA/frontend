@@ -171,9 +171,12 @@ export async function uploadSingleFile(input: {
   }
 
   // 2) Crear registro en BD
-  const { error: dbError } = await supabase
-    .from('archivos')
-    .insert({ id: storageObjectId, hash: input.sha256, path })
+  const { error: dbError } = await supabase.from('archivos').insert({
+    id: storageObjectId,
+    hash: input.sha256,
+    path,
+    size: input.file.size,
+  })
   if (dbError) {
     // Si el hash ya existe (carrera), usa el existente para continuar.
     if ((dbError as any)?.code === '23505') {

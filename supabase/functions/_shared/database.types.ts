@@ -41,6 +41,7 @@ export type Database = {
           id: string
           openai_file_id: string | null
           path: string
+          size: number | null
         }
         Insert: {
           created_at?: string
@@ -48,6 +49,7 @@ export type Database = {
           id: string
           openai_file_id?: string | null
           path: string
+          size?: number | null
         }
         Update: {
           created_at?: string
@@ -55,6 +57,7 @@ export type Database = {
           id?: string
           openai_file_id?: string | null
           path?: string
+          size?: number | null
         }
         Relationships: []
       }
@@ -1474,7 +1477,7 @@ export type Database = {
       fuente_cambio: "HUMANO" | "IA"
       nivel_plan_estudio:
         | "Licenciatura"
-        | "Maestría"
+        | "Maestr├¡a"
         | "Doctorado"
         | "Especialidad"
         | "Diplomado"
@@ -1649,7 +1652,7 @@ export const Constants = {
       fuente_cambio: ["HUMANO", "IA"],
       nivel_plan_estudio: [
         "Licenciatura",
-        "Maestría",
+        "Maestr├¡a",
         "Doctorado",
         "Especialidad",
         "Diplomado",
