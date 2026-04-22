@@ -112,6 +112,7 @@ export function PasoDetallesPanel({
           selectedRepositorioIds={wizard.iaConfig?.repositoriosReferencia || []}
           uploadedFiles={wizard.iaConfig?.archivosAdjuntos || []}
           enableSha256Dedupe={true}
+          enableAutoUpload={true}
           onDedupePendingChange={(pendingCount) =>
             onChange(
               (w): NewSubjectWizardState => ({

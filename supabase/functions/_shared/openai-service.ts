@@ -1,8 +1,16 @@
 // supabase/functions/_shared/openai-service.ts
-/// <reference lib="deno.window" />
+/// <reference lib="dom" />
+// @ts-ignore Deno supports `npm:` specifiers at runtime
 import OpenAI from 'npm:openai@6.16.0'
 
+// @ts-ignore Deno supports `npm:` specifiers at runtime
 import type * as OpenAITypes from 'npm:openai@6.16.0'
+
+declare const Deno: {
+  env: {
+    get: (key: string) => string | undefined
+  }
+}
 // Use non-streaming params to ensure `responses.create` returns a typed Response
 export type StructuredResponseOptions =
   OpenAITypes.OpenAI.Responses.ResponseCreateParamsNonStreaming
@@ -31,6 +39,10 @@ export type StructuredResponseResult<TOutput = unknown> =
 export interface OpenAIServiceConfig {
   openAIApiKey: string
 }
+
+export type OpenAIFileObject = OpenAITypes.OpenAI.Files.FileObject
+export type OpenAIFileDeleted = OpenAITypes.OpenAI.Files.FileDeleted
+
 export class OpenAIService {
   private readonly openai: OpenAI
   private constructor(openai: OpenAI) {
@@ -56,53 +68,32 @@ export class OpenAIService {
   }
   async createStructuredResponse<TOutput = unknown>(
     options: StructuredResponseOptions,
-    filesOrArgs?:
-      | Array<File>
-      | { files?: Array<File>; openaiFileIds?: Array<string> },
   ): Promise<StructuredResponseResult<TOutput>> {
     try {
-      const files = Array.isArray(filesOrArgs)
-        ? filesOrArgs
-        : (filesOrArgs?.files ?? [])
-      const providedOpenAIFileIds = Array.isArray(filesOrArgs)
-        ? []
-        : (filesOrArgs?.openaiFileIds ?? [])
-
-      const uploadedOpenAIFileIds = await this.uploadFilesToOpenAI(files ?? [])
-      const openaiFileIds = [
-        ...(providedOpenAIFileIds ?? []),
-        ...(uploadedOpenAIFileIds ?? []),
-      ].filter((x) => typeof x === 'string' && x.length > 0)
-
-      const newOptions = { ...options }
-      // Attach file references to the request as an extra user message
-      if (openaiFileIds.length > 0) {
-        const fileParts: Array<OpenAITypes.OpenAI.Responses.ResponseInputFile> =
-          openaiFileIds.map((id) => ({
-            type: 'input_file',
-            file_id: id,
-          }))
-        const arr = Array.isArray(options.input) ? options.input : []
-        arr.push({
-          role: 'user',
-          content: [
-            ...fileParts,
-            {
-              type: 'input_text',
-              text: 'Usa estos archivos como referencia',
-            },
-          ],
-        })
-        newOptions.input = arr
+      // Extraer los IDs de los archivos directamente del input si existen
+      const openaiFileIds: Array<string> = []
+      if (Array.isArray(options.input)) {
+        for (const msg of options.input) {
+          if (msg.role === 'user' && Array.isArray(msg.content)) {
+            for (const part of msg.content) {
+              if (
+                (part as any).type === 'input_file' &&
+                (part as any).file_id
+              ) {
+                openaiFileIds.push((part as any).file_id)
+              }
+            }
+          }
+        }
       }
 
-      // Narrow to non-streaming response
+      // Pasar options directamente
       const openaiRaw = (await this.openai.responses.create(
-        newOptions as OpenAITypes.OpenAI.Responses.ResponseCreateParamsNonStreaming,
+        options,
       )) as OpenAITypes.OpenAI.Responses.Response
 
       const isBackground =
-        (newOptions as unknown as { background?: boolean }).background === true
+        (options as unknown as { background?: boolean }).background === true
       const { model, id: responseId } = openaiRaw
       const usage = openaiRaw?.usage ?? null
       const conversationId =
@@ -162,7 +153,7 @@ export class OpenAIService {
       }
     } catch (err) {
       const e = err as Error
-      const message = e?.message ?? 'Unknown error'
+      const message = e.message || 'Unknown error'
       const code = message.includes('OpenAI file upload failed')
         ? 'OpenAIFileUploadFailed'
         : 'OpenAIRequestFailed'
@@ -185,16 +176,33 @@ export class OpenAIService {
         ids.push(created.id)
       } catch (e) {
         throw new Error(
-          `OpenAI file upload failed: ${(e as Error)?.message ?? String(e)}`,
+          `OpenAI file upload failed: ${(e as Error).message || String(e)}`,
         )
       }
     }
     return ids
   }
-  private sanitizeFilename(name: string): string {
-    return name
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-zA-Z0-9.-]/g, '_')
+
+  async createFile(file: File, purpose: 'user_data' = 'user_data') {
+    const created = await this.openai.files.create({
+      file,
+      purpose,
+    })
+    return created as OpenAIFileObject
+  }
+
+  async retrieveFile(fileId: string) {
+    const file = await this.openai.files.retrieve(fileId)
+    return file as OpenAIFileObject
+  }
+
+  async deleteFile(fileId: string) {
+    // OpenAI SDK uses `del` for delete operations.
+    const deleted = await (
+      this.openai.files as unknown as {
+        del: (id: string) => Promise<unknown>
+      }
+    ).del(fileId)
+    return deleted as OpenAIFileDeleted
   }
 }

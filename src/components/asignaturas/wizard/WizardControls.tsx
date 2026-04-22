@@ -164,82 +164,6 @@ export function WizardControls({
     })
   }
 
-  const uploadAiAttachments = async (args: {
-    planId: string
-    files: Array<{ file: File; sha256: string }>
-  }): Promise<Array<string>> => {
-    const supabase = supabaseBrowser()
-    if (!args.files.length) return []
-
-    const sanitizeKeySegment = (input: string): string => {
-      const withoutDiacritics = input
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-
-      const noPathSeparators = withoutDiacritics.replace(/[\\/]+/g, '_')
-      const noSpaces = noPathSeparators.replace(/\s+/g, '-')
-
-      // Supabase Storage es estricto con keys: evitar unicode/espacios
-      const asciiSafe = noSpaces.replace(/[^A-Za-z0-9._-]+/g, '_')
-
-      return asciiSafe
-        .replace(/_+/g, '_')
-        .replace(/-+/g, '-')
-        .replace(/^[._-]+|[._-]+$/g, '')
-    }
-
-    const sanitizeFilename = (filename: string): string => {
-      const name = filename || 'archivo'
-      const lastDot = name.lastIndexOf('.')
-
-      const base = lastDot > 0 ? name.slice(0, lastDot) : name
-      const ext = lastDot > 0 ? name.slice(lastDot + 1) : ''
-
-      const safeBase = sanitizeKeySegment(base) || 'archivo'
-      const safeExt = sanitizeKeySegment(ext).toLowerCase()
-      return safeExt ? `${safeBase}.${safeExt}` : safeBase
-    }
-
-    const archivoIds: Array<string> = []
-    for (const f of args.files) {
-      if (!f.sha256) {
-        throw new Error(
-          'Aún se están procesando los archivos adjuntos. Espera un momento e intenta de nuevo.',
-        )
-      }
-
-      const safeName = sanitizeFilename(f.file.name || 'archivo')
-      // Subir al bucket en la raíz (sin carpetas)
-      const key = `${crypto.randomUUID()}-${safeName}`
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('ai-storage')
-        .upload(key, f.file, {
-          contentType: f.file.type || undefined,
-        })
-
-      if (uploadError) throw new Error(uploadError.message)
-
-      const storageObjectId = String((uploadData as any)?.id ?? '')
-      if (!storageObjectId) {
-        // Nota: no hacemos SELECT a storage.objects por petición.
-        throw new Error(
-          'No se pudo obtener el id del objeto subido desde Storage (uploadData.id vacío).',
-        )
-      }
-
-      const { error: insertError } = await supabase
-        .from('archivos')
-        .insert({ id: storageObjectId, hash: f.sha256, path: key })
-
-      if (insertError) throw new Error(insertError.message)
-
-      archivoIds.push(storageObjectId)
-    }
-
-    return archivoIds
-  }
-
   const handleCreate = async () => {
     setWizard((w) => ({
       ...w,
@@ -376,13 +300,22 @@ export function WizardControls({
         startedWaiting = true
         beginSubjectWatch({ subjectId, planId: wizard.plan_estudio_id })
 
-        const archivosAdjuntos = await uploadAiAttachments({
-          planId: wizard.plan_estudio_id,
-          files: (wizard.iaConfig?.archivosAdjuntos ?? []).map((x) => ({
-            file: x.file,
-            sha256: x.sha256 ?? '',
-          })),
-        })
+        const adjuntos = wizard.iaConfig?.archivosAdjuntos ?? []
+        if (adjuntos.some((a) => a.uploadStatus !== 'exito')) {
+          throw new Error(
+            'Aún se están subiendo los archivos adjuntos. Espera a que todos estén en éxito.',
+          )
+        }
+
+        const openaiFileIds = adjuntos
+          .map((a) => a.openaiFileId)
+          .filter((x): x is string => Boolean(x))
+
+        if (openaiFileIds.length !== adjuntos.length) {
+          throw new Error(
+            'Faltan adjuntos en OpenAI. Reintenta los archivos con error e intenta de nuevo.',
+          )
+        }
 
         const payload: AISubjectUnifiedInput = {
           datosUpdate: {
@@ -402,7 +335,7 @@ export function WizardControls({
               wizard.iaConfig?.descripcionEnfoqueAcademico ?? undefined,
             instruccionesAdicionalesIA:
               wizard.iaConfig?.instruccionesAdicionalesIA ?? undefined,
-            archivosAdjuntos,
+            archivosAdjuntos: openaiFileIds,
           },
         }
 
@@ -442,13 +375,22 @@ export function WizardControls({
 
         setIsSpinningIA(true)
 
-        const archivosAdjuntos = await uploadAiAttachments({
-          planId: wizard.plan_estudio_id,
-          files: (wizard.iaConfig?.archivosAdjuntos ?? []).map((x) => ({
-            file: x.file,
-            sha256: x.sha256 ?? '',
-          })),
-        })
+        const adjuntos = wizard.iaConfig?.archivosAdjuntos ?? []
+        if (adjuntos.some((a) => a.uploadStatus !== 'exito')) {
+          throw new Error(
+            'Aún se están subiendo los archivos adjuntos. Espera a que todos estén en éxito.',
+          )
+        }
+
+        const openaiFileIds = adjuntos
+          .map((a) => a.openaiFileId)
+          .filter((x): x is string => Boolean(x))
+
+        if (openaiFileIds.length !== adjuntos.length) {
+          throw new Error(
+            'Faltan adjuntos en OpenAI. Reintenta los archivos con error e intenta de nuevo.',
+          )
+        }
 
         const placeholders: Array<TablesInsert<'asignaturas'>> = selected.map(
           (s): TablesInsert<'asignaturas'> => ({
@@ -505,7 +447,7 @@ export function WizardControls({
               descripcionEnfoqueAcademico: s.descripcion,
               instruccionesAdicionalesIA:
                 wizard.iaConfig?.instruccionesAdicionalesIA ?? undefined,
-              archivosAdjuntos,
+              archivosAdjuntos: openaiFileIds,
             },
           }
 

@@ -39,10 +39,11 @@ const IAConfigSchema = z
   .object({
     descripcionEnfoqueAcademico: z.string().optional(),
     instruccionesAdicionalesIA: z.string().optional(),
-    archivosAdjuntos: z.array(z.string().uuid()).optional().default([]),
+    // Ahora se reciben directamente IDs de OpenAI Files (no UUIDs de `archivos`).
+    archivosAdjuntos: z.array(z.string().min(1)).optional().default([]),
   })
   .strict()
-  .default({})
+  .default({ archivosAdjuntos: [] })
 
 const UnifiedJsonSchema = z
   .object({
@@ -95,12 +96,6 @@ type AsignaturaBaseSeleccionada = {
   estado: Database['public']['Enums']['estado_asignatura']
 }
 
-type ArchivoAdjuntoRow = {
-  id: string
-  path: string
-  openai_file_id: string | null
-}
-
 function withColumnDefsAndRefs(
   schemaDef: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -135,11 +130,6 @@ function formatZodIssues(issues: Array<z.ZodIssue>): string {
       return `${i + 1}. ${path}: ${issue.message}`
     })
     .join('\n')
-}
-
-function basenameFromPath(path: string): string {
-  const parts = path.split('/').filter(Boolean)
-  return parts.length ? parts[parts.length - 1] : path
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
@@ -349,142 +339,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     // ---------------------------------
-    // Adjuntos: descargar de Supabase Storage -> subir a OpenAI -> persistir openai_file_id
-    // (Debe ocurrir antes de establecer el patch de stub, según el flujo requerido)
+    // Adjuntos: ahora llegan como IDs de OpenAI Files ya subidos.
     // ---------------------------------
-    const archivosAdjuntosIds = iaConfig.archivosAdjuntos.filter((x) =>
-      Boolean(x),
-    )
-    const archivosAdjuntosNombres: Array<string> = []
-    let openaiFileIds: Array<string> = []
-
-    if (archivosAdjuntosIds.length > 0) {
-      const { data: archivos, error: archivosError } = await supabaseService
-        .from('archivos')
-        .select('id,path,openai_file_id')
-        .in('id', archivosAdjuntosIds)
-
-      if (archivosError) {
-        throw new HttpError(
-          500,
-          'No se pudieron resolver los adjuntos en archivos.',
-          'SUPABASE_QUERY_FAILED',
-          archivosError,
-        )
-      }
-
-      const rows: Array<ArchivoAdjuntoRow> = Array.isArray(archivos)
-        ? (archivos as Array<ArchivoAdjuntoRow>)
-        : []
-
-      const foundIds = new Set(rows.map((r) => String(r.id)))
-      const missing = archivosAdjuntosIds.filter((id) => !foundIds.has(id))
-      if (missing.length) {
-        throw new HttpError(
-          404,
-          'Uno o más archivos adjuntos no existen.',
-          'NOT_FOUND',
-          { missing },
-        )
-      }
-
-      const orderedRows = archivosAdjuntosIds.map(
-        (id) => rows.find((r) => String(r.id) === id)!,
-      )
-
-      openaiFileIds = new Array<string>(orderedRows.length).fill('')
-      const filesToUpload: Array<File> = []
-      const uploadIndexMap: Array<number> = []
-
-      for (let i = 0; i < orderedRows.length; i++) {
-        const row = orderedRows[i]
-        const path = String(row.path)
-
-        archivosAdjuntosNombres.push(basenameFromPath(path))
-
-        const existingOpenAI = row.openai_file_id
-          ? String(row.openai_file_id)
-          : ''
-        if (existingOpenAI) {
-          openaiFileIds[i] = existingOpenAI
-          continue
-        }
-
-        const { data: blob, error: dlError } = await supabaseService.storage
-          .from('ai-storage')
-          .download(path)
-
-        if (dlError) {
-          throw new HttpError(
-            500,
-            'No se pudo descargar un archivo adjunto.',
-            'SUPABASE_STORAGE_DOWNLOAD_FAILED',
-            { error: dlError, id: row.id, bucketId: 'ai-storage', path },
-          )
-        }
-
-        const file = new File([blob], basenameFromPath(path), {
-          type: blob.type || 'application/octet-stream',
-        })
-        filesToUpload.push(file)
-        uploadIndexMap.push(i)
-      }
-
-      if (filesToUpload.length > 0) {
-        let uploaded: Array<string>
-        try {
-          uploaded = await svc.uploadFilesToOpenAI(filesToUpload)
-        } catch (e) {
-          throw new HttpError(
-            502,
-            'No se pudieron subir los adjuntos a OpenAI.',
-            'OPENAI_FILE_UPLOAD_FAILED',
-            { cause: e },
-          )
-        }
-
-        if (uploaded.length !== filesToUpload.length) {
-          throw new HttpError(
-            502,
-            'No se pudieron asociar los adjuntos subidos a OpenAI.',
-            'OPENAI_FILE_UPLOAD_FAILED',
-            { expected: filesToUpload.length, got: uploaded.length },
-          )
-        }
-
-        for (let j = 0; j < uploaded.length; j++) {
-          const idx = uploadIndexMap[j]
-          const row = orderedRows[idx]
-          const openaiId = uploaded[j]
-          openaiFileIds[idx] = openaiId
-
-          const { error: upErr } = await supabaseService
-            .from('archivos')
-            .update({ openai_file_id: openaiId })
-            .eq('id', row.id)
-          if (upErr) {
-            throw new HttpError(
-              500,
-              'No se pudieron actualizar los metadatos de archivos adjuntos.',
-              'SUPABASE_UPDATE_FAILED',
-              upErr,
-            )
-          }
-        }
-      }
-
-      const missingOpenAI = openaiFileIds
-        .map((id, idx) => ({ id, idx }))
-        .filter((x) => !x.id)
-      if (missingOpenAI.length) {
-        throw new HttpError(
-          502,
-          'No se pudieron asociar los adjuntos a OpenAI.',
-          'OPENAI_FILE_UPLOAD_FAILED',
-          { missingIndexes: missingOpenAI.map((x) => x.idx) },
-        )
-      }
-    }
+    const openaiFileIds = iaConfig.archivosAdjuntos.filter((x) => Boolean(x))
 
     // Crear/actualizar stub en estado 'generando'
     let asignaturaId: string
@@ -603,10 +460,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const systemPrompt = `Eres un asistente experto en diseño curricular. Responde únicamente con JSON válido que cumpla estrictamente el JSON Schema proporcionado.`
 
-    const archivosAdjuntosTexto = archivosAdjuntosNombres.length
-      ? `\n- Archivos adjuntos (referencia): ${archivosAdjuntosNombres.join(
-          ', ',
-        )}`
+    const archivosAdjuntosTexto = openaiFileIds.length
+      ? `\n- Archivos adjuntos (referencia): ${openaiFileIds.length}`
       : ''
 
     const userPrompt =
@@ -644,6 +499,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const schemaForAI = withColumnDefsAndRefs(schemaDef)
 
+    // Formatear el contenido del usuario permitiendo texto y archivos
+    const userContent =
+      openaiFileIds.length > 0
+        ? [
+            ...openaiFileIds.map((id) => ({
+              type: 'input_file' as const,
+              file_id: id,
+            })),
+            {
+              type: 'input_text' as const,
+              text: `Usa estos archivos como referencia.\n\n${userPrompt}`,
+            },
+          ]
+        : userPrompt
+
     const aiStructuredPayload: StructuredResponseOptions = {
       model: isUpdate
         ? AI_GENERATE_SUBJECT_UPDATE_MODELO
@@ -656,7 +526,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       },
       input: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
+        { role: 'user', content: userContent }, // Se inyecta el array o el string aquí
       ],
       text: {
         format: {
@@ -668,9 +538,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       },
     }
 
-    const aiResult = await svc.createStructuredResponse(aiStructuredPayload, {
-      openaiFileIds,
-    })
+    // Se elimina el segundo parámetro
+    const aiResult = await svc.createStructuredResponse(aiStructuredPayload)
     if (!aiResult.ok) {
       const status = aiResult.code === 'MissingEnv' ? 500 : 502
       throw new HttpError(
