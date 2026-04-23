@@ -325,8 +325,8 @@ export function FileDropzone({
           ...filesToUpload.slice(0, room),
         ].slice(0, maxFiles)
 
-        // Lanzar dedupe no bloqueante (fuera del flujo de render)
-        if (enableSha256Dedupe) {
+        // Lanzar dedupe/auto-upload no bloqueante (fuera del flujo de render)
+        if (enableSha256Dedupe || enableAutoUpload) {
           window.setTimeout(() => {
             filesToUpload.slice(0, room).forEach((u) => {
               void runDuplicateCheck(u)
@@ -337,7 +337,7 @@ export function FileDropzone({
         return nextFiles
       })
     },
-    [enableSha256Dedupe, maxFiles, runDuplicateCheck],
+    [enableAutoUpload, enableSha256Dedupe, maxFiles, runDuplicateCheck],
   )
 
   // Manejador para cuando se arrastran archivos sobre la zona
