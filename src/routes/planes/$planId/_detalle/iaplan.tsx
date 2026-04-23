@@ -1157,6 +1157,7 @@ function RouteComponent() {
               selectedArchivoIds={selectedArchivoIds}
               selectedRepositorioIds={selectedRepositorioIds}
               uploadedFiles={uploadedFiles}
+              autoScrollToDropzone={false}
               onToggleArchivo={(id, checked) => {
                 setSelectedArchivoIds((prev) =>
                   checked ? [...prev, id] : prev.filter((a) => a !== id),

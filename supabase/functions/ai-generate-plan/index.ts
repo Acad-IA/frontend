@@ -167,6 +167,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       (id): id is string => typeof id === 'string' && id.length > 0,
     )
 
+    const vectorStoreIds = (payload.iaConfig.repositoriosIds ?? []).filter(
+      (id): id is string => typeof id === 'string' && id.length > 0,
+    )
+
     const userPrompt = `Genera un borrador completo del PLAN DE ESTUDIOS con base en lo siguiente:
       - Nombre de la institución: Universidad La Salle México
     - Nombre del plan: ${payload.datosBasicos.nombrePlan}
@@ -287,6 +291,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
         accion: 'crear',
         id: String(plan.id),
       },
+      tools: vectorStoreIds.length
+        ? [
+            {
+              type: 'file_search',
+              vector_store_ids: vectorStoreIds,
+            },
+          ]
+        : undefined,
       input: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent },
@@ -412,7 +424,7 @@ const IAConfigSchema: z.ZodType<AIGeneratePlanInput['iaConfig']> = z.object({
   descripcionEnfoqueAcademico: z.string(),
   instruccionesAdicionalesIA: z.string().optional(),
   archivosReferencia: z.array(z.string().min(1)).optional(),
-  repositoriosIds: z.array(z.string().uuid()).optional(),
+  repositoriosIds: z.array(z.string().min(1)).optional(),
   usarMCP: z.boolean().optional(),
 })
 

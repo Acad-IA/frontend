@@ -74,14 +74,20 @@ export class OpenAIService {
       const openaiFileIds: Array<string> = []
       if (Array.isArray(options.input)) {
         for (const msg of options.input) {
-          if (msg.role === 'user' && Array.isArray(msg.content)) {
-            for (const part of msg.content) {
-              if (
-                (part as any).type === 'input_file' &&
-                (part as any).file_id
-              ) {
-                openaiFileIds.push((part as any).file_id)
-              }
+          if (!msg || typeof msg !== 'object') continue
+
+          // `options.input` es un union amplio (incluye tool calls). Hacemos narrowing por shape.
+          const maybeMsg = msg as unknown as Record<string, unknown>
+          if (maybeMsg['role'] !== 'user') continue
+
+          const content = maybeMsg['content']
+          if (!Array.isArray(content)) continue
+
+          for (const part of content) {
+            if (!part || typeof part !== 'object') continue
+            const maybePart = part as unknown as Record<string, unknown>
+            if (maybePart['type'] === 'input_file' && maybePart['file_id']) {
+              openaiFileIds.push(String(maybePart['file_id']))
             }
           }
         }

@@ -51,6 +51,7 @@ const ReferenciasParaIA = ({
   enableSha256Dedupe,
   onDedupePendingChange,
   enableAutoUpload,
+  autoScrollToDropzone,
 }: {
   selectedArchivoIds?: Array<string>
   selectedRepositorioIds?: Array<string>
@@ -61,6 +62,7 @@ const ReferenciasParaIA = ({
   enableSha256Dedupe?: boolean
   onDedupePendingChange?: (pendingCount: number) => void
   enableAutoUpload?: boolean
+  autoScrollToDropzone?: boolean
 }) => {
   const [busquedaArchivos, setBusquedaArchivos] = useState('')
   const [busquedaRepositorios, setBusquedaRepositorios] = useState('')
@@ -270,7 +272,7 @@ const ReferenciasParaIA = ({
             enableAutoUpload={enableAutoUpload}
             title="Sube archivos de referencia"
             description="Documentos que serán usados como contexto para la generación"
-            autoScrollToDropzone={true}
+            autoScrollToDropzone={autoScrollToDropzone}
           />
         </div>
       ),

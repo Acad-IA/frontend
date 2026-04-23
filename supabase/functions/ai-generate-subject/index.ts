@@ -41,7 +41,8 @@ const IAConfigSchema = z
     instruccionesAdicionalesIA: z.string().optional(),
     // Se reciben directamente IDs de OpenAI Files (no UUIDs de `archivos`).
     archivosReferencia: z.array(z.string().min(1)).optional().default([]),
-    repositoriosIds: z.array(z.string().uuid()).optional().default([]),
+    // IDs de vector stores de OpenAI (no UUID de Supabase).
+    repositoriosIds: z.array(z.string().min(1)).optional().default([]),
   })
   .strict()
   .default({ archivosReferencia: [], repositoriosIds: [] })
@@ -344,6 +345,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // ---------------------------------
     const openaiFileIds = iaConfig.archivosReferencia.filter((x) => Boolean(x))
 
+    const vectorStoreIds = iaConfig.repositoriosIds.filter((x) => Boolean(x))
+
     // Crear/actualizar stub en estado 'generando'
     let asignaturaId: string
     if (isUpdate) {
@@ -527,6 +530,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
         accion: isUpdate ? 'actualizar' : 'crear',
         id: asignaturaId,
       },
+      tools: vectorStoreIds.length
+        ? [
+            {
+              type: 'file_search',
+              vector_store_ids: vectorStoreIds,
+            },
+          ]
+        : undefined,
       input: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent }, // Se inyecta el array o el string aquí
