@@ -4,6 +4,9 @@ import { corsHeaders } from "../_shared/cors.ts";
 import type { Database, Json } from "../_shared/database.types.ts";
 import { HttpError } from "../_shared/utils.ts";
 import { CarboneClient } from "./carbone.ts";
+import { Workbook } from "@cj-tech-master/excelts";
+import { applyColumnWidthPattern, applyMergePattern } from "./CombinateCells/excelUtils.ts";
+import { Buffer } from "node:buffer";
 
 const DownloadReportBodySchema = z.record(z.unknown()).optional().default({});
 
@@ -37,6 +40,151 @@ type CarboneDownload = {
   contentType: string | null;
   contentDisposition: string | null;
 };
+
+async function prepararDatosParaExcel(
+  supabase: SupabaseClient,
+  planEstudioId: string
+) {
+  const { data: plan, error: planError } = await supabase
+    .from("planes_estudio")
+    .select("*, estructura:estructuras_plan(*)")
+    .eq("id", planEstudioId)
+    .single();
+
+  const { data: asignaturas, error: asigError } = await supabase
+    .from("asignaturas")
+    .select("*, linea:lineas_plan(nombre)") 
+    .eq("plan_estudio_id", planEstudioId)
+    .order("numero_ciclo", { ascending: true });
+
+  if (planError || asigError) throw new Error("Error obteniendo datos de la base de datos.");
+
+  // --- MAPA DE BÚSQUEDA PARA PRERREQUISITOS ---
+  const mapaClaves = asignaturas.reduce((acc, asig) => {
+    acc[asig.id] = asig.codigo;
+    return acc;
+  }, {} as Record<string, string>);
+
+  // 1. Cálculo de métricas de estructura
+  const materiasPorCiclo = Array.from({ length: plan.numero_ciclos }, (_, i) => 
+    asignaturas.filter(a => a.numero_ciclo === i + 1).length
+  );
+  const maxMaterias = Math.max(...materiasPorCiclo);
+
+  // 2. Transformación de Semestres (con datos por materia)
+  const semestres = Array.from({ length: plan.numero_ciclos }, (_, i) => {
+    const materiasDelCiclo = asignaturas.filter(a => a.numero_ciclo === i + 1);
+    
+    const totalHi = materiasDelCiclo.reduce((sum, a) => sum + (a.horas_independientes || 0), 0);
+    const totalHp = materiasDelCiclo.reduce((sum, a) => sum + (a.horas_academicas || 0), 0);
+    const totalCreditos = materiasDelCiclo.reduce((sum, a) => sum + (Number(a.creditos) || 0), 0);
+
+    const listaMaterias = materiasDelCiclo.map(a => {
+      const idPrerrequisito = a.prerrequisito_asignatura_id;
+      const clavePrerrequisito = idPrerrequisito ? (mapaClaves[idPrerrequisito] || null) : null;
+
+      return {
+        clave: a.codigo,
+        nombre: a.nombre,
+        clave_prerrequisito: clavePrerrequisito,
+        tipo: a.tipo,
+        instalacion: (a.datos as any)?.instalacion || "Aula",
+        creditos: Number(a.creditos),
+        hi: a.horas_independientes,
+        hp: a.horas_academicas
+      };
+    });
+
+    const materiasRellenas = [
+      ...listaMaterias,
+      ...Array(maxMaterias - listaMaterias.length).fill(null)
+    ];
+
+    return {
+      nombre: ["Primer", "Segundo", "Tercer", "Cuarto", "Quinto", "Sexto", "Séptimo", "Octavo", "Noveno", "Décimo"][i] || `Ciclo ${i + 1}`,
+      creditos: totalCreditos,
+      hi: totalHi,
+      hp: totalHp,
+      materias: materiasRellenas
+    };
+  });
+
+  // --- CÁLCULO DE TOTALES GLOBALES ---
+  const totalPlanCreditos = semestres.reduce((sum, s) => sum + s.creditos, 0);
+  const totalPlanHi = semestres.reduce((sum, s) => sum + s.hi, 0);
+  const totalPlanHp = semestres.reduce((sum, s) => sum + s.hp, 0);
+
+  // --- RETORNO DEL JSON FINAL ---
+  return {
+    nombre_plan: plan.nombre,      // Tomado de planes_estudio.nombre
+    tipo_ciclo: plan.tipo_ciclo,
+    modalidad: "Presencial",       // Valor default solicitado
+    semestres,
+    lineas_plan: [...new Set(asignaturas.map(a => a.linea?.nombre).filter(Boolean))].map(n => ({ nombre: n })),
+      creditos: totalPlanCreditos,
+      hi: totalPlanHi,
+      hp: totalPlanHp,
+    // Estos se usan para el post-procesado de celdas
+    config: {
+      ciclos: plan.numero_ciclos,
+      maxMaterias: maxMaterias
+    }
+  };
+}
+export async function postProcessExcel(buffer: Uint8Array, config: { ciclos: number, maxMaterias: number }) {
+  const workbook = new Workbook();
+  await workbook.xlsx.load(buffer as any);
+  const sheet = workbook.getWorksheet('RÍGIDO-Anexo 2 (A)');
+  
+  if (!sheet) throw new Error("Hoja no encontrada");
+
+  const { ciclos, maxMaterias } = config;
+
+   const matrizAsignaturas = {
+              startColumn: "C",
+              numberOfColumns: maxMaterias,
+              firstStartRow: 8,
+              mergeWidthInColumns: 5,
+              mergeHeightInRows: 3,
+              mergeBlockCount: ciclos,
+              rowStepBetweenBlocks: 14 - 8,
+          } as const;
+          const semestres = {
+              startColumn: "A",
+              numberOfColumns: 1,
+              firstStartRow: 7,
+              mergeWidthInColumns: 1,
+              mergeHeightInRows: 5,
+              mergeBlockCount: ciclos,
+              rowStepBetweenBlocks: 13 - 7,
+          } as const;
+          const clave_materias = {
+              startColumn: "C",
+              numberOfColumns: maxMaterias,
+              firstStartRow: 7,
+              mergeWidthInColumns: 3,
+              mergeHeightInRows: 1,
+              mergeBlockCount: ciclos,
+              columnStepBetweenBlocks: 3,
+              rowStepBetweenBlocks: 14 - 8,
+          } as const;
+
+          const columnWidths = {
+              fromColumn: "I",
+              numberOfBlocks: maxMaterias - 1,
+              columnStepBetweenBlocks: 5 + 1,
+              rowStepBetweenBlocks: 14 - 8,
+              widths: [4, .25, 4, 7.29, 13.57, 2.43],
+          } as const;
+
+          applyMergePattern(sheet, matrizAsignaturas);
+            applyMergePattern(sheet, semestres);
+            applyMergePattern(sheet, clave_materias);
+            applyColumnWidthPattern(sheet, columnWidths);
+  
+  
+  return await workbook.xlsx.writeBuffer();
+}
 
 async function loadPlanDatos(
   supabase: SupabaseClient,
@@ -204,8 +352,29 @@ export async function handleDownloadReportAction(args: {
     args.bodyUnknown,
   );
   const carbone = new CarboneClient(args.carboneBaseUrl, args.carboneApiToken);
-
+  
   if ("plan_estudio_id" in input) {
+
+    const { convertTo  } = input.body as any; 
+    if (convertTo === "xlsx") {
+      const datosExcel = await prepararDatosParaExcel(args.supabase, input.plan_estudio_id);
+
+      const result = await carbone.render(
+        "1402917575045089616",
+        { data: datosExcel },
+        { download: true, format: "xlsx" }
+      );
+      
+      
+      const processedBuffer = await postProcessExcel(result.buffer, datosExcel.config);
+      
+      return downloadToResponse({
+        ...result,
+        buffer: processedBuffer as Uint8Array
+      });
+      
+    }
+
     const { datos, estructura_id } = await loadPlanDatos(
       args.supabase,
       input.plan_estudio_id,

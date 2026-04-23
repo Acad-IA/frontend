@@ -13,8 +13,9 @@ import { handleDownloadReportAction } from "./download-report.ts";
 
 const ActionSchema = z.object({
   action: z.string().min(1),
+  format: z.enum(["pdf", "xlsx"]).default("pdf"),
 });
-
+// getAuthHeader
 function getAuthHeader(req: Request): string | null {
   return req.headers.get("Authorization") ?? req.headers.get("authorization");
 }
