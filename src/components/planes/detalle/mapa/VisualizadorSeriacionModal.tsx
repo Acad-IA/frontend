@@ -52,15 +52,34 @@ function FlowContent({
     });
   }, [nodes, fitView]);
 
+  const extent = useMemo<[[number, number], [number, number]]>(() => {
+  if (nodes.length === 0) return [[-500, -500], [500, 500]]
+
+  const xs = nodes.map(n => n.position.x)
+  const ys = nodes.map(n => n.position.y)
+
+  const minX = Math.min(...xs) - 500
+  const maxX = Math.max(...xs) + 500
+  const minY = Math.min(...ys) - 500
+  const maxY = Math.max(...ys) + 500
+
+  return [
+    [minX, minY],
+    [maxX, maxY],
+  ]
+}, [nodes])
+
   return (
     <ReactFlow
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
-      colorMode="light"
       nodesDraggable
       nodesConnectable={false}
       fitView
+      minZoom={0.5}
+      maxZoom={1.5}
+      translateExtent={extent}
       style={{ width: '100%', height: '100%', background: '#fff' }}
     >
       <Background color="#e5e7eb" gap={20} variant={BackgroundVariant.Dots} />
