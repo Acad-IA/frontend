@@ -27,6 +27,11 @@ export function PasoBasicosForm({
   onChange: React.Dispatch<React.SetStateAction<NewPlanWizardState>>
 }) {
   const { data: catalogos } = useCatalogosPlanes()
+  const nivelNombre = wizard.datosBasicos.nivel?.trim() ?? ''
+  const nivelDisplayPrefix =
+    nivelNombre && nivelNombre.toLowerCase() !== 'otro'
+      ? `${nivelNombre} en`
+      : ''
 
   // Preferir los catálogos remotos si están disponibles; si no, usar los locales
   const facultadesList = catalogos?.facultades ?? []
@@ -46,24 +51,50 @@ export function PasoBasicosForm({
           <Label htmlFor="nombrePlan">
             Nombre del plan {/* <span className="text-destructive">*</span> */}
           </Label>
-          <Input
-            id="nombrePlan"
-            placeholder="Ej. Ingeniería en Sistemas (2026)"
-            value={wizard.datosBasicos.nombrePlan}
-            maxLength={200}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              onChange(
-                (w): NewPlanWizardState => ({
-                  ...w,
-                  datosBasicos: {
-                    ...w.datosBasicos,
-                    nombrePlan: e.target.value,
-                  },
-                }),
-              )
-            }
-            className="placeholder:text-muted-foreground/70 font-medium not-italic placeholder:font-normal placeholder:italic"
-          />
+          {nivelDisplayPrefix ? (
+            <div className="flex w-full min-w-0 items-stretch">
+              <div className="border-input bg-muted text-muted-foreground inline-flex shrink-0 items-center rounded-l-md border px-3 text-sm font-medium select-none">
+                {nivelDisplayPrefix}
+              </div>
+              <Input
+                id="nombrePlan"
+                placeholder="Ej. Ingeniería en Sistemas (2026)"
+                value={wizard.datosBasicos.nombrePlan}
+                maxLength={200}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onChange(
+                    (w): NewPlanWizardState => ({
+                      ...w,
+                      datosBasicos: {
+                        ...w.datosBasicos,
+                        nombrePlan: e.target.value,
+                      },
+                    }),
+                  )
+                }
+                className="placeholder:text-muted-foreground/70 min-w-0 rounded-l-none font-medium not-italic placeholder:font-normal placeholder:italic"
+              />
+            </div>
+          ) : (
+            <Input
+              id="nombrePlan"
+              placeholder="Ej. Ingeniería en Sistemas (2026)"
+              value={wizard.datosBasicos.nombrePlan}
+              maxLength={200}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                onChange(
+                  (w): NewPlanWizardState => ({
+                    ...w,
+                    datosBasicos: {
+                      ...w.datosBasicos,
+                      nombrePlan: e.target.value,
+                    },
+                  }),
+                )
+              }
+              className="placeholder:text-muted-foreground/70 font-medium not-italic placeholder:font-normal placeholder:italic"
+            />
+          )}
         </div>
 
         <div className="grid gap-1">
