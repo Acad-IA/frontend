@@ -31,7 +31,7 @@ export default function PlanEstudiosCard({
   colorFacultad,
   onClick,
 }: PlanEstudiosCardProps) {
-  const colorFacultadOscuro = `color-mix(in srgb, ${colorFacultad} 84%, #111 16%)`
+  const colorFacultadOscuro = `color-mix(in srgb, ${colorFacultad} 84%, #111 10%)`
   const colorFacultadBorde = `color-mix(in srgb, ${colorFacultad} 42%, transparent)`
   const colorFacultadFondo = `color-mix(in srgb, ${colorFacultad} 14%, transparent)`
 
@@ -78,14 +78,12 @@ export default function PlanEstudiosCard({
 
           {/* Título del Programa */}
           <h4 className="line-clamp-2 text-lg leading-tight font-bold tracking-tight">
-            {nombrePrograma}
+            {nivel == 'Otro' || `${nivel} en`} {nombrePrograma}
           </h4>
         </CardHeader>
 
         <CardContent className="text-muted-foreground text-sm">
-          <p className="text-foreground font-medium">
-            {nivel} • {ciclos}
-          </p>
+          <p className="text-foreground font-medium">{ciclos}</p>
         </CardContent>
       </div>
 
